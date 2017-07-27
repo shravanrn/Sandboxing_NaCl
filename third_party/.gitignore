@@ -1,0 +1,11 @@
+*.pyc
+
+# DEPS
+/ragel
+/lss
+/NSIS
+/valgrind
+/lcov
+
+# gclient hooks
+/llvm-build
