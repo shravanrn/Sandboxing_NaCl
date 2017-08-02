@@ -26,6 +26,16 @@
 #include "native_client/src/trusted/service_runtime/osx/mach_thread_map.h"
 
 
+int g_NaClOverrideNextThreadCreateToRunOnCurrentThread = 0;
+jmp_buf* g_NaClOverrideNextThreadCreateToRunOnCurrentThread_jmp = NULL;
+
+void NaClOverrideNextThreadCreateToRunOnCurrentThread(int shouldOverride, jmp_buf* jmp_buf_loc)
+{
+  g_NaClOverrideNextThreadCreateToRunOnCurrentThread = shouldOverride;
+  g_NaClOverrideNextThreadCreateToRunOnCurrentThread_jmp = jmp_buf_loc;
+}
+
+
 void WINAPI NaClAppThreadLauncher(void *state) {
   struct NaClAppThread *natp = (struct NaClAppThread *) state;
   uint32_t thread_idx;
@@ -241,17 +251,40 @@ int NaClAppThreadSpawn(struct NaClApp *nap,
    * NaClThreadCtor() will succeed.
    */
   natp->host_thread_is_defined = 1;
-  if (!NaClThreadCtor(&natp->host_thread, NaClAppThreadLauncher, (void *) natp,
-                      NACL_KERN_STACK_SIZE)) {
-    /*
-     * No other thread saw the NaClAppThread, so it is OK that
-     * host_thread was not initialized despite host_thread_is_defined
-     * being set.
-     */
-    natp->host_thread_is_defined = 0;
-    NaClAppThreadDelete(natp);
-    return 0;
+
+  if (g_NaClOverrideNextThreadCreateToRunOnCurrentThread == 0)
+  {
+    NaClLog(LOG_INFO, "NaCl launching app on new thread\n");
+
+    if (!NaClThreadCtor(&natp->host_thread, NaClAppThreadLauncher, (void *) natp,
+                        NACL_KERN_STACK_SIZE)) {
+      /*
+       * No other thread saw the NaClAppThread, so it is OK that
+       * host_thread was not initialized despite host_thread_is_defined
+       * being set.
+       */
+      natp->host_thread_is_defined = 0;
+      NaClAppThreadDelete(natp);
+      return 0;
+    }
   }
+  else
+  {
+    int setjmpRet = 0;
+
+    if(g_NaClOverrideNextThreadCreateToRunOnCurrentThread_jmp != NULL)
+    {
+      NaClLog(LOG_INFO, "NaCl saving current context before launching app\n");
+      setjmpRet = setjmp(*g_NaClOverrideNextThreadCreateToRunOnCurrentThread_jmp);
+    }
+
+    if(setjmpRet == 0)
+    {
+      NaClLog(LOG_INFO, "NaCl launching app on same thread\n");
+      NaClAppThreadLauncher((void *) natp);
+    }
+  }
+
   return 1;
 }
 

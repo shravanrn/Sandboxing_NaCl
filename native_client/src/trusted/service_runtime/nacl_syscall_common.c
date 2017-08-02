@@ -53,6 +53,7 @@
 #include "native_client/src/trusted/service_runtime/nacl_tls.h"
 #include "native_client/src/trusted/service_runtime/sel_ldr.h"
 
+#include "native_client/src/trusted/dyn_ldr/dyn_ldr_sharedstate.h"
 
 int32_t NaClSysNotImplementedDecoder(struct NaClAppThread *natp) {
   NaClCopyDropLock(natp->nap);
@@ -273,6 +274,23 @@ int32_t NaClSysTlsGet(struct NaClAppThread *natp) {
 int32_t NaClSysSecondTlsSet(struct NaClAppThread *natp,
                             uint32_t             new_value) {
   NaClTlsSetTlsValue2(natp, new_value);
+  return 0;
+}
+
+//NACL_sys_register_shared_state
+int32_t NaClSysRegisterSharedState(struct NaClAppThread *natp, uintptr_t sharedState) {
+  NaClLog(LOG_INFO, "Entered NaclSysRegisterSharedState\n");
+  natp->nap->custom_shared_app_state = NaClUserToSys(natp->nap, sharedState);
+  return 0;
+}
+
+//NACL_sys_exit_sandbox
+int32_t NaClSysExitSandbox(struct NaClAppThread *natp) {
+  jmp_buf* jump_buf_loc;
+
+  NaClLog(LOG_INFO, "Entered NaClSysExitSandbox\n");
+  jump_buf_loc = Stack_GetTopPtrForPop(&(natp->nap->jumpBufferStack));
+  longjmp(*jump_buf_loc, 1);  
   return 0;
 }
 

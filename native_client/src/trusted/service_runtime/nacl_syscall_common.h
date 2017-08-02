@@ -94,6 +94,9 @@ int32_t NaClSysTlsGet(struct NaClAppThread *natp);
 int32_t NaClSysSecondTlsSet(struct NaClAppThread *natp,
                             uint32_t             new_value);
 
+int32_t NaClSysRegisterSharedState(struct NaClAppThread *natp, uintptr_t sharedState);
+int32_t NaClSysExitSandbox(struct NaClAppThread *natp);
+
 int32_t NaClSysSecondTlsGet(struct NaClAppThread *natp);
 
 int32_t NaClSysThreadNice(struct NaClAppThread *natp,

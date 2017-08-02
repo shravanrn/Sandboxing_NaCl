@@ -1,0 +1,450 @@
+#include <string.h>
+
+#include "native_client/src/public/nacl_desc.h"
+#include "native_client/src/shared/gio/gio.h"
+#include "native_client/src/trusted/desc/nacl_desc_io.h"
+#include "native_client/src/trusted/dyn_ldr/dyn_ldr_lib.h"
+#include "native_client/src/trusted/dyn_ldr/dyn_ldr_sharedstate.h"
+#include "native_client/src/trusted/service_runtime/env_cleanser.h"
+#include "native_client/src/trusted/service_runtime/include/sys/fcntl.h"
+#include "native_client/src/trusted/service_runtime/load_file.h"
+#include "native_client/src/trusted/service_runtime/nacl_app_thread.h"
+#include "native_client/src/trusted/service_runtime/nacl_all_modules.h"
+#include "native_client/src/trusted/service_runtime/nacl_error_code.h"
+#include "native_client/src/trusted/service_runtime/nacl_signal.h"
+#include "native_client/src/trusted/service_runtime/nacl_switch_to_app.h"
+#include "native_client/src/trusted/service_runtime/nacl_syscall_common.h"  
+#include "native_client/src/trusted/service_runtime/nacl_valgrind_hooks.h"
+#include "native_client/src/trusted/service_runtime/sel_ldr.h"
+#include "native_client/src/trusted/service_runtime/sel_main_common.h"
+#include "native_client/src/trusted/service_runtime/sel_qualify.h"
+
+typedef int BOOL;
+
+#ifndef FALSE
+#define FALSE 0
+#endif
+
+#ifndef TRUE
+#define TRUE 1
+#endif
+
+#define ALIGN(val, alignment) ((val + alignment - 1) & ~(alignment - 1))
+
+/********************* Utility functions ***********************/
+uintptr_t NaClUserToSysOrNull(struct NaClApp *nap, uintptr_t uaddr) {
+  if (uaddr == 0) { return 0;}
+  return NaClUserToSys(nap, uaddr);
+}
+
+uintptr_t NaClSysToUserOrNull(struct NaClApp *nap, uintptr_t uaddr) {
+  if (uaddr == 0) { return 0;}
+  return NaClSysToUser(nap, uaddr);
+}
+
+/********************* Main functions ***********************/
+
+void initializeDlSandboxCreator(int enableLogging)
+{
+  NaClAllModulesInit();
+
+  if(enableLogging)
+  {
+    NaClLogSetVerbosity(5);
+  }
+}
+
+unsigned invokeLocalMathTest(NaClSandbox* sandbox, unsigned a, unsigned b, unsigned c);
+size_t invokeLocalStringTest(NaClSandbox* sandbox, char* test);
+static INLINE NaClSandbox* constructNaClSandbox(struct NaClApp* nap);
+
+//Adapted from ./native_client/src/trusted/service_runtime/sel_main.c NaClSelLdrMain
+NaClSandbox* createDlSandbox(char* naclGlibcLibraryPathWithTrailingSlash, char* naclInitAppFullPath)
+{
+  NaClSandbox*            sandbox = NULL;
+  struct NaClApp*         nap = NULL;
+  // struct DynArray         env_vars;
+  // struct NaClEnvCleanser  env_cleanser;
+  // char const *const*      envp;
+  NaClErrorCode           pq_error;
+  char                    dynamic_loader[256];
+  int                     app_argc;
+  char**                  app_argv;
+  char*                   app_argv_arr[4];
+  jmp_buf*                jmp_buf_loc = NULL;
+  unsigned                testResult = 0;
+  size_t                  testResult2 = 5;
+
+  nap = NaClAppCreate();
+  if (nap == NULL) {
+    NaClLog(LOG_ERROR, "NaClAppCreate() failed\n");
+    goto error;
+  }
+
+  fflush((FILE *) NULL);
+
+  // if (!DynArrayCtor(&env_vars, 0)) {
+  //   NaClLog(LOG_FATAL, "Failed to allocate env var array\n");
+  // }
+
+  // /*
+  //  * Define the environment variables for untrusted code.
+  //  */
+  // if (!DynArraySet(&env_vars, env_vars.num_entries, NULL)) {
+  //   NaClLog(LOG_FATAL, "Adding env_vars NULL terminator failed\n");
+  // }
+  // NaClEnvCleanserCtor(&env_cleanser, 0, TRUE/* enable_env_passthrough */);
+  // if (!NaClEnvCleanserInit(&env_cleanser, NaClGetEnviron(),
+  //                          (char const *const *) env_vars.ptr_array)) {
+  //   NaClLog(LOG_FATAL, "Failed to initialise env cleanser\n");
+  // }
+  // envp = NaClEnvCleanserEnvironment(&env_cleanser);
+
+
+  NaClInsecurelyBypassAllAclChecks();
+
+  nap->ignore_validator_result = TRUE;//(options->debug_mode_ignore_validator > 0);
+  nap->skip_validator = TRUE;//(options->debug_mode_ignore_validator > 1);
+  nap->enable_exception_handling = FALSE;//options->enable_exception_handling;
+
+  // #if NACL_WINDOWS
+  //   nap->attach_debug_exception_handler_func =
+  //     NaClDebugExceptionHandlerStandaloneAttach;
+  // #elif NACL_LINUX
+  //     /* NaCl's signal handler is always enabled on Linux. */
+  // #elif NACL_OSX
+  //     if (!NaClInterceptMachExceptions()) {
+  //       NaClLog(LOG_ERROR, "ERROR setting up Mach exception interception.\n");
+  //       return FALSE;
+  //     }
+  // #else
+  // # error Unknown host OS
+  // #endif
+
+  pq_error = NaClRunSelQualificationTests();
+  if (LOAD_OK != pq_error) {
+    NaClLog(LOG_ERROR, "Error while running platform checks: %s\n", NaClErrorString(pq_error));
+    goto error;
+  }
+
+//  #if NACL_LINUX
+//   NaClSignalHandlerInit();
+//  #endif
+//    /*
+//     * Patch the Windows exception dispatcher to be safe in the case of
+//     * faults inside x86-64 sandboxed code.  The sandbox is not secure
+//     * on 64-bit Windows without this.
+//     */
+//  #if (NACL_WINDOWS && NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64)
+//    NaClPatchWindowsExceptionDispatcher();
+//  #endif
+
+  NaClAppInitialDescriptorHookup(nap);
+
+  if(strlen(naclGlibcLibraryPathWithTrailingSlash) > ((sizeof(dynamic_loader) / sizeof(char)) - 20))
+  {
+    NaClLog(LOG_ERROR, "Path length in naclGlibcLibraryPathWithTrailingSlash is too long\n");
+    goto error;
+  }
+
+  strcpy(dynamic_loader, naclGlibcLibraryPathWithTrailingSlash);
+  strcat(dynamic_loader, "runnable-ld.so");
+
+  pq_error = NaClAppLoadFileFromFilename(nap, dynamic_loader);
+
+  if (LOAD_OK != pq_error) {
+    NaClLog(LOG_ERROR, "Error while loading  from naclInitAppFullPath: %s\n", NaClErrorString(pq_error));
+    goto error;
+  }
+
+  // NaClFileNameForValgrind(naclInitAppFullPath);
+
+  /*
+   * Print out a marker for scripts to use to mark the start of app
+   * output.
+   */
+  NaClLog(1, "NACL: Application output follows\n");
+
+  /*
+   * Make sure all the file buffers are flushed before entering
+   * the application code.
+   */
+  fflush((FILE *) NULL);
+
+  NaClAppStartModule(nap);
+
+  app_argc = 4;
+  app_argv_arr[0] = "dyn_ldr_sandbox_init";
+  app_argv_arr[1] = "--library-path";
+  app_argv_arr[2] = naclGlibcLibraryPathWithTrailingSlash;
+  app_argv_arr[3] = naclInitAppFullPath;
+  app_argv = app_argv_arr;
+
+  jmp_buf_loc = Stack_GetTopPtrForPush(&(nap->jumpBufferStack));
+
+  //Normally, the NaClCreateMainThread invokes the NaCl application, nap
+  // in a new thread. This is not necessary here. So, call a function we 
+  // have added to the runtime, that ignores the next request to create a
+  // thread. It instead calls the target app on the current thread.
+  NaClOverrideNextThreadCreateToRunOnCurrentThread(TRUE, jmp_buf_loc);
+
+  if (!NaClCreateMainThread(nap,
+                            app_argc,
+                            app_argv,
+                            NaClGetEnviron())) {
+    NaClLog(LOG_ERROR, "creating main thread failed\n");
+    goto error;
+  }
+
+  sandbox = constructNaClSandbox(nap);
+  if(sandbox == NULL) 
+  {
+    goto error;
+  }
+
+  NaClLog(LOG_INFO, "Running a sandbox test\n");
+  testResult = invokeLocalMathTest(sandbox, 2, 3, 4);
+
+  if(testResult != 234)
+  {
+    NaClLog(LOG_ERROR, "Sandbox test failed: Expected return of 234. Got %d\n", testResult);
+    goto error;
+  }
+
+  testResult2 = invokeLocalStringTest(sandbox, "Hello");
+
+  if(testResult2 != 5)
+  {
+    NaClLog(LOG_ERROR, "Sandbox test failed: Expected return of 5. Got %d\n", testResult2);
+    goto error;
+  }
+
+  NaClLog(LOG_INFO, "Succeeded in creating sandbox\n");
+
+  return sandbox;
+
+error:
+  fflush(stdout);
+  NaClLog(LOG_ERROR, "Failed in creating sandbox\n");
+  fflush(stdout);
+
+// #if NACL_LINUX
+//   NaClSignalHandlerFini();
+// #endif
+  NaClAllModulesFini();
+
+  return NULL;
+}
+
+static INLINE NaClSandbox* constructNaClSandbox(struct NaClApp* nap)
+{
+  NaClSandbox* sandbox = NULL;
+
+  sandbox = (NaClSandbox*) malloc(sizeof(NaClSandbox));
+  sandbox->nap = nap;
+
+  /*Attempting to retrieve the nacl thread context as we need this to get the location of the stack*/
+  if(nap->num_threads != 1)
+  {
+    NaClLog(LOG_ERROR, "Failed in retrieving thread information. Expected count: 1. Actual thread count: %d\n", sandbox->nap->num_threads);
+    return NULL;
+  }
+                                                                                                                                            
+  sandbox->mainThread = (struct NaClAppThread *) DynArrayGet(&(nap->threads), 0);
+  sandbox->stack_ptr = NaClUserToSysOrNull(nap, sandbox->mainThread->user.stack_ptr);                                                                      \
+  sandbox->sharedState = (struct AppSharedState*) nap->custom_shared_app_state;
+  return sandbox;
+}
+
+/********************** "Function call stub" helpers *****************************/
+
+void preFunctionCall(NaClSandbox* sandbox, size_t paramsSize)
+{
+  #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
+    /* make space for args and the return address. Note that various GCCs*/
+    /* on different architecture seem to want stack alignments - either */
+    /* 4, 8 or 16. So 16 should work generally */
+    sandbox->stack_ptr -= ALIGN(paramsSize + sizeof(uintptr_t), 16);
+    sandbox->mainThread->user.stack_ptr = NaClSysToUserOrNull(sandbox->nap, sandbox->stack_ptr);
+    /* push the return address of the exit wrapper on the stack. The exit wrapper is  */
+    /* for cleanup and exiting the sandbox */
+    //Note we are using PUSH_VAL instead of PUSH_PTR as this is already a pointer in sandboxed address space
+    // i.e. a user pointer (vs a sys pointer) in NaCl parlance
+    PUSH_VAL_TO_STACK(sandbox, uintptr_t, (uintptr_t) sandbox->sharedState->exitFunctionWrapperPtr);
+  #else
+    #error Unsupported architecture
+  #endif
+}
+
+void invokeFunctionCallWithSandboxPtr(NaClSandbox* sandbox, uintptr_t functionPtrInSandbox)
+{
+  jmp_buf*              jmp_buf_loc;
+  int                   setJmpReturn;
+
+  jmp_buf_loc = Stack_GetTopPtrForPush(&(sandbox->nap->jumpBufferStack));
+  NaClLog(LOG_INFO, "Saving state\n");
+  setJmpReturn = setjmp(*jmp_buf_loc);
+
+  if(setJmpReturn == 0)
+  {
+    NaClLog(LOG_INFO, "Invoking\n");
+    /*To resume execution with NaClStartThreadInApp, NaCl assumes*/
+    /*that the app thread is in UNTRUSTED state*/
+    sandbox->mainThread->suspend_state = NACL_APP_THREAD_UNTRUSTED;
+    /*this is like a jump instruction, in that it does not return*/
+    NaClStartThreadInApp(sandbox->mainThread, (nacl_reg_t) functionPtrInSandbox);
+  }
+}
+
+void invokeFunctionCall(NaClSandbox* sandbox, void* functionPtr)
+{
+  uintptr_t functionPtrInSandbox = NaClSysToUserOrNull(sandbox->nap, (uintptr_t) functionPtr);
+  invokeFunctionCallWithSandboxPtr(sandbox, functionPtrInSandbox);
+}
+
+unsigned functionCallReturnRawPrimitiveInt(NaClSandbox* sandbox)
+{
+  unsigned ret;
+
+  #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
+    ret = (unsigned) sandbox->sharedState->register_eax;      
+    NaClLog(LOG_INFO, "Return int %u\n", ret);
+  #else
+    #error Unsupported architecture
+  #endif
+
+  return ret;
+}
+
+uintptr_t functionCallReturnPtr(NaClSandbox* sandbox)
+{
+  uintptr_t ret;  
+
+  #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32 
+    ret = (uintptr_t) NaClUserToSysOrNull(sandbox->nap, (uintptr_t) sandbox->sharedState->register_eax);
+    NaClLog(LOG_INFO, "Return pointer. Sandbox: %p, App: %p\n", (void*) sandbox->sharedState->register_eax, (void*) ret);
+  #else
+    #error Unsupported architecture
+  #endif
+
+  return ret;
+}
+
+/********************** Stubs for some basic functions *****************************/
+
+unsigned invokeLocalMathTest(NaClSandbox* sandbox, unsigned a, unsigned b, unsigned c)
+{
+  preFunctionCall(sandbox, sizeof(a) + sizeof(b) + + sizeof(c));
+
+  PUSH_VAL_TO_STACK(sandbox, unsigned, a);
+  PUSH_VAL_TO_STACK(sandbox, unsigned, b);
+  PUSH_VAL_TO_STACK(sandbox, unsigned, c);
+
+  invokeFunctionCallWithSandboxPtr(sandbox, (uintptr_t)sandbox->sharedState->test_localMathPtr);
+
+  return (unsigned)functionCallReturnRawPrimitiveInt(sandbox);
+}
+
+size_t invokeLocalStringTest(NaClSandbox* sandbox, char* test)
+{
+  char* testStrInSandbox;
+  size_t ret;
+
+  testStrInSandbox = (char*) mallocInSandbox(sandbox, strlen(test) + 1);
+  strcpy(testStrInSandbox, test);
+
+  preFunctionCall(sandbox, sizeof(testStrInSandbox));
+
+  PUSH_PTR_TO_STACK(sandbox, char*, testStrInSandbox);
+
+  invokeFunctionCallWithSandboxPtr(sandbox, (uintptr_t)sandbox->sharedState->test_localStringPtr);
+
+  ret = (size_t)functionCallReturnRawPrimitiveInt(sandbox);
+
+  freeInSandbox(sandbox, testStrInSandbox);
+
+  return ret;
+}
+
+void* mallocInSandbox(NaClSandbox* sandbox, size_t size)
+{
+  preFunctionCall(sandbox, sizeof(size));
+
+  PUSH_VAL_TO_STACK(sandbox, size_t, size);
+
+  invokeFunctionCallWithSandboxPtr(sandbox, (uintptr_t)sandbox->sharedState->mallocPtr);
+
+  return (void *) functionCallReturnPtr(sandbox);
+}
+
+void freeInSandbox(NaClSandbox* sandbox, void* ptr)
+{
+  preFunctionCall(sandbox, sizeof(ptr));
+
+  PUSH_PTR_TO_STACK(sandbox, void*, ptr);
+
+  invokeFunctionCallWithSandboxPtr(sandbox, (uintptr_t)sandbox->sharedState->freePtr);
+}
+
+void* dlopenInSandbox(NaClSandbox* sandbox, const char *filename, int flag)
+{
+  char* filenameInSandbox;
+  void* ret;
+
+  filenameInSandbox = (char*) mallocInSandbox(sandbox, strlen(filename) + 1);
+  strcpy(filenameInSandbox, filename);
+
+  preFunctionCall(sandbox, sizeof(filenameInSandbox) + sizeof(flag));
+
+  PUSH_PTR_TO_STACK(sandbox, const char *, filenameInSandbox);
+  PUSH_VAL_TO_STACK(sandbox, int, flag);
+
+  invokeFunctionCallWithSandboxPtr(sandbox, (uintptr_t)sandbox->sharedState->dlopenPtr);
+
+  ret = (void *) functionCallReturnPtr(sandbox);
+
+  freeInSandbox(sandbox, filenameInSandbox);
+  return ret;
+}
+
+char* dlerrorInSandbox(NaClSandbox* sandbox)
+{
+  preFunctionCall(sandbox, 0 /* no args */);
+
+  invokeFunctionCallWithSandboxPtr(sandbox, (uintptr_t)sandbox->sharedState->dlerrorPtr);
+
+  return (char *) functionCallReturnPtr(sandbox);
+}
+
+void* dlsymInSandbox(NaClSandbox* sandbox, void *handle, const char *symbol)
+{
+  char* symbolInSandbox;
+  void* ret;
+
+  symbolInSandbox = (char*) mallocInSandbox(sandbox, strlen(symbol) + 1);
+  strcpy(symbolInSandbox, symbol);
+
+  preFunctionCall(sandbox, sizeof(handle) + sizeof(symbolInSandbox));
+
+  PUSH_PTR_TO_STACK(sandbox, void *, handle);
+  PUSH_PTR_TO_STACK(sandbox, const char *, symbolInSandbox);
+
+  invokeFunctionCallWithSandboxPtr(sandbox, (uintptr_t)sandbox->sharedState->dlsymPtr);
+
+  ret = (void *) functionCallReturnPtr(sandbox);
+
+  freeInSandbox(sandbox, symbolInSandbox);
+  return ret;
+}
+
+int dlcloseInSandbox(NaClSandbox* sandbox, void *handle)
+{
+  preFunctionCall(sandbox, sizeof(handle));
+
+  PUSH_PTR_TO_STACK(sandbox, void *, handle);
+
+  invokeFunctionCallWithSandboxPtr(sandbox, (uintptr_t)sandbox->sharedState->dlclosePtr);
+
+  return (int)functionCallReturnRawPrimitiveInt(sandbox);
+}
+ 

@@ -12,6 +12,7 @@
 #define NATIVE_CLIENT_SERVICE_RUNTIME_NACL_APP_THREAD_H__ 1
 
 #include <stddef.h>
+#include <setjmp.h>
 
 #include "native_client/src/include/atomic_ops.h"
 #include "native_client/src/include/build_config.h"
@@ -163,6 +164,17 @@ struct NaClAppThread {
   uint32_t                  futex_wait_addr;
   struct NaClCondVar        futex_condvar;
 };
+
+/* 
+ * Used to override the default behaviour of NaClAppThreadSpawn
+ * Instead of creating a new thread and launching the target function of
+ * the NaCl app, launch the target function of the NaCl app in the same 
+ * thread. In this situation, the NaClAppThreadSpawn acts like a 
+ * NORETURN until the app completes. If the NaClAppThreadSpawn is 
+ * overridden this way, and jmp_buf_loc is not NULL,
+ * it saves the current context with a setjmp call in jmp_buf_loc
+ */
+void NaClOverrideNextThreadCreateToRunOnCurrentThread(int shouldOverride, jmp_buf* jmp_buf_loc);
 
 void WINAPI NaClAppThreadLauncher(void *state);
 

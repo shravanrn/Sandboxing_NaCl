@@ -57,6 +57,8 @@
 
 #include "native_client/src/trusted/validator/ncvalidate.h"
 
+#include "native_client/src/trusted/dyn_ldr/datastructures/ds_stack.h"
+
 EXTERN_C_BEGIN
 
 #define NACL_DEFAULT_STACK_MAX  (16 << 20)  /* main thread stack */
@@ -397,6 +399,18 @@ struct NaClApp {
    */
   struct NaClListNode       futex_wait_list_head;
 #endif
+
+  /* Creating a pointer slot, that the user of this lib can use 
+   * as a way to have some shared memory between the user of lib
+   * and the nacl app. The nacl app can access this only in a
+   * syscall
+   */
+  uintptr_t custom_shared_app_state;
+
+  /* A variable that is used by dyn_ldr to store the jump buffers,
+   * used to jump back and forth between nacl'd and un-nacl'd code
+   */
+  DS_Stack           jumpBufferStack;
 };
 
 
