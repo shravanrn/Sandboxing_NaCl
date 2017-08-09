@@ -14,7 +14,7 @@ int invokeSimpleAdd(NaClSandbox* sandbox, void* simpleAddPtr, int a, int b)
 {
   int ret;
 
-  preFunctionCall(sandbox, sizeof(a) + sizeof(b));
+  preFunctionCall(sandbox, sizeof(a) + sizeof(b), 0 /* size of any arrays being pushed */);
 
   PUSH_VAL_TO_STACK(sandbox, int, a);
   PUSH_VAL_TO_STACK(sandbox, int, b);

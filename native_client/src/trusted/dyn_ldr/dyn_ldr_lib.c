@@ -19,8 +19,6 @@
 #include "native_client/src/trusted/service_runtime/sel_main_common.h"
 #include "native_client/src/trusted/service_runtime/sel_qualify.h"
 
-typedef int BOOL;
-
 #ifndef FALSE
 #define FALSE 0
 #endif
@@ -28,8 +26,6 @@ typedef int BOOL;
 #ifndef TRUE
 #define TRUE 1
 #endif
-
-#define ALIGN(val, alignment) ((val + alignment - 1) & ~(alignment - 1))
 
 /********************* Utility functions ***********************/
 uintptr_t NaClUserToSysOrNull(struct NaClApp *nap, uintptr_t uaddr) {
@@ -251,26 +247,54 @@ static INLINE NaClSandbox* constructNaClSandbox(struct NaClApp* nap)
   }
                                                                                                                                             
   sandbox->mainThread = (struct NaClAppThread *) DynArrayGet(&(nap->threads), 0);
-  sandbox->stack_ptr = NaClUserToSysOrNull(nap, sandbox->mainThread->user.stack_ptr);                                                                      \
+
+  {
+    uintptr_t alignedValue = ROUND_UP_TO_POW2(sandbox->mainThread->user.stack_ptr, 16);
+
+    if(sandbox->mainThread->user.stack_ptr != alignedValue)
+    {
+      NaClLog(LOG_INFO, "Re-aligning the NaCl stack to %u bytes\n", 16);
+      sandbox->mainThread->user.stack_ptr = alignedValue;
+    }
+  }
+
+  sandbox->stack_ptr = NaClUserToSysOrNull(nap, sandbox->mainThread->user.stack_ptr);
+  NaClLog(LOG_INFO, "NaCl stack aligned value %u bytes\n", (unsigned) sandbox->stack_ptr);
+
   sandbox->sharedState = (struct AppSharedState*) nap->custom_shared_app_state;
   return sandbox;
 }
 
 /********************** "Function call stub" helpers *****************************/
 
-void preFunctionCall(NaClSandbox* sandbox, size_t paramsSize)
+void preFunctionCall(NaClSandbox* sandbox, size_t paramsSize, size_t arraysSize)
 {
   #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
-    /* make space for args and the return address. Note that various GCCs*/
-    /* on different architecture seem to want stack alignments - either */
-    /* 4, 8 or 16. So 16 should work generally */
-    sandbox->stack_ptr -= ALIGN(paramsSize + sizeof(uintptr_t), 16);
+
+    sandbox->saved_stack_ptr_forFunctionCall = sandbox->stack_ptr;
+
+    //Our stack would look as follows
+    //return address
+    //function param 1
+    //function param 2
+    //function param 3
+    //inline array 1
+    //inline array 2
+    //Existing StackFrames
+
+    //We set the location for any stack arrays
+    sandbox->stack_ptr_arrayLocation = sandbox->stack_ptr - ROUND_UP_TO_POW2(arraysSize, 16);
+
+    //make space for the return address
+    paramsSize = ROUND_UP_TO_POW2(paramsSize + sizeof(uintptr_t), STACKALIGNMENT);
+
+    /* make space for arrays, args and the return address. */
+    sandbox->stack_ptr = sandbox->stack_ptr_arrayLocation - paramsSize;
+
     sandbox->mainThread->user.stack_ptr = NaClSysToUserOrNull(sandbox->nap, sandbox->stack_ptr);
     /* push the return address of the exit wrapper on the stack. The exit wrapper is  */
     /* for cleanup and exiting the sandbox */
-    //Note we are using PUSH_VAL instead of PUSH_PTR as this is already a pointer in sandboxed address space
-    // i.e. a user pointer (vs a sys pointer) in NaCl parlance
-    PUSH_VAL_TO_STACK(sandbox, uintptr_t, (uintptr_t) sandbox->sharedState->exitFunctionWrapperPtr);
+    PUSH_SANDBOXEDPTR_TO_STACK(sandbox, uintptr_t, (uintptr_t) sandbox->sharedState->exitFunctionWrapperPtr);
   #else
     #error Unsupported architecture
   #endif
@@ -308,6 +332,7 @@ unsigned functionCallReturnRawPrimitiveInt(NaClSandbox* sandbox)
 
   #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
     ret = (unsigned) sandbox->sharedState->register_eax;      
+    sandbox->stack_ptr = sandbox->saved_stack_ptr_forFunctionCall;
     NaClLog(LOG_INFO, "Return int %u\n", ret);
   #else
     #error Unsupported architecture
@@ -322,6 +347,7 @@ uintptr_t functionCallReturnPtr(NaClSandbox* sandbox)
 
   #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32 
     ret = (uintptr_t) NaClUserToSysOrNull(sandbox->nap, (uintptr_t) sandbox->sharedState->register_eax);
+    sandbox->stack_ptr = sandbox->saved_stack_ptr_forFunctionCall;
     NaClLog(LOG_INFO, "Return pointer. Sandbox: %p, App: %p\n", (void*) sandbox->sharedState->register_eax, (void*) ret);
   #else
     #error Unsupported architecture
@@ -330,11 +356,16 @@ uintptr_t functionCallReturnPtr(NaClSandbox* sandbox)
   return ret;
 }
 
+uintptr_t functionCallReturnSandboxPtr(NaClSandbox* sandbox)
+{
+  return (uintptr_t) functionCallReturnRawPrimitiveInt(sandbox);
+}
+
 /********************** Stubs for some basic functions *****************************/
 
 unsigned invokeLocalMathTest(NaClSandbox* sandbox, unsigned a, unsigned b, unsigned c)
 {
-  preFunctionCall(sandbox, sizeof(a) + sizeof(b) + + sizeof(c));
+  preFunctionCall(sandbox, sizeof(a) + sizeof(b) + sizeof(c), 0);
 
   PUSH_VAL_TO_STACK(sandbox, unsigned, a);
   PUSH_VAL_TO_STACK(sandbox, unsigned, b);
@@ -347,28 +378,18 @@ unsigned invokeLocalMathTest(NaClSandbox* sandbox, unsigned a, unsigned b, unsig
 
 size_t invokeLocalStringTest(NaClSandbox* sandbox, char* test)
 {
-  char* testStrInSandbox;
-  size_t ret;
+  preFunctionCall(sandbox, sizeof(test), STRING_SIZE(test));
 
-  testStrInSandbox = (char*) mallocInSandbox(sandbox, strlen(test) + 1);
-  strcpy(testStrInSandbox, test);
-
-  preFunctionCall(sandbox, sizeof(testStrInSandbox));
-
-  PUSH_PTR_TO_STACK(sandbox, char*, testStrInSandbox);
+  PUSH_STRING_TO_STACK(sandbox, test);
 
   invokeFunctionCallWithSandboxPtr(sandbox, (uintptr_t)sandbox->sharedState->test_localStringPtr);
 
-  ret = (size_t)functionCallReturnRawPrimitiveInt(sandbox);
-
-  freeInSandbox(sandbox, testStrInSandbox);
-
-  return ret;
+  return (size_t)functionCallReturnRawPrimitiveInt(sandbox);
 }
 
 void* mallocInSandbox(NaClSandbox* sandbox, size_t size)
 {
-  preFunctionCall(sandbox, sizeof(size));
+  preFunctionCall(sandbox, sizeof(size), 0);
 
   PUSH_VAL_TO_STACK(sandbox, size_t, size);
 
@@ -379,7 +400,7 @@ void* mallocInSandbox(NaClSandbox* sandbox, size_t size)
 
 void freeInSandbox(NaClSandbox* sandbox, void* ptr)
 {
-  preFunctionCall(sandbox, sizeof(ptr));
+  preFunctionCall(sandbox, sizeof(ptr), 0);
 
   PUSH_PTR_TO_STACK(sandbox, void*, ptr);
 
@@ -388,28 +409,19 @@ void freeInSandbox(NaClSandbox* sandbox, void* ptr)
 
 void* dlopenInSandbox(NaClSandbox* sandbox, const char *filename, int flag)
 {
-  char* filenameInSandbox;
-  void* ret;
+  preFunctionCall(sandbox, sizeof(filename) + sizeof(flag), STRING_SIZE(filename));
 
-  filenameInSandbox = (char*) mallocInSandbox(sandbox, strlen(filename) + 1);
-  strcpy(filenameInSandbox, filename);
-
-  preFunctionCall(sandbox, sizeof(filenameInSandbox) + sizeof(flag));
-
-  PUSH_PTR_TO_STACK(sandbox, const char *, filenameInSandbox);
+  PUSH_STRING_TO_STACK(sandbox, filename);
   PUSH_VAL_TO_STACK(sandbox, int, flag);
 
   invokeFunctionCallWithSandboxPtr(sandbox, (uintptr_t)sandbox->sharedState->dlopenPtr);
 
-  ret = (void *) functionCallReturnPtr(sandbox);
-
-  freeInSandbox(sandbox, filenameInSandbox);
-  return ret;
+  return (void *) functionCallReturnPtr(sandbox);
 }
 
 char* dlerrorInSandbox(NaClSandbox* sandbox)
 {
-  preFunctionCall(sandbox, 0 /* no args */);
+  preFunctionCall(sandbox, 0 /* no args */, 0);
 
   invokeFunctionCallWithSandboxPtr(sandbox, (uintptr_t)sandbox->sharedState->dlerrorPtr);
 
@@ -418,28 +430,19 @@ char* dlerrorInSandbox(NaClSandbox* sandbox)
 
 void* dlsymInSandbox(NaClSandbox* sandbox, void *handle, const char *symbol)
 {
-  char* symbolInSandbox;
-  void* ret;
-
-  symbolInSandbox = (char*) mallocInSandbox(sandbox, strlen(symbol) + 1);
-  strcpy(symbolInSandbox, symbol);
-
-  preFunctionCall(sandbox, sizeof(handle) + sizeof(symbolInSandbox));
+  preFunctionCall(sandbox, sizeof(handle) + sizeof(symbol), STRING_SIZE(symbol));
 
   PUSH_PTR_TO_STACK(sandbox, void *, handle);
-  PUSH_PTR_TO_STACK(sandbox, const char *, symbolInSandbox);
+  PUSH_STRING_TO_STACK(sandbox, symbol);
 
   invokeFunctionCallWithSandboxPtr(sandbox, (uintptr_t)sandbox->sharedState->dlsymPtr);
 
-  ret = (void *) functionCallReturnPtr(sandbox);
-
-  freeInSandbox(sandbox, symbolInSandbox);
-  return ret;
+  return (void *) functionCallReturnPtr(sandbox);
 }
 
 int dlcloseInSandbox(NaClSandbox* sandbox, void *handle)
 {
-  preFunctionCall(sandbox, sizeof(handle));
+  preFunctionCall(sandbox, sizeof(handle), 0);
 
   PUSH_PTR_TO_STACK(sandbox, void *, handle);
 

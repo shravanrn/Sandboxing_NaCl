@@ -6,6 +6,8 @@ typedef struct
 	struct NaClApp* nap;
 	struct NaClAppThread* mainThread;
 	uintptr_t stack_ptr;
+	uintptr_t saved_stack_ptr_forFunctionCall;
+	uintptr_t stack_ptr_arrayLocation;
 	struct AppSharedState* sharedState;
 } NaClSandbox;
 
@@ -20,19 +22,44 @@ char* dlerrorInSandbox(NaClSandbox* sandbox);
 void* dlsymInSandbox  (NaClSandbox* sandbox, void *handle, const char *symbol);
 int   dlcloseInSandbox(NaClSandbox* sandbox, void *handle);
 
-void preFunctionCall(NaClSandbox* sandbox, size_t paramsSize);
+void preFunctionCall(NaClSandbox* sandbox, size_t paramsSize, size_t arraysSize);
 void invokeFunctionCall(NaClSandbox* sandbox, void* functionPtr);
+void invokeFunctionCallWithSandboxPtr(NaClSandbox* sandbox, uintptr_t functionPtrInSandbox);
 
 uintptr_t NaClUserToSysOrNull(struct NaClApp *nap, uintptr_t uaddr);
 uintptr_t NaClSysToUserOrNull(struct NaClApp *nap, uintptr_t uaddr);
 
-#define PUSH_VAL_TO_STACK(sandbox, type, value) do {           \
-  *(type *) (sandbox->stack_ptr) = (type) value; sandbox->stack_ptr += sizeof(type); \
+//Note that various GCCs on different architecture seem to want stack alignments - either 4, 8 or 16. So 16 should work generally
+#define STACKALIGNMENT 16
+#define ROUND_UP_TO_POW2(val, alignment) ((val + alignment - 1) & ~(alignment - 1))
+
+#define ADJUST_STACK_PTR(ptr, size) (ptr + size)
+
+#define PUSH_VAL_TO_STACK(sandbox, type, value) do { \
+  *(type *) (sandbox->stack_ptr) = (type) value; \
+  sandbox->stack_ptr = ADJUST_STACK_PTR(sandbox->stack_ptr, sizeof(type)); \
 } while (0)
+
+#define PUSH_SANDBOXEDPTR_TO_STACK(sandbox, type, value) PUSH_VAL_TO_STACK(sandbox, type, value)
 
 #define PUSH_PTR_TO_STACK(sandbox, type, value) do {                               \
   PUSH_VAL_TO_STACK(sandbox, type, (NaClSysToUserOrNull(sandbox->nap, (uintptr_t) value))); \
-} while (0)    
+} while (0)
+
+#define PUSH_GEN_ARRAY_TO_STACK(sandbox, value, unpaddedSize) do { \
+  size_t paddedSize = ROUND_UP_TO_POW2(unpaddedSize, STACKALIGNMENT); \
+  memcpy((void *) sandbox->stack_ptr_arrayLocation, (void *) value, unpaddedSize); \
+  PUSH_PTR_TO_STACK(sandbox, uintptr_t, (uintptr_t) sandbox->stack_ptr_arrayLocation); \
+  sandbox->stack_ptr_arrayLocation = ADJUST_STACK_PTR(sandbox->stack_ptr_arrayLocation, paddedSize); \
+} while(0)
+
+#define PUSH_ARRAY_TO_STACK(sandbox, value) PUSH_GEN_ARRAY_TO_STACK(sandbox, value, sizeof(val))
+
+#define PUSH_STRING_TO_STACK(sandbox, value) PUSH_GEN_ARRAY_TO_STACK(sandbox, value, (strlen(value) + 1))
+
+#define ARR_SIZE(val)    ROUND_UP_TO_POW2(sizeof(val)    , STACKALIGNMENT)
+#define STRING_SIZE(val) ROUND_UP_TO_POW2(strlen(val) + 1, STACKALIGNMENT)
 
 unsigned functionCallReturnRawPrimitiveInt(NaClSandbox* sandbox);
 uintptr_t functionCallReturnPtr(NaClSandbox* sandbox);
+uintptr_t functionCallReturnSandboxPtr(NaClSandbox* sandbox);
