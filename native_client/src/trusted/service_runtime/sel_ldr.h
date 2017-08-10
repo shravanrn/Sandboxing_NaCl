@@ -401,14 +401,25 @@ struct NaClApp {
 #endif
 
   /* Creating a pointer slot, that the user of this lib can use 
-   * as a way to have some shared memory between the user of lib
-   * and the nacl app. The nacl app can access this only in a
-   * syscall
+   * as a way to have some shared memory between the NaCl runtime
+   * and the NaCl app. The NaCl app is the one that creates this 
+   * value via the NaClSysRegisterSharedState syscall
+   * This is accessible in the NaCl App and the system
    */
   uintptr_t custom_shared_app_state;
 
+  /* Creating a pointer slot that cthat the user of this lib can use
+   * to save any custom state. This state is available in NaCl sys calls
+   * and the NaCl runtime, but not the NaCl app.
+   */
+  uintptr_t custom_app_state;
+
+  /* Creating a pointer slot that can used for callbacks from the 
+   * sandboxes app to jump to the outer loader */
+  uintptr_t callbackSlot;
+
   /* A variable that is used by dyn_ldr to store the jump buffers,
-   * used to jump back and forth between nacl'd and un-nacl'd code
+   * used to jump back and forth between NaCl'd and un-NaCl'd code
    */
   DS_Stack           jumpBufferStack;
 };

@@ -10,20 +10,99 @@
 	char SEPARATOR = '/';
 #endif
 
+/**************** Dynamic Library function stubs ****************/
+//Some functions that help invoke the functions in dynamic library generated from test_dyn_lib.c
+
 int invokeSimpleAdd(NaClSandbox* sandbox, void* simpleAddPtr, int a, int b)
 {
-  int ret;
-
-  preFunctionCall(sandbox, sizeof(a) + sizeof(b), 0 /* size of any arrays being pushed */);
+  preFunctionCall(sandbox, sizeof(a) + sizeof(b), 0 /* size of any arrays being pushed on the stack */);
 
   PUSH_VAL_TO_STACK(sandbox, int, a);
   PUSH_VAL_TO_STACK(sandbox, int, b);
 
   invokeFunctionCall(sandbox, simpleAddPtr);
 
-  ret = (int)functionCallReturnRawPrimitiveInt(sandbox);
+  return (int)functionCallReturnRawPrimitiveInt(sandbox);
+}
+
+//////////////////////////////////////////////////////////////////
+
+size_t invokeSimpleStrLenWithStackString(NaClSandbox* sandbox, void* simpleStrLenPtr, char* str)
+{
+  preFunctionCall(sandbox, sizeof(str), STRING_SIZE(str));
+
+  PUSH_STRING_TO_STACK(sandbox, str);
+
+  invokeFunctionCall(sandbox, simpleStrLenPtr);
+
+  return (size_t)functionCallReturnRawPrimitiveInt(sandbox);
+}
+
+//////////////////////////////////////////////////////////////////
+
+size_t invokeSimpleStrLenWithHeapString(NaClSandbox* sandbox, void* simpleStrLenPtr, char* str)
+{
+  char* strInSandbox;
+  size_t ret;
+
+  strInSandbox = (char*) mallocInSandbox(sandbox, strlen(str) + 1);
+  strcpy(strInSandbox, str);
+
+  preFunctionCall(sandbox, sizeof(strInSandbox), 0 /* size of any arrays being pushed on the stack */);
+
+  PUSH_PTR_TO_STACK(sandbox, char*, strInSandbox);
+
+  invokeFunctionCall(sandbox, simpleStrLenPtr);
+
+  ret = (size_t)functionCallReturnRawPrimitiveInt(sandbox);
+
+  freeInSandbox(sandbox, strInSandbox);
+
   return ret;
 }
+
+//////////////////////////////////////////////////////////////////
+
+unsigned invokeSimpleCallback_callback(unsigned a, unsigned b)
+{
+	return a + b;
+}
+
+SANDBOX_CALLBACK unsigned invokeSimpleCallback_callbackStub(uintptr_t sandboxPtr)
+{
+	unsigned* a;
+	unsigned* b;
+
+	NaClSandbox* sandbox = (NaClSandbox*) sandboxPtr;
+
+	a = COMPLETELY_UNTRUSTED_CALLBACK_PARAM(sandbox, unsigned);
+	b = COMPLETELY_UNTRUSTED_CALLBACK_PARAM(sandbox, unsigned);
+	CALLBACK_PARAMS_FINISHED(sandbox);
+	
+	return invokeSimpleCallback_callback(*a, *b);
+}
+
+unsigned invokeSimpleCallback(NaClSandbox* sandbox, void* simpleCallbackPtr, unsigned a, unsigned b)
+{
+  unsigned ret;
+  uintptr_t callback = registerSandboxCallback(sandbox, (uintptr_t) invokeSimpleCallback_callbackStub);
+
+  preFunctionCall(sandbox, sizeof(a) + sizeof(b) + sizeof(callback), 0 /* size of any arrays being pushed on the stack */);
+
+  PUSH_VAL_TO_STACK(sandbox, unsigned, a);
+  PUSH_VAL_TO_STACK(sandbox, unsigned, b);
+  PUSH_VAL_TO_STACK(sandbox, uintptr_t, callback);
+
+  invokeFunctionCall(sandbox, simpleCallbackPtr);
+
+  ret = (unsigned) functionCallReturnRawPrimitiveInt(sandbox);
+  unregisterSandboxCallback(sandbox);
+  return ret;
+}
+
+//////////////////////////////////////////////////////////////////
+
+/**************** Main function ****************/
 
 char* getExecFolder(char* executablePath);
 char* concatenateAndFixSlash(char* string1, char* string2);
@@ -33,7 +112,9 @@ int main(int argc, char** argv)
 {
 	NaClSandbox* sandbox;
 	void* dlHandle;
-	void* dlSymResult;
+	void* simpleAddSymResult;
+	void* simpleStrLenResult;
+	void* simpleCallbackResult;
 
 	/**************** Some calculations of relative paths ****************/
 	char* execFolder;
@@ -78,6 +159,8 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
+	printf("Sandbox created\n");
+
 	dlHandle = dlopenInSandbox(sandbox, dlToOpen, RTLD_LAZY);
 
 	if(dlHandle == NULL)
@@ -89,17 +172,39 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	dlSymResult = dlsymInSandbox(sandbox, dlHandle, "simpleAdd");
+	simpleAddSymResult   = dlsymInSandbox(sandbox, dlHandle, "simpleAdd");
+	simpleStrLenResult   = dlsymInSandbox(sandbox, dlHandle, "simpleStrLen");
+	simpleCallbackResult = dlsymInSandbox(sandbox, dlHandle, "simpleCallback");
 
-	if(dlSymResult == NULL)
+	if(simpleAddSymResult == NULL || simpleStrLenResult == NULL || simpleCallbackResult == NULL)
 	{
 		printf("Dyn loader Test: dlSym returned null\n");
 		return 1;
-	}	
+	}
 
-	if(invokeSimpleAdd(sandbox, dlSymResult, 2, 3) != 5)
+	/**************** Invoking functions in sandbox ****************/
+
+	if(invokeSimpleAdd(sandbox, simpleAddSymResult, 2, 3) != 5)
 	{
-		printf("Dyn loader Test: Failed\n");
+		printf("Dyn loader Test 1: Failed\n");
+		return 1;
+	}
+
+	if(invokeSimpleStrLenWithStackString(sandbox, simpleStrLenResult, "Hello") != 5)
+	{
+		printf("Dyn loader Test 2: Failed\n");
+		return 1;
+	}
+
+	if(invokeSimpleStrLenWithStackString(sandbox, simpleStrLenResult, "Hello") != 5)
+	{
+		printf("Dyn loader Test 3: Failed\n");
+		return 1;
+	}
+
+	if(invokeSimpleCallback(sandbox, simpleCallbackResult, 4, 5) != 9)
+	{
+		printf("Dyn loader Test 4: Failed\n");
 		return 1;
 	}
 

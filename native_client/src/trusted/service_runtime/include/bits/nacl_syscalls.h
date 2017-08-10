@@ -117,6 +117,7 @@
 #define NACL_sys_test_syscall_2         112
 #define NACL_sys_register_shared_state  113
 #define NACL_sys_exit_sandbox           114
+#define NACL_sys_callback				115
 
 #define NACL_sys_futex_wait_abs         120
 #define NACL_sys_futex_wake             121

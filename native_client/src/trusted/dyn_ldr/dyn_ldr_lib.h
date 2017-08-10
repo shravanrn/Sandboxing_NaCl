@@ -8,6 +8,7 @@ typedef struct
 	uintptr_t stack_ptr;
 	uintptr_t saved_stack_ptr_forFunctionCall;
 	uintptr_t stack_ptr_arrayLocation;
+	size_t callbackParamsAlreadyRead;
 	struct AppSharedState* sharedState;
 } NaClSandbox;
 
@@ -25,6 +26,9 @@ int   dlcloseInSandbox(NaClSandbox* sandbox, void *handle);
 void preFunctionCall(NaClSandbox* sandbox, size_t paramsSize, size_t arraysSize);
 void invokeFunctionCall(NaClSandbox* sandbox, void* functionPtr);
 void invokeFunctionCallWithSandboxPtr(NaClSandbox* sandbox, uintptr_t functionPtrInSandbox);
+uintptr_t registerSandboxCallback(NaClSandbox* sandbox, uintptr_t callback);
+void unregisterSandboxCallback(NaClSandbox* sandbox);
+uintptr_t getCallbackParam(NaClSandbox* sandbox, size_t size);
 
 uintptr_t NaClUserToSysOrNull(struct NaClApp *nap, uintptr_t uaddr);
 uintptr_t NaClSysToUserOrNull(struct NaClApp *nap, uintptr_t uaddr);
@@ -36,6 +40,7 @@ uintptr_t NaClSysToUserOrNull(struct NaClApp *nap, uintptr_t uaddr);
 #define ADJUST_STACK_PTR(ptr, size) (ptr + size)
 
 #define PUSH_VAL_TO_STACK(sandbox, type, value) do { \
+  /*printf("Entering PUSH_VAL_TO_STACK: %u loc %u\n", (unsigned) value,(unsigned)(sandbox->stack_ptr));*/ \
   *(type *) (sandbox->stack_ptr) = (type) value; \
   sandbox->stack_ptr = ADJUST_STACK_PTR(sandbox->stack_ptr, sizeof(type)); \
 } while (0)
@@ -57,9 +62,28 @@ uintptr_t NaClSysToUserOrNull(struct NaClApp *nap, uintptr_t uaddr);
 
 #define PUSH_STRING_TO_STACK(sandbox, value) PUSH_GEN_ARRAY_TO_STACK(sandbox, value, (strlen(value) + 1))
 
+#define PUSH_CALLBACK(sandbox, value) PUSH_VAL_TO_STACK(sandbox, uintptr_t, makeSandboxCallback(sandbox, value))
+
 #define ARR_SIZE(val)    ROUND_UP_TO_POW2(sizeof(val)    , STACKALIGNMENT)
 #define STRING_SIZE(val) ROUND_UP_TO_POW2(strlen(val) + 1, STACKALIGNMENT)
+
+#define COMPLETELY_UNTRUSTED_CALLBACK_PARAM(sandbox, type) (type *) getCallbackParam(sandbox, sizeof(type))
+#define CALLBACK_PARAMS_FINISHED(sandbox) (sandbox->callbackParamsAlreadyRead = 0)
 
 unsigned functionCallReturnRawPrimitiveInt(NaClSandbox* sandbox);
 uintptr_t functionCallReturnPtr(NaClSandbox* sandbox);
 uintptr_t functionCallReturnSandboxPtr(NaClSandbox* sandbox);
+
+#if defined(_M_IX86) || defined(__i386__)
+	#if defined(_MSC_VER) && (_MSC_VER >= 800)
+		#define SANDBOX_CALLBACK __cdecl
+	#elif defined(__GNUC__) && defined(__i386) && !defined(__INTEL_COMPILER)
+		#define SANDBOX_CALLBACK __attribute__((cdecl))
+	#else
+		#error CDecl not supported in this platform!
+	#endif
+#elif defined(_M_X64) || defined(__x86_64__) || defined(__ARMEL__) || defined(__MIPSEL__)
+	#error Unsupported platform!
+#else
+	#error Unknown platform!
+#endif

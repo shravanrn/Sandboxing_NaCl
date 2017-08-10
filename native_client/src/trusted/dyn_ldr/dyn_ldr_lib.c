@@ -198,6 +198,9 @@ NaClSandbox* createDlSandbox(char* naclGlibcLibraryPathWithTrailingSlash, char* 
     goto error;
   }
 
+  nap->callbackSlot = 0;
+  nap->custom_app_state = (uintptr_t) sandbox;
+
   NaClLog(LOG_INFO, "Running a sandbox test\n");
   testResult = invokeLocalMathTest(sandbox, 2, 3, 4);
 
@@ -262,6 +265,7 @@ static INLINE NaClSandbox* constructNaClSandbox(struct NaClApp* nap)
   NaClLog(LOG_INFO, "NaCl stack aligned value %u bytes\n", (unsigned) sandbox->stack_ptr);
 
   sandbox->sharedState = (struct AppSharedState*) nap->custom_shared_app_state;
+  sandbox->callbackParamsAlreadyRead = 0;
   return sandbox;
 }
 
@@ -324,6 +328,54 @@ void invokeFunctionCall(NaClSandbox* sandbox, void* functionPtr)
 {
   uintptr_t functionPtrInSandbox = NaClSysToUserOrNull(sandbox->nap, (uintptr_t) functionPtr);
   invokeFunctionCallWithSandboxPtr(sandbox, functionPtrInSandbox);
+}
+
+uintptr_t registerSandboxCallback(NaClSandbox* sandbox, uintptr_t callback)
+{
+  sandbox->nap->callbackSlot = callback;
+  return (uintptr_t) sandbox->sharedState->callbackFunctionWrapper;
+}
+
+void unregisterSandboxCallback(NaClSandbox* sandbox)
+{
+  sandbox->nap->callbackSlot = 0;
+}
+
+uintptr_t getCallbackParam(NaClSandbox* sandbox, size_t size)
+{
+  #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
+    //The parameters start at the location of the NaCl sp
+    //This is not clear why this is
+    //It is expected that the top of the stack would look like
+    //
+    // Return addr <=
+    // Param 1
+    // Param 2
+    // Param 3
+    // ...
+    //
+    //For some reason, at this stage the sp does not point to return address
+    //Instead it points to the first arg
+    //
+    // Return addr
+    // Param 1 <=
+    // Param 2
+    // Param 3
+    //
+    //Since the NaCl Springboard does mess with assembly, it is possible, that it has messed with sp as well
+    //Further investigation is neccessary
+    //
+    //This offset was derived by printing the contents of the NaCl stack
+    #define CallbackParmetersStartOffset 0
+    uintptr_t paramPointer = NaClUserToSysOrNull(sandbox->nap,
+      sandbox->mainThread->user.stack_ptr + CallbackParmetersStartOffset + sandbox->callbackParamsAlreadyRead);
+
+    sandbox->callbackParamsAlreadyRead += size;
+    return paramPointer;
+
+  #else
+    #error Unsupported architecture
+  #endif
 }
 
 unsigned functionCallReturnRawPrimitiveInt(NaClSandbox* sandbox)

@@ -102,6 +102,7 @@ NACL_DEFINE_SYSCALL_2(NaClSysDyncodeDelete)
 NACL_DEFINE_SYSCALL_1(NaClSysSecondTlsSet)
 NACL_DEFINE_SYSCALL_1(NaClSysRegisterSharedState)
 NACL_DEFINE_SYSCALL_0(NaClSysExitSandbox)
+NACL_DEFINE_SYSCALL_0(NaClSysCallback)
 NACL_DEFINE_SYSCALL_0(NaClSysSecondTlsGet)
 NACL_DEFINE_SYSCALL_2(NaClSysExceptionHandler)
 NACL_DEFINE_SYSCALL_2(NaClSysExceptionStack)
@@ -194,6 +195,7 @@ void NaClAppRegisterDefaultSyscalls(struct NaClApp *nap) {
   NACL_REGISTER_SYSCALL(nap, NaClSysSecondTlsSet, NACL_sys_second_tls_set);
   NACL_REGISTER_SYSCALL(nap, NaClSysRegisterSharedState, NACL_sys_register_shared_state);
   NACL_REGISTER_SYSCALL(nap, NaClSysExitSandbox, NACL_sys_exit_sandbox);
+  NACL_REGISTER_SYSCALL(nap, NaClSysCallback, NACL_sys_callback);
   NACL_REGISTER_SYSCALL(nap, NaClSysSecondTlsGet, NACL_sys_second_tls_get);
   NACL_REGISTER_SYSCALL(nap, NaClSysExceptionHandler,
                         NACL_sys_exception_handler);

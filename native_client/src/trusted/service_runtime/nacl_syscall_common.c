@@ -294,6 +294,39 @@ int32_t NaClSysExitSandbox(struct NaClAppThread *natp) {
   return 0;
 }
 
+//NACL_sys_callback
+int32_t NaClSysCallback(struct NaClAppThread *natp) {
+  
+  NaClLog(LOG_INFO, "Entered NaClSysCallback\n");
+
+  if(natp->nap->callbackSlot != 0)
+  {
+    typedef void (*VoidPtrFunc)(uintptr_t);
+
+    #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
+      VoidPtrFunc func;
+      register int32_t eax asm("eax");
+
+      func = (VoidPtrFunc) natp->nap->callbackSlot;
+      func(natp->nap->custom_app_state);
+
+      //Depending on the callback return type, the return value could be in the 
+      //   eax register - simple integers or pointers
+      //   ST0 x87 for floating point
+      //Ideally, we can leave this registers untouched and the return value would 
+      //just flow through. However NaCl Sys calls require a return type.Since 
+      //this function returns a primitive value, we will return the contents of eax
+      //so as not to clobber the eax register
+      return eax;
+
+    #else
+      #error "Unsupported platform"
+    #endif
+  }
+
+  return 0;
+}
+
 /*
  * This is not used on x86-64 and its functionality is replaced by
  * NaClGetTlsFastPath2 (see nacl_syscall_64.S).

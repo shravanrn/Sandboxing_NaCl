@@ -19,8 +19,6 @@ inline STACK_TYPE* Stack_GetTopPtrForPush(DS_Stack* stack)
 {
     STACK_TYPE* ret = NULL;
 
-    NaClLog(LOG_INFO, "Entering Stack_GetTopPtrForPush\n");
-
     if(stack->currentTop == STACK_ARR_SIZE)
     {
         NaClLog(LOG_FATAL, "Jump buffer push overflow\n");
@@ -35,9 +33,6 @@ inline STACK_TYPE* Stack_GetTopPtrForPush(DS_Stack* stack)
 inline STACK_TYPE* Stack_GetTopPtrForPop(DS_Stack *stack)
 {
     STACK_TYPE* ret = NULL;
-
-    NaClLog(LOG_INFO, "Entering Stack_GetTopPtrForPop\n");
-
 
     if(stack->currentTop == 0) {
         NaClLog(LOG_FATAL, "Jump buffer pop overflow\n");
