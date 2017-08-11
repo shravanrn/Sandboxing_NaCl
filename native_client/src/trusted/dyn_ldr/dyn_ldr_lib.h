@@ -67,9 +67,11 @@ uintptr_t registerSandboxCallback(NaClSandbox* sandbox, unsigned slotNumber, uin
 int unregisterSandboxCallback(NaClSandbox* sandbox, unsigned slotNumber);
 uintptr_t getCallbackParam(NaClSandbox* sandbox, size_t size);
 
-#define COMPLETELY_UNTRUSTED_CALLBACK_PARAM(sandbox, type) (*((type *) getCallbackParam(sandbox, sizeof(type))))
-#define COMPLETELY_UNTRUSTED_CALLBACK_PARAM_PTR(sandbox, type) ((type) NaClUserToSysOrNull(sandbox->nap, (uintptr_t) COMPLETELY_UNTRUSTED_CALLBACK_PARAM(sandbox, type)))
+#define COMPLETELY_UNTRUSTED_CALLBACK_PTR_TO_STACK_PARAM(sandbox, type) ((type *) getCallbackParam(sandbox, sizeof(type)))
+#define COMPLETELY_UNTRUSTED_CALLBACK_STACK_PARAM(sandbox, type) (* COMPLETELY_UNTRUSTED_CALLBACK_PTR_TO_STACK_PARAM(sandbox, type))
+#define COMPLETELY_UNTRUSTED_CALLBACK_PTR_PARAM(sandbox, type) ((type) NaClUserToSysOrNull(sandbox->nap, COMPLETELY_UNTRUSTED_CALLBACK_STACK_PARAM(sandbox, uintptr_t)))
 #define CALLBACK_PARAMS_FINISHED(sandbox) (sandbox->callbackParamsAlreadyRead = 0)
+#define CALLBACK_RETURN_PTR(sandbox, type, value) ((type) NaClSysToUserOrNull(sandbox->nap, value))
 
 unsigned functionCallReturnRawPrimitiveInt(NaClSandbox* sandbox);
 uintptr_t functionCallReturnPtr(NaClSandbox* sandbox);

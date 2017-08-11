@@ -63,6 +63,22 @@ size_t invokeSimpleStrLenWithHeapString(NaClSandbox* sandbox, void* simpleStrLen
 
 //////////////////////////////////////////////////////////////////
 
+int strLenWithin(char* a, unsigned lenLimit)
+{
+	if(a != NULL)
+	{
+		for(unsigned i = 0; i < lenLimit; i++)
+		{
+			if(a[i] == '\0')
+			{
+				return 1;
+			}
+		}
+	}
+
+	return 0;
+}
+
 unsigned invokeSimpleCallback_callback(unsigned a, char* b)
 {
 	return a + strlen(b);
@@ -74,8 +90,10 @@ SANDBOX_CALLBACK unsigned invokeSimpleCallback_callbackStub(uintptr_t sandboxPtr
 	char* b;
 	NaClSandbox* sandbox = (NaClSandbox*) sandboxPtr;
 
-	a = COMPLETELY_UNTRUSTED_CALLBACK_PARAM(sandbox, unsigned);
-	b = COMPLETELY_UNTRUSTED_CALLBACK_PARAM_PTR(sandbox, char*);
+	a = COMPLETELY_UNTRUSTED_CALLBACK_STACK_PARAM(sandbox, unsigned);
+	b = COMPLETELY_UNTRUSTED_CALLBACK_PTR_PARAM(sandbox, char*);
+
+	CALLBACK_PARAMS_FINISHED(sandbox);
 
 	//We should not assume anything about a, b
 	//b could be a pointer to garbage instead of a null terminated string
@@ -85,8 +103,10 @@ SANDBOX_CALLBACK unsigned invokeSimpleCallback_callbackStub(uintptr_t sandboxPtr
 	// - is a between 0 and 100 or whatever range makes sense
 	// - does b have a null character in the first 100 characters etc.
 	//These validations will most likely have to be domain specific
-	
-	CALLBACK_PARAMS_FINISHED(sandbox);
+	if(!(a < 100 && strLenWithin(b, 100)))
+	{
+		return 0;
+	}
 	
 	return invokeSimpleCallback_callback(a, b);
 }
@@ -183,9 +203,7 @@ int main(int argc, char** argv)
 	if(dlHandle == NULL)
 	{
 		char *err = dlerrorInSandbox(sandbox); 
-		printf("Dyn loader Test: dlopen returned null\n");
-		printf("Got message: %s\n", err);
-
+		printf("Dyn loader Test: dlopen returned null. Got err message: %s\n", err);
 		return 1;
 	}
 
