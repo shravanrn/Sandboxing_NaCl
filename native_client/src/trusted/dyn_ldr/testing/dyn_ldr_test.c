@@ -85,7 +85,10 @@ SANDBOX_CALLBACK unsigned invokeSimpleCallback_callbackStub(uintptr_t sandboxPtr
 unsigned invokeSimpleCallback(NaClSandbox* sandbox, void* simpleCallbackPtr, unsigned a, unsigned b)
 {
   unsigned ret;
-  uintptr_t callback = registerSandboxCallback(sandbox, (uintptr_t) invokeSimpleCallback_callbackStub);
+  short slotNumber = 0;
+
+  //Note will return NULL if given a slot number greater than getTotalNumberOfCallbackSlots(), a valid ptr if it succeeds
+  uintptr_t callback = registerSandboxCallback(sandbox, slotNumber, (uintptr_t) invokeSimpleCallback_callbackStub);
 
   preFunctionCall(sandbox, sizeof(a) + sizeof(b) + sizeof(callback), 0 /* size of any arrays being pushed on the stack */);
 
@@ -96,7 +99,12 @@ unsigned invokeSimpleCallback(NaClSandbox* sandbox, void* simpleCallbackPtr, uns
   invokeFunctionCall(sandbox, simpleCallbackPtr);
 
   ret = (unsigned) functionCallReturnRawPrimitiveInt(sandbox);
-  unregisterSandboxCallback(sandbox);
+
+  //Best to unregister after it is done
+  //In an adversarial setting, the sandboxed app may decide to invoke the callback
+  //arbitrarily in the future, which may allow it to destabilize the hosting app
+  //Note will return 0 if given a slot number greater than getTotalNumberOfCallbackSlots(), 1 if it succeeds
+  unregisterSandboxCallback(sandbox, slotNumber);
   return ret;
 }
 

@@ -26,9 +26,6 @@ int   dlcloseInSandbox(NaClSandbox* sandbox, void *handle);
 void preFunctionCall(NaClSandbox* sandbox, size_t paramsSize, size_t arraysSize);
 void invokeFunctionCall(NaClSandbox* sandbox, void* functionPtr);
 void invokeFunctionCallWithSandboxPtr(NaClSandbox* sandbox, uintptr_t functionPtrInSandbox);
-uintptr_t registerSandboxCallback(NaClSandbox* sandbox, uintptr_t callback);
-void unregisterSandboxCallback(NaClSandbox* sandbox);
-uintptr_t getCallbackParam(NaClSandbox* sandbox, size_t size);
 
 uintptr_t NaClUserToSysOrNull(struct NaClApp *nap, uintptr_t uaddr);
 uintptr_t NaClSysToUserOrNull(struct NaClApp *nap, uintptr_t uaddr);
@@ -62,10 +59,13 @@ uintptr_t NaClSysToUserOrNull(struct NaClApp *nap, uintptr_t uaddr);
 
 #define PUSH_STRING_TO_STACK(sandbox, value) PUSH_GEN_ARRAY_TO_STACK(sandbox, value, (strlen(value) + 1))
 
-#define PUSH_CALLBACK(sandbox, value) PUSH_VAL_TO_STACK(sandbox, uintptr_t, makeSandboxCallback(sandbox, value))
-
 #define ARR_SIZE(val)    ROUND_UP_TO_POW2(sizeof(val)    , STACKALIGNMENT)
 #define STRING_SIZE(val) ROUND_UP_TO_POW2(strlen(val) + 1, STACKALIGNMENT)
+
+unsigned getTotalNumberOfCallbackSlots(void);
+uintptr_t registerSandboxCallback(NaClSandbox* sandbox, unsigned slotNumber, uintptr_t callback);
+int unregisterSandboxCallback(NaClSandbox* sandbox, unsigned slotNumber);
+uintptr_t getCallbackParam(NaClSandbox* sandbox, size_t size);
 
 #define COMPLETELY_UNTRUSTED_CALLBACK_PARAM(sandbox, type) (type *) getCallbackParam(sandbox, sizeof(type))
 #define CALLBACK_PARAMS_FINISHED(sandbox) (sandbox->callbackParamsAlreadyRead = 0)

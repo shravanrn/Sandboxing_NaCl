@@ -27,6 +27,8 @@
 #define TRUE 1
 #endif
 
+#define CALLBACK_SLOTS_AVAILABLE (sizeof( ((struct NaClApp*) 0)->callbackSlot ) / sizeof(uintptr_t))
+
 /********************* Utility functions ***********************/
 uintptr_t NaClUserToSysOrNull(struct NaClApp *nap, uintptr_t uaddr) {
   if (uaddr == 0) { return 0;}
@@ -198,7 +200,11 @@ NaClSandbox* createDlSandbox(char* naclGlibcLibraryPathWithTrailingSlash, char* 
     goto error;
   }
 
-  nap->callbackSlot = 0;
+  for(unsigned i = 0; i < (unsigned) CALLBACK_SLOTS_AVAILABLE; i++)
+  {
+    nap->callbackSlot[i] = 0;
+  }
+
   nap->custom_app_state = (uintptr_t) sandbox;
 
   NaClLog(LOG_INFO, "Running a sandbox test\n");
@@ -330,43 +336,85 @@ void invokeFunctionCall(NaClSandbox* sandbox, void* functionPtr)
   invokeFunctionCallWithSandboxPtr(sandbox, functionPtrInSandbox);
 }
 
-uintptr_t registerSandboxCallback(NaClSandbox* sandbox, uintptr_t callback)
+unsigned getTotalNumberOfCallbackSlots(void)
 {
-  sandbox->nap->callbackSlot = callback;
-  return (uintptr_t) sandbox->sharedState->callbackFunctionWrapper;
+  return (unsigned) CALLBACK_SLOTS_AVAILABLE;
 }
 
-void unregisterSandboxCallback(NaClSandbox* sandbox)
+uintptr_t registerSandboxCallback(NaClSandbox* sandbox, unsigned slotNumber, uintptr_t callback)
 {
-  sandbox->nap->callbackSlot = 0;
+  unsigned callbackSlots = (unsigned) CALLBACK_SLOTS_AVAILABLE;
+
+  if(slotNumber >= callbackSlots)
+  {
+    NaClLog(LOG_ERROR, "Only %u slots exists i.e. slots 0 to %u. slotNumber %u does not exist \n", 
+      callbackSlots, callbackSlots - 1, slotNumber);
+    return 0;
+  }
+
+  sandbox->nap->callbackSlot[slotNumber] = callback;
+  return (uintptr_t) sandbox->sharedState->callbackFunctionWrapper[slotNumber];
+}
+
+int unregisterSandboxCallback(NaClSandbox* sandbox, unsigned slotNumber)
+{
+  unsigned callbackSlots = (unsigned) CALLBACK_SLOTS_AVAILABLE;
+
+  if(slotNumber >= callbackSlots)
+  {
+    NaClLog(LOG_ERROR, "Only %u slots exists i.e. slots 0 to %u. slotNumber %u does not exist \n", 
+      callbackSlots, callbackSlots - 1, slotNumber);
+    return FALSE;
+  }
+
+  sandbox->nap->callbackSlot[slotNumber] = 0;
+  return TRUE;
 }
 
 uintptr_t getCallbackParam(NaClSandbox* sandbox, size_t size)
 {
   #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
     //The parameters start at the location of the NaCl sp
-    //This is not clear why this is
-    //It is expected that the top of the stack would look like
     //
-    // Return addr <=
-    // Param 1
-    // Param 2
-    // Param 3
-    // ...
+    //The set of calls to exit the sandbox look as follows
+    //
+    // 1) functionInLibThatMakesCallback(param1, param2, param3)
+    // 2) callbackFunctionWrapperN in dyn_ldr_sandbox_init.c
+    // 3) NaClSysCall - NaClSysCallback in nacl_syscall_common.c
+    //
+    //It is expected that the top of the NaCl stack would look like
+    //
+    // callbackFunctionWrapperN Stackframe
+    // functionInLibThatMakesCallback Stackframe
+    // 
+    // i.e.
+    //
+    // (callbackFunctionWrapperN) Return addr <=
+    // (callbackFunctionWrapperN) Param 1 
+    // (callbackFunctionWrapperN) Padding for alignment
+    // (functionInLibThatMakesCallback) Return addr
+    // (functionInLibThatMakesCallback) Param 1
+    // (functionInLibThatMakesCallback) Param 2
+    // (functionInLibThatMakesCallback) Param 3
+    //
     //
     //For some reason, at this stage the sp does not point to return address
     //Instead it points to the first arg
     //
-    // Return addr
-    // Param 1 <=
-    // Param 2
-    // Param 3
+    // (callbackFunctionWrapperN) Return addr
+    // (callbackFunctionWrapperN) Param 1 <=
+    // (callbackFunctionWrapperN) Padding for alignment
+    // (functionInLibThatMakesCallback) Return addr
+    // (functionInLibThatMakesCallback) Param 1
+    // (functionInLibThatMakesCallback) Param 2
+    // (functionInLibThatMakesCallback) Param 3
     //
     //Since the NaCl Springboard does mess with assembly, it is possible, that it has messed with sp as well
-    //Further investigation is neccessary
     //
-    //This offset was derived by printing the contents of the NaCl stack
-    #define CallbackParmetersStartOffset 0
+    //Through trial, the padding used was found to be 32 bytes. This offset was derived by printing the contents of the NaCl stack. This means
+    //(functionInLibThatMakesCallback) Param 1 is located 32 bytes ahead of the sp
+    //
+    #define CallbackParmetersStartOffset 32
     uintptr_t paramPointer = NaClUserToSysOrNull(sandbox->nap,
       sandbox->mainThread->user.stack_ptr + CallbackParmetersStartOffset + sandbox->callbackParamsAlreadyRead);
 

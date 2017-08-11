@@ -29,8 +29,8 @@ struct AppSharedState
     nacl_register                register_eax;
 
     exitFunctionWrapper_type     exitFunctionWrapperPtr;
-    callbackFunctionWrapper_type callbackFunctionWrapper;
-    
+    callbackFunctionWrapper_type callbackFunctionWrapper[8];
+
     test_localMath_type          test_localMathPtr;
     test_localString_type        test_localStringPtr;
 

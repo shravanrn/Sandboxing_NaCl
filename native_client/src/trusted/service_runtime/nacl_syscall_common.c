@@ -295,11 +295,13 @@ int32_t NaClSysExitSandbox(struct NaClAppThread *natp) {
 }
 
 //NACL_sys_callback
-int32_t NaClSysCallback(struct NaClAppThread *natp) {
+int32_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumber) {
   
   NaClLog(LOG_INFO, "Entered NaClSysCallback\n");
 
-  if(natp->nap->callbackSlot != 0)
+  #define CALLBACK_SLOTS_AVAILABLE (sizeof( ((struct NaClApp*) 0)->callbackSlot ) / sizeof(uintptr_t))
+
+  if(callbackSlotNumber < CALLBACK_SLOTS_AVAILABLE && natp->nap->callbackSlot[callbackSlotNumber] != 0)
   {
     typedef void (*VoidPtrFunc)(uintptr_t);
 
@@ -307,7 +309,7 @@ int32_t NaClSysCallback(struct NaClAppThread *natp) {
       VoidPtrFunc func;
       register int32_t eax asm("eax");
 
-      func = (VoidPtrFunc) natp->nap->callbackSlot;
+      func = (VoidPtrFunc) (natp->nap->callbackSlot[callbackSlotNumber]);
       func(natp->nap->custom_app_state);
 
       //Depending on the callback return type, the return value could be in the 
@@ -322,6 +324,10 @@ int32_t NaClSysCallback(struct NaClAppThread *natp) {
     #else
       #error "Unsupported platform"
     #endif
+  }
+  else
+  {
+      NaClLog(LOG_WARNING, "NaClSysCallback: Could not find callback: %u\n", (unsigned) callbackSlotNumber);
   }
 
   return 0;

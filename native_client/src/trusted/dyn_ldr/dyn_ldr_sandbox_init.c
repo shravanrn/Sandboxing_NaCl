@@ -8,6 +8,7 @@
 
 typedef int32_t (*IntPtrType) (uintptr_t);
 typedef int32_t (*IntVoidType)(void);
+typedef int32_t (*IntUnsignedType)(unsigned);
 
 struct AppSharedState* appSharedState = NULL;
 
@@ -22,7 +23,7 @@ void MakeNaClSysCall_exit_sandbox(void)
 }
 
 //Specifically not making this a new function as this may add a new stack frame
-#define MakeNaClSysCall_callback() ((IntVoidType)NACL_SYSCALL_ADDR(NACL_sys_callback))()
+#define MakeNaClSysCall_callback(slotNumber) ((IntUnsignedType)NACL_SYSCALL_ADDR(NACL_sys_callback))(slotNumber)
 
 void exitFunctionWrapper(void)
 {
@@ -35,10 +36,14 @@ void exitFunctionWrapper(void)
 	MakeNaClSysCall_exit_sandbox();
 }
 
-void callbackFunctionWrapper(void)
-{
-	MakeNaClSysCall_callback();
-}
+void callbackFunctionWrapper0(void) { MakeNaClSysCall_callback(0); }
+void callbackFunctionWrapper1(void) { MakeNaClSysCall_callback(1); }
+void callbackFunctionWrapper2(void) { MakeNaClSysCall_callback(2); }
+void callbackFunctionWrapper3(void) { MakeNaClSysCall_callback(3); }
+void callbackFunctionWrapper4(void) { MakeNaClSysCall_callback(4); }
+void callbackFunctionWrapper5(void) { MakeNaClSysCall_callback(5); }
+void callbackFunctionWrapper6(void) { MakeNaClSysCall_callback(6); }
+void callbackFunctionWrapper7(void) { MakeNaClSysCall_callback(7); }
 
 unsigned test_localMath(unsigned a, unsigned  b, unsigned c)
 {
@@ -57,7 +62,14 @@ int main(int argc, char** argv)
 	appSharedState = (struct AppSharedState*) malloc(sizeof(struct AppSharedState));
 
 	appSharedState->exitFunctionWrapperPtr = exitFunctionWrapper;
-	appSharedState->callbackFunctionWrapper = callbackFunctionWrapper;
+	appSharedState->callbackFunctionWrapper[0] = callbackFunctionWrapper0;
+	appSharedState->callbackFunctionWrapper[1] = callbackFunctionWrapper1;
+	appSharedState->callbackFunctionWrapper[2] = callbackFunctionWrapper2;
+	appSharedState->callbackFunctionWrapper[3] = callbackFunctionWrapper3;
+	appSharedState->callbackFunctionWrapper[4] = callbackFunctionWrapper4;
+	appSharedState->callbackFunctionWrapper[5] = callbackFunctionWrapper5;
+	appSharedState->callbackFunctionWrapper[6] = callbackFunctionWrapper6;
+	appSharedState->callbackFunctionWrapper[7] = callbackFunctionWrapper7;
 
 	appSharedState->test_localMathPtr = test_localMath;
 	appSharedState->test_localStringPtr = test_localString;
