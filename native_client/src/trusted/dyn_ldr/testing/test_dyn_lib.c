@@ -1,7 +1,7 @@
 #include <string.h>
 #include <stdint.h>
 
-typedef unsigned (*CallbackType)(unsigned, unsigned);
+typedef unsigned (*CallbackType)(unsigned, char*);
 
 int simpleAdd(int a, int b)
 {
@@ -13,7 +13,7 @@ size_t simpleStrLen(char* str)
 	return strlen(str);
 }
 
-unsigned simpleCallback(unsigned a, unsigned b, CallbackType callback)
+unsigned simpleCallback(unsigned a, char* b, CallbackType callback)
 {
 	unsigned ret = callback(a, b);
 	return ret;

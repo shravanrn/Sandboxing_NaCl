@@ -63,26 +63,35 @@ size_t invokeSimpleStrLenWithHeapString(NaClSandbox* sandbox, void* simpleStrLen
 
 //////////////////////////////////////////////////////////////////
 
-unsigned invokeSimpleCallback_callback(unsigned a, unsigned b)
+unsigned invokeSimpleCallback_callback(unsigned a, char* b)
 {
-	return a + b;
+	return a + strlen(b);
 }
 
 SANDBOX_CALLBACK unsigned invokeSimpleCallback_callbackStub(uintptr_t sandboxPtr)
 {
-	unsigned* a;
-	unsigned* b;
-
+	unsigned a;
+	char* b;
 	NaClSandbox* sandbox = (NaClSandbox*) sandboxPtr;
 
 	a = COMPLETELY_UNTRUSTED_CALLBACK_PARAM(sandbox, unsigned);
-	b = COMPLETELY_UNTRUSTED_CALLBACK_PARAM(sandbox, unsigned);
+	b = COMPLETELY_UNTRUSTED_CALLBACK_PARAM_PTR(sandbox, char*);
+
+	//We should not assume anything about a, b
+	//b could be a pointer to garbage instead of a null terminated string
+	//calling any string function on b, such as strlen or others could have unpredictable results
+	//we should have some verifications step here
+	//maybe something like 
+	// - is a between 0 and 100 or whatever range makes sense
+	// - does b have a null character in the first 100 characters etc.
+	//These validations will most likely have to be domain specific
+	
 	CALLBACK_PARAMS_FINISHED(sandbox);
 	
-	return invokeSimpleCallback_callback(*a, *b);
+	return invokeSimpleCallback_callback(a, b);
 }
 
-unsigned invokeSimpleCallback(NaClSandbox* sandbox, void* simpleCallbackPtr, unsigned a, unsigned b)
+unsigned invokeSimpleCallback(NaClSandbox* sandbox, void* simpleCallbackPtr, unsigned a, char* b)
 {
   unsigned ret;
   short slotNumber = 0;
@@ -93,7 +102,7 @@ unsigned invokeSimpleCallback(NaClSandbox* sandbox, void* simpleCallbackPtr, uns
   preFunctionCall(sandbox, sizeof(a) + sizeof(b) + sizeof(callback), 0 /* size of any arrays being pushed on the stack */);
 
   PUSH_VAL_TO_STACK(sandbox, unsigned, a);
-  PUSH_VAL_TO_STACK(sandbox, unsigned, b);
+  PUSH_STRING_TO_STACK(sandbox, b);
   PUSH_VAL_TO_STACK(sandbox, uintptr_t, callback);
 
   invokeFunctionCall(sandbox, simpleCallbackPtr);
@@ -210,7 +219,7 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	if(invokeSimpleCallback(sandbox, simpleCallbackResult, 4, 5) != 9)
+	if(invokeSimpleCallback(sandbox, simpleCallbackResult, 4, "Hello") != 9)
 	{
 		printf("Dyn loader Test 4: Failed\n");
 		return 1;
