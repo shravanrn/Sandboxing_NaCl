@@ -3,17 +3,17 @@
 
 typedef unsigned (*CallbackType)(unsigned, char*);
 
-int simpleAdd(int a, int b)
+int simpleAddTest(int a, int b)
 {
 	return a + b;
 }
 
-size_t simpleStrLen(char* str)
+size_t simpleStrLenTest(char* str)
 {
 	return strlen(str);
 }
 
-unsigned simpleCallback(unsigned a, char* b, CallbackType callback)
+unsigned simpleCallbackTest(unsigned a, char* b, CallbackType callback)
 {
 	unsigned ret = callback(a, b);
 	return ret;

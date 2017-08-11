@@ -13,34 +13,34 @@
 /**************** Dynamic Library function stubs ****************/
 //Some functions that help invoke the functions in dynamic library generated from test_dyn_lib.c
 
-int invokeSimpleAdd(NaClSandbox* sandbox, void* simpleAddPtr, int a, int b)
+int invokeSimpleAddTest(NaClSandbox* sandbox, void* simpleAddTestPtr, int a, int b)
 {
   preFunctionCall(sandbox, sizeof(a) + sizeof(b), 0 /* size of any arrays being pushed on the stack */);
 
   PUSH_VAL_TO_STACK(sandbox, int, a);
   PUSH_VAL_TO_STACK(sandbox, int, b);
 
-  invokeFunctionCall(sandbox, simpleAddPtr);
+  invokeFunctionCall(sandbox, simpleAddTestPtr);
 
   return (int)functionCallReturnRawPrimitiveInt(sandbox);
 }
 
 //////////////////////////////////////////////////////////////////
 
-size_t invokeSimpleStrLenWithStackString(NaClSandbox* sandbox, void* simpleStrLenPtr, char* str)
+size_t invokeSimpleStrLenTestWithStackString(NaClSandbox* sandbox, void* simpleStrLenTestPtr, char* str)
 {
   preFunctionCall(sandbox, sizeof(str), STRING_SIZE(str));
 
   PUSH_STRING_TO_STACK(sandbox, str);
 
-  invokeFunctionCall(sandbox, simpleStrLenPtr);
+  invokeFunctionCall(sandbox, simpleStrLenTestPtr);
 
   return (size_t)functionCallReturnRawPrimitiveInt(sandbox);
 }
 
 //////////////////////////////////////////////////////////////////
 
-size_t invokeSimpleStrLenWithHeapString(NaClSandbox* sandbox, void* simpleStrLenPtr, char* str)
+size_t invokeSimpleStrLenTestWithHeapString(NaClSandbox* sandbox, void* simpleStrLenTestPtr, char* str)
 {
   char* strInSandbox;
   size_t ret;
@@ -52,7 +52,7 @@ size_t invokeSimpleStrLenWithHeapString(NaClSandbox* sandbox, void* simpleStrLen
 
   PUSH_PTR_TO_STACK(sandbox, char*, strInSandbox);
 
-  invokeFunctionCall(sandbox, simpleStrLenPtr);
+  invokeFunctionCall(sandbox, simpleStrLenTestPtr);
 
   ret = (size_t)functionCallReturnRawPrimitiveInt(sandbox);
 
@@ -79,12 +79,12 @@ int strLenWithin(char* a, unsigned lenLimit)
 	return 0;
 }
 
-unsigned invokeSimpleCallback_callback(unsigned a, char* b)
+unsigned invokeSimpleCallbackTest_callback(unsigned a, char* b)
 {
 	return a + strlen(b);
 }
 
-SANDBOX_CALLBACK unsigned invokeSimpleCallback_callbackStub(uintptr_t sandboxPtr)
+SANDBOX_CALLBACK unsigned invokeSimpleCallbackTest_callbackStub(uintptr_t sandboxPtr)
 {
 	unsigned a;
 	char* b;
@@ -103,21 +103,24 @@ SANDBOX_CALLBACK unsigned invokeSimpleCallback_callbackStub(uintptr_t sandboxPtr
 	// - is a between 0 and 100 or whatever range makes sense
 	// - does b have a null character in the first 100 characters etc.
 	//These validations will most likely have to be domain specific
-	if(!(a < 100 && strLenWithin(b, 100)))
+	if(a < 100 && strLenWithin(b, 100))
 	{
-		return 0;
+		return invokeSimpleCallbackTest_callback(a, b);
 	}
-	
-	return invokeSimpleCallback_callback(a, b);
+	else
+	{
+		//Validation failed
+		return 0;
+	}	
 }
 
-unsigned invokeSimpleCallback(NaClSandbox* sandbox, void* simpleCallbackPtr, unsigned a, char* b)
+unsigned invokeSimpleCallbackTest(NaClSandbox* sandbox, void* simpleCallbackTestPtr, unsigned a, char* b)
 {
   unsigned ret;
   short slotNumber = 0;
 
   //Note will return NULL if given a slot number greater than getTotalNumberOfCallbackSlots(), a valid ptr if it succeeds
-  uintptr_t callback = registerSandboxCallback(sandbox, slotNumber, (uintptr_t) invokeSimpleCallback_callbackStub);
+  uintptr_t callback = registerSandboxCallback(sandbox, slotNumber, (uintptr_t) invokeSimpleCallbackTest_callbackStub);
 
   preFunctionCall(sandbox, sizeof(a) + sizeof(b) + sizeof(callback), 0 /* size of any arrays being pushed on the stack */);
 
@@ -125,7 +128,7 @@ unsigned invokeSimpleCallback(NaClSandbox* sandbox, void* simpleCallbackPtr, uns
   PUSH_STRING_TO_STACK(sandbox, b);
   PUSH_VAL_TO_STACK(sandbox, uintptr_t, callback);
 
-  invokeFunctionCall(sandbox, simpleCallbackPtr);
+  invokeFunctionCall(sandbox, simpleCallbackTestPtr);
 
   ret = (unsigned) functionCallReturnRawPrimitiveInt(sandbox);
 
@@ -149,9 +152,9 @@ int main(int argc, char** argv)
 {
 	NaClSandbox* sandbox;
 	void* dlHandle;
-	void* simpleAddSymResult;
-	void* simpleStrLenResult;
-	void* simpleCallbackResult;
+	void* simpleAddTestSymResult;
+	void* simpleStrLenTestResult;
+	void* simpleCallbackTestResult;
 
 	/**************** Some calculations of relative paths ****************/
 	char* execFolder;
@@ -207,11 +210,11 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	simpleAddSymResult   = dlsymInSandbox(sandbox, dlHandle, "simpleAdd");
-	simpleStrLenResult   = dlsymInSandbox(sandbox, dlHandle, "simpleStrLen");
-	simpleCallbackResult = dlsymInSandbox(sandbox, dlHandle, "simpleCallback");
+	simpleAddTestSymResult   = dlsymInSandbox(sandbox, dlHandle, "simpleAddTest");
+	simpleStrLenTestResult   = dlsymInSandbox(sandbox, dlHandle, "simpleStrLenTest");
+	simpleCallbackTestResult = dlsymInSandbox(sandbox, dlHandle, "simpleCallbackTest");
 
-	if(simpleAddSymResult == NULL || simpleStrLenResult == NULL || simpleCallbackResult == NULL)
+	if(simpleAddTestSymResult == NULL || simpleStrLenTestResult == NULL || simpleCallbackTestResult == NULL)
 	{
 		printf("Dyn loader Test: dlSym returned null\n");
 		return 1;
@@ -219,25 +222,25 @@ int main(int argc, char** argv)
 
 	/**************** Invoking functions in sandbox ****************/
 
-	if(invokeSimpleAdd(sandbox, simpleAddSymResult, 2, 3) != 5)
+	if(invokeSimpleAddTest(sandbox, simpleAddTestSymResult, 2, 3) != 5)
 	{
 		printf("Dyn loader Test 1: Failed\n");
 		return 1;
 	}
 
-	if(invokeSimpleStrLenWithStackString(sandbox, simpleStrLenResult, "Hello") != 5)
+	if(invokeSimpleStrLenTestWithStackString(sandbox, simpleStrLenTestResult, "Hello") != 5)
 	{
 		printf("Dyn loader Test 2: Failed\n");
 		return 1;
 	}
 
-	if(invokeSimpleStrLenWithStackString(sandbox, simpleStrLenResult, "Hello") != 5)
+	if(invokeSimpleStrLenTestWithStackString(sandbox, simpleStrLenTestResult, "Hello") != 5)
 	{
 		printf("Dyn loader Test 3: Failed\n");
 		return 1;
 	}
 
-	if(invokeSimpleCallback(sandbox, simpleCallbackResult, 4, "Hello") != 9)
+	if(invokeSimpleCallbackTest(sandbox, simpleCallbackTestResult, 4, "Hello") != 9)
 	{
 		printf("Dyn loader Test 4: Failed\n");
 		return 1;
