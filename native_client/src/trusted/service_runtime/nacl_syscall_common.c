@@ -288,7 +288,6 @@ int32_t NaClSysRegisterSharedState(struct NaClAppThread *natp, uintptr_t sharedS
 int32_t NaClSysExitSandbox(struct NaClAppThread *natp) {
   jmp_buf* jump_buf_loc;
 
-  NaClLog(LOG_INFO, "Entered NaClSysExitSandbox\n");
   jump_buf_loc = Stack_GetTopPtrForPop(&(natp->nap->jumpBufferStack));
   longjmp(*jump_buf_loc, 1);  
   return 0;

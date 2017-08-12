@@ -142,6 +142,48 @@ unsigned invokeSimpleCallbackTest(NaClSandbox* sandbox, void* simpleCallbackTest
 
 //////////////////////////////////////////////////////////////////
 
+int invokeSimpleWriteToFileTest(NaClSandbox* sandbox, void* simpleWriteToFileTest, FILE* file, char* str)
+{
+  // FILE* file = CREATE_ON_STACK(sandbox, FILE);
+  // memcpy(file, cfile, sizeof(FILE));
+
+  preFunctionCall(sandbox, sizeof(FILE*) + sizeof(str), STRING_SIZE(str));
+
+  PUSH_PTR_TO_STACK(sandbox, FILE*, file);
+  PUSH_STRING_TO_STACK(sandbox, str);
+
+  invokeFunctionCall(sandbox, simpleWriteToFileTest);
+
+  return (int)functionCallReturnRawPrimitiveInt(sandbox);
+	// if(sandbox){}
+	// if(simpleWriteToFileTest){}
+	// return fputs(str, file);
+}
+
+//////////////////////////////////////////////////////////////////
+
+int fileTestPassed(NaClSandbox* sandbox, void* simpleWriteToFileTest)
+{
+	FILE* file = fopenInSandbox(sandbox, "/home/shr/Desktop/test123.txt", "w");
+
+	if(!file)
+	{
+		printf("File open failed\n");
+		return 0;
+	}
+
+	invokeSimpleWriteToFileTest(sandbox, simpleWriteToFileTest, file, "test123");
+
+    printf("File written\n");
+
+	if(fcloseInSandbox(sandbox, file))
+	{
+		printf("File close failed\n");
+		return 0;
+	}
+	return 1;
+}
+
 /**************** Main function ****************/
 
 char* getExecFolder(char* executablePath);
@@ -155,6 +197,7 @@ int main(int argc, char** argv)
 	void* simpleAddTestSymResult;
 	void* simpleStrLenTestResult;
 	void* simpleCallbackTestResult;
+	void* simpleWriteToFileTestResult;
 
 	/**************** Some calculations of relative paths ****************/
 	char* execFolder;
@@ -206,15 +249,19 @@ int main(int argc, char** argv)
 	if(dlHandle == NULL)
 	{
 		char *err = dlerrorInSandbox(sandbox); 
-		printf("Dyn loader Test: dlopen returned null. Got err message: %s\n", err);
+		printf("Dyn loader Test: dlopen returned null. Got err msg: %s\n", err);
 		return 1;
 	}
 
-	simpleAddTestSymResult   = dlsymInSandbox(sandbox, dlHandle, "simpleAddTest");
-	simpleStrLenTestResult   = dlsymInSandbox(sandbox, dlHandle, "simpleStrLenTest");
-	simpleCallbackTestResult = dlsymInSandbox(sandbox, dlHandle, "simpleCallbackTest");
+	simpleAddTestSymResult      = dlsymInSandbox(sandbox, dlHandle, "simpleAddTest");
+	simpleStrLenTestResult      = dlsymInSandbox(sandbox, dlHandle, "simpleStrLenTest");
+	simpleCallbackTestResult    = dlsymInSandbox(sandbox, dlHandle, "simpleCallbackTest");
+	simpleWriteToFileTestResult = dlsymInSandbox(sandbox, dlHandle, "simpleWriteToFileTest");
 
-	if(simpleAddTestSymResult == NULL || simpleStrLenTestResult == NULL || simpleCallbackTestResult == NULL)
+	if(simpleAddTestSymResult == NULL 
+		|| simpleStrLenTestResult == NULL 
+		|| simpleCallbackTestResult == NULL
+		|| simpleWriteToFileTestResult == NULL)
 	{
 		printf("Dyn loader Test: dlSym returned null\n");
 		return 1;
@@ -244,6 +291,12 @@ int main(int argc, char** argv)
 	{
 		printf("Dyn loader Test 4: Failed\n");
 		return 1;
+	}
+
+	if(!fileTestPassed(sandbox, simpleWriteToFileTestResult))
+	{
+		printf("Dyn loader Test 5: Failed\n");
+		return 1;	
 	}
 
 	printf("Dyn loader Test Succeeded\n");

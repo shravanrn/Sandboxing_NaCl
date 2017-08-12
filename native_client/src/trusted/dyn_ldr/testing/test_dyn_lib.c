@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stdint.h>
+#include <stdio.h>
 
 typedef unsigned (*CallbackType)(unsigned, char*);
 
@@ -17,4 +18,9 @@ unsigned simpleCallbackTest(unsigned a, char* b, CallbackType callback)
 {
 	unsigned ret = callback(a, b);
 	return ret;
+}
+
+int simpleWriteToFileTest(FILE* file, char* str)
+{
+	return fputs(str, file);
 }

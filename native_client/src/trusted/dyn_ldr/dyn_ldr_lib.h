@@ -1,5 +1,11 @@
+#ifdef __cplusplus
+  extern "C" {
+#endif
+
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <string.h>
 
 typedef struct
 {
@@ -23,6 +29,9 @@ char* dlerrorInSandbox(NaClSandbox* sandbox);
 void* dlsymInSandbox  (NaClSandbox* sandbox, void *handle, const char *symbol);
 int   dlcloseInSandbox(NaClSandbox* sandbox, void *handle);
 
+FILE* fopenInSandbox(NaClSandbox* sandbox, const char * filename, const char * mode);
+int fcloseInSandbox(NaClSandbox* sandbox, FILE * stream);
+
 void preFunctionCall(NaClSandbox* sandbox, size_t paramsSize, size_t arraysSize);
 void invokeFunctionCall(NaClSandbox* sandbox, void* functionPtr);
 void invokeFunctionCallWithSandboxPtr(NaClSandbox* sandbox, uintptr_t functionPtrInSandbox);
@@ -36,10 +45,16 @@ uintptr_t NaClSysToUserOrNull(struct NaClApp *nap, uintptr_t uaddr);
 
 #define ADJUST_STACK_PTR(ptr, size) (ptr + size)
 
+#define REMOVE_FROM_STACK(sandbox, type) do { \
+  sandbox->stack_ptr = ADJUST_STACK_PTR(sandbox->stack_ptr, - sizeof(type)); \
+} while (0)
+
+#define CREATE_ON_STACK(sandbox, type) ((type*) (sandbox->stack_ptr)); sandbox->stack_ptr = ADJUST_STACK_PTR(sandbox->stack_ptr, sizeof(type))
+
 #define PUSH_VAL_TO_STACK(sandbox, type, value) do { \
-  /*printf("Entering PUSH_VAL_TO_STACK: %u loc %u\n", (unsigned) value,(unsigned)(sandbox->stack_ptr));*/ \
-  *(type *) (sandbox->stack_ptr) = (type) value; \
-  sandbox->stack_ptr = ADJUST_STACK_PTR(sandbox->stack_ptr, sizeof(type)); \
+  type * tempVar = CREATE_ON_STACK(sandbox, type); \
+  printf("Entering PUSH_VAL_TO_STACK: %u loc %u\n", (unsigned) value,(unsigned)(sandbox->stack_ptr)); \
+  *tempVar = (type)(value); \
 } while (0)
 
 #define PUSH_SANDBOXEDPTR_TO_STACK(sandbox, type, value) PUSH_VAL_TO_STACK(sandbox, type, value)
@@ -89,4 +104,8 @@ uintptr_t functionCallReturnSandboxPtr(NaClSandbox* sandbox);
 	#error Unsupported platform!
 #else
 	#error Unknown platform!
+#endif
+
+#ifdef __cplusplus
+  }
 #endif

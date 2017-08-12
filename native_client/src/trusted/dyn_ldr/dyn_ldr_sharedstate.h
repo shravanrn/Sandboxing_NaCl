@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #if defined(_M_IX86) || defined(__i386__)
     typedef uint32_t  nacl_register; 
 #elif defined(_M_X64) || defined(__x86_64__)
@@ -24,6 +26,9 @@ typedef char* (*dlerror_type)(void);
 typedef void* (*dlsym_type)  (void *, const char *);
 typedef int   (*dlclose_type)(void *);
 
+typedef FILE* (*fopen_type)  (const char *, const char *);
+typedef int   (*fclose_type) (FILE * stream);
+
 struct AppSharedState
 {
     nacl_register                register_eax;
@@ -41,4 +46,7 @@ struct AppSharedState
     dlerror_type                 dlerrorPtr;
     dlsym_type                   dlsymPtr;
     dlclose_type                 dlclosePtr;
+
+    fopen_type                   fopenPtr;
+    fclose_type                  fclosePtr;
 };

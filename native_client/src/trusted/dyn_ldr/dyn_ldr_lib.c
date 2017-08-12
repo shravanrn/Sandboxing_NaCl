@@ -151,7 +151,7 @@ NaClSandbox* createDlSandbox(char* naclGlibcLibraryPathWithTrailingSlash, char* 
   pq_error = NaClAppLoadFileFromFilename(nap, dynamic_loader);
 
   if (LOAD_OK != pq_error) {
-    NaClLog(LOG_ERROR, "Error while loading  from naclInitAppFullPath: %s\n", NaClErrorString(pq_error));
+    NaClLog(LOG_ERROR, "Error while loading from naclInitAppFullPath: %s\n", NaClErrorString(pq_error));
     goto error;
   }
 
@@ -316,12 +316,11 @@ void invokeFunctionCallWithSandboxPtr(NaClSandbox* sandbox, uintptr_t functionPt
   int                   setJmpReturn;
 
   jmp_buf_loc = Stack_GetTopPtrForPush(&(sandbox->nap->jumpBufferStack));
-  NaClLog(LOG_INFO, "Saving state\n");
   setJmpReturn = setjmp(*jmp_buf_loc);
 
   if(setJmpReturn == 0)
   {
-    NaClLog(LOG_INFO, "Invoking\n");
+    NaClLog(LOG_INFO, "Invoking func\n");
     /*To resume execution with NaClStartThreadInApp, NaCl assumes*/
     /*that the app thread is in UNTRUSTED state*/
     sandbox->mainThread->suspend_state = NACL_APP_THREAD_UNTRUSTED;
@@ -550,4 +549,26 @@ int dlcloseInSandbox(NaClSandbox* sandbox, void *handle)
 
   return (int)functionCallReturnRawPrimitiveInt(sandbox);
 }
- 
+
+FILE* fopenInSandbox(NaClSandbox* sandbox, const char * filename, const char * mode)
+{
+  preFunctionCall(sandbox, sizeof(filename) + sizeof(mode), STRING_SIZE(filename) + STRING_SIZE(mode));
+
+  PUSH_STRING_TO_STACK(sandbox, filename);
+  PUSH_STRING_TO_STACK(sandbox, mode);
+
+  invokeFunctionCallWithSandboxPtr(sandbox, (uintptr_t)sandbox->sharedState->fopenPtr);
+
+  return (FILE*) functionCallReturnPtr(sandbox);
+}
+
+int fcloseInSandbox(NaClSandbox* sandbox, FILE * stream)
+{
+  preFunctionCall(sandbox, sizeof(stream), 0);
+
+  PUSH_PTR_TO_STACK(sandbox, FILE *, stream);
+
+  invokeFunctionCallWithSandboxPtr(sandbox, (uintptr_t)sandbox->sharedState->fclosePtr);
+
+  return (int)functionCallReturnRawPrimitiveInt(sandbox);
+}

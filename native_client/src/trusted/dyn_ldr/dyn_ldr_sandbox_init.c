@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include "native_client/src/trusted/dyn_ldr/dyn_ldr_sharedstate.h"
 #include "native_client/src/trusted/service_runtime/nacl_config.h"
 #include "native_client/src/trusted/service_runtime/include/bits/nacl_syscalls.h"
@@ -81,6 +82,9 @@ int main(int argc, char** argv)
 	appSharedState->dlerrorPtr = dlerror;
 	appSharedState->dlsymPtr = dlsym;
 	appSharedState->dlclosePtr = dlclose;
+
+	appSharedState->fopenPtr = fopen;
+	appSharedState->fclosePtr = fclose;
 
 	MakeNaClSysCall_register_shared_state((uintptr_t)appSharedState);
 	MakeNaClSysCall_exit_sandbox();
