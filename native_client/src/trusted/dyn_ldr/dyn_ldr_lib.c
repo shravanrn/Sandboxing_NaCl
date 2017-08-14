@@ -125,9 +125,9 @@ NaClSandbox* createDlSandbox(char* naclGlibcLibraryPathWithTrailingSlash, char* 
     goto error;
   }
 
-//  #if NACL_LINUX
-//   NaClSignalHandlerInit();
-//  #endif
+ #if NACL_LINUX
+  NaClSignalHandlerInit();
+ #endif
 //    /*
 //     * Patch the Windows exception dispatcher to be safe in the case of
 //     * faults inside x86-64 sandboxed code.  The sandbox is not secure
@@ -233,9 +233,9 @@ error:
   NaClLog(LOG_ERROR, "Failed in creating sandbox\n");
   fflush(stdout);
 
-// #if NACL_LINUX
-//   NaClSignalHandlerFini();
-// #endif
+#if NACL_LINUX
+  NaClSignalHandlerFini();
+#endif
   NaClAllModulesFini();
 
   return NULL;

@@ -46,15 +46,15 @@ uintptr_t NaClSysToUserOrNull(struct NaClApp *nap, uintptr_t uaddr);
 #define ADJUST_STACK_PTR(ptr, size) (ptr + size)
 
 #define REMOVE_FROM_STACK(sandbox, type) do { \
-  sandbox->stack_ptr = ADJUST_STACK_PTR(sandbox->stack_ptr, - sizeof(type)); \
+  sandbox->stack_ptr = ADJUST_STACK_PTR(sandbox->stack_ptr, ROUND_UP_TO_POW2(sizeof(type), sizeof(uintptr_t)) ); \
 } while (0)
 
-#define CREATE_ON_STACK(sandbox, type) ((type*) (sandbox->stack_ptr)); sandbox->stack_ptr = ADJUST_STACK_PTR(sandbox->stack_ptr, sizeof(type))
+#define CREATE_ON_STACK(sandbox, type) (sandbox->stack_ptr = ADJUST_STACK_PTR(sandbox->stack_ptr, - ROUND_UP_TO_POW2(sizeof(type), sizeof(uintptr_t)) ), (type*)(sandbox->stack_ptr))
 
 #define PUSH_VAL_TO_STACK(sandbox, type, value) do { \
-  type * tempVar = CREATE_ON_STACK(sandbox, type); \
-  printf("Entering PUSH_VAL_TO_STACK: %u loc %u\n", (unsigned) value,(unsigned)(sandbox->stack_ptr)); \
-  *tempVar = (type)(value); \
+  /*printf("Entering PUSH_VAL_TO_STACK: %u loc %u\n", (unsigned) value,(unsigned)(sandbox->stack_ptr));*/ \
+  *(type *) (sandbox->stack_ptr) = (type) value; \
+  sandbox->stack_ptr = ADJUST_STACK_PTR(sandbox->stack_ptr, sizeof(type)); \
 } while (0)
 
 #define PUSH_SANDBOXEDPTR_TO_STACK(sandbox, type, value) PUSH_VAL_TO_STACK(sandbox, type, value)
