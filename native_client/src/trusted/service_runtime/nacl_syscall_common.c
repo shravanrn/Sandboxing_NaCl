@@ -296,7 +296,7 @@ int32_t NaClSysExitSandbox(struct NaClAppThread *natp) {
 //NACL_sys_callback
 int32_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumber) {
   
-  NaClLog(LOG_INFO, "Entered NaClSysCallback\n");
+  NaClLog(LOG_INFO, "Entered NaClSysCallback: %u\n", (unsigned) callbackSlotNumber);
 
   #define CALLBACK_SLOTS_AVAILABLE (sizeof( ((struct NaClApp*) 0)->callbackSlot ) / sizeof(uintptr_t))
 
@@ -308,8 +308,36 @@ int32_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumber)
       VoidPtrFunc func;
       register int32_t eax asm("eax");
 
+      //We are here in the following situation.
+      //The app makes a function call into the sandbox (let's call this S1).
+      //The sandbox makes a callback (let's call this C) into main aoo
+      //Note we need to save register values and restore them after the C
+      //This is because, when we execute C below, C could 
+      //make a different call into the sandbox(let's call this S2) at which point, the instruction pointer, stack pointer
+      //registers etc. would all have changed when the call S2 executes. Thus when S2 returns, C returns and 
+      //we continue execution of S1, thes values would be destroyed. So we save this, and restore it before we return.
+      nacl_reg_t saved_ebx = natp->user.ebx;
+      nacl_reg_t saved_esi = natp->user.esi;
+      nacl_reg_t saved_edi = natp->user.edi;
+      nacl_reg_t saved_prog_ctr = natp->user.prog_ctr;
+      nacl_reg_t saved_frame_ptr = natp->user.frame_ptr;
+      nacl_reg_t saved_stack_ptr = natp->user.stack_ptr;
+      nacl_reg_t saved_new_prog_ctr = natp->user.new_prog_ctr;
+      nacl_reg_t saved_sysret = natp->user.sysret;
+
+      NaClLog(LOG_INFO, "Making NaClSysCallback: %u\n", (unsigned) callbackSlotNumber);
       func = (VoidPtrFunc) (natp->nap->callbackSlot[callbackSlotNumber]);
       func(natp->nap->custom_app_state);
+      NaClLog(LOG_INFO, "Returned from NaClSysCallback with eax: %d\n", (int) eax);
+
+      natp->user.ebx = saved_ebx;
+      natp->user.esi = saved_esi;
+      natp->user.edi = saved_edi;
+      natp->user.prog_ctr = saved_prog_ctr;
+      natp->user.frame_ptr = saved_frame_ptr;
+      natp->user.stack_ptr = saved_stack_ptr;
+      natp->user.new_prog_ctr = saved_new_prog_ctr;
+      natp->user.sysret = saved_sysret;
 
       //Depending on the callback return type, the return value could be in the 
       //   eax register - simple integers or pointers

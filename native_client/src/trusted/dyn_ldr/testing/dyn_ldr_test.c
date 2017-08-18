@@ -15,50 +15,50 @@
 
 int invokeSimpleAddTest(NaClSandbox* sandbox, void* simpleAddTestPtr, int a, int b)
 {
-  preFunctionCall(sandbox, sizeof(a) + sizeof(b), 0 /* size of any arrays being pushed on the stack */);
+	preFunctionCall(sandbox, sizeof(a) + sizeof(b), 0 /* size of any arrays being pushed on the stack */);
 
-  PUSH_VAL_TO_STACK(sandbox, int, a);
-  PUSH_VAL_TO_STACK(sandbox, int, b);
+	PUSH_VAL_TO_STACK(sandbox, int, a);
+	PUSH_VAL_TO_STACK(sandbox, int, b);
 
-  invokeFunctionCall(sandbox, simpleAddTestPtr);
+	invokeFunctionCall(sandbox, simpleAddTestPtr);
 
-  return (int)functionCallReturnRawPrimitiveInt(sandbox);
+	return (int)functionCallReturnRawPrimitiveInt(sandbox);
 }
 
 //////////////////////////////////////////////////////////////////
 
 size_t invokeSimpleStrLenTestWithStackString(NaClSandbox* sandbox, void* simpleStrLenTestPtr, char* str)
 {
-  preFunctionCall(sandbox, sizeof(str), STRING_SIZE(str));
+	preFunctionCall(sandbox, sizeof(str), STRING_SIZE(str));
 
-  PUSH_STRING_TO_STACK(sandbox, str);
+	PUSH_STRING_TO_STACK(sandbox, str);
 
-  invokeFunctionCall(sandbox, simpleStrLenTestPtr);
+	invokeFunctionCall(sandbox, simpleStrLenTestPtr);
 
-  return (size_t)functionCallReturnRawPrimitiveInt(sandbox);
+	return (size_t)functionCallReturnRawPrimitiveInt(sandbox);
 }
 
 //////////////////////////////////////////////////////////////////
 
 size_t invokeSimpleStrLenTestWithHeapString(NaClSandbox* sandbox, void* simpleStrLenTestPtr, char* str)
 {
-  char* strInSandbox;
-  size_t ret;
+	char* strInSandbox;
+	size_t ret;
 
-  strInSandbox = (char*) mallocInSandbox(sandbox, strlen(str) + 1);
-  strcpy(strInSandbox, str);
+	strInSandbox = (char*) mallocInSandbox(sandbox, strlen(str) + 1);
+	strcpy(strInSandbox, str);
 
-  preFunctionCall(sandbox, sizeof(strInSandbox), 0 /* size of any arrays being pushed on the stack */);
+	preFunctionCall(sandbox, sizeof(strInSandbox), 0 /* size of any arrays being pushed on the stack */);
 
-  PUSH_PTR_TO_STACK(sandbox, char*, strInSandbox);
+	PUSH_PTR_TO_STACK(sandbox, char*, strInSandbox);
 
-  invokeFunctionCall(sandbox, simpleStrLenTestPtr);
+	invokeFunctionCall(sandbox, simpleStrLenTestPtr);
 
-  ret = (size_t)functionCallReturnRawPrimitiveInt(sandbox);
+	ret = (size_t)functionCallReturnRawPrimitiveInt(sandbox);
 
-  freeInSandbox(sandbox, strInSandbox);
+	freeInSandbox(sandbox, strInSandbox);
 
-  return ret;
+	return ret;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -79,18 +79,18 @@ int strLenWithin(char* a, unsigned lenLimit)
 	return 0;
 }
 
-unsigned invokeSimpleCallbackTest_callback(unsigned a, char* b)
+int invokeSimpleCallbackTest_callback(unsigned a, char* b)
 {
 	return a + strlen(b);
 }
 
 SANDBOX_CALLBACK unsigned invokeSimpleCallbackTest_callbackStub(uintptr_t sandboxPtr)
 {
-	unsigned a;
+	int a;
 	char* b;
 	NaClSandbox* sandbox = (NaClSandbox*) sandboxPtr;
 
-	a = COMPLETELY_UNTRUSTED_CALLBACK_STACK_PARAM(sandbox, unsigned);
+	a = COMPLETELY_UNTRUSTED_CALLBACK_STACK_PARAM(sandbox, int);
 	b = COMPLETELY_UNTRUSTED_CALLBACK_PTR_PARAM(sandbox, char*);
 
 	CALLBACK_PARAMS_FINISHED(sandbox);
@@ -105,7 +105,13 @@ SANDBOX_CALLBACK unsigned invokeSimpleCallbackTest_callbackStub(uintptr_t sandbo
 	//These validations will most likely have to be domain specific
 	if(a < 100 && strLenWithin(b, 100))
 	{
-		return invokeSimpleCallbackTest_callback(a, b);
+		//make a call back into the sandbox to test the ping-pong effect (function
+		//  call into sandbox, callback to outside, another function call back in etc.)
+		int ret;
+		void* ptr = mallocInSandbox(sandbox, sizeof(int));
+		ret = invokeSimpleCallbackTest_callback(a, b);
+		freeInSandbox(sandbox, ptr);
+		return ret;
 	}
 	else
 	{
@@ -114,50 +120,47 @@ SANDBOX_CALLBACK unsigned invokeSimpleCallbackTest_callbackStub(uintptr_t sandbo
 	}	
 }
 
-unsigned invokeSimpleCallbackTest(NaClSandbox* sandbox, void* simpleCallbackTestPtr, unsigned a, char* b)
+int invokeSimpleCallbackTest(NaClSandbox* sandbox, void* simpleCallbackTestPtr, unsigned a, char* b)
 {
-  unsigned ret;
-  short slotNumber = 0;
+	int ret;
+	short slotNumber = 0;
 
-  //Note will return NULL if given a slot number greater than getTotalNumberOfCallbackSlots(), a valid ptr if it succeeds
-  uintptr_t callback = registerSandboxCallback(sandbox, slotNumber, (uintptr_t) invokeSimpleCallbackTest_callbackStub);
+	//Note will return NULL if given a slot number greater than getTotalNumberOfCallbackSlots(), a valid ptr if it succeeds
+	uintptr_t callback = registerSandboxCallback(sandbox, slotNumber, (uintptr_t) invokeSimpleCallbackTest_callbackStub);
 
-  preFunctionCall(sandbox, sizeof(a) + sizeof(b) + sizeof(callback), 0 /* size of any arrays being pushed on the stack */);
+	preFunctionCall(sandbox, sizeof(a) + sizeof(b) + sizeof(callback), 0 /* size of any arrays being pushed on the stack */);
 
-  PUSH_VAL_TO_STACK(sandbox, unsigned, a);
-  PUSH_STRING_TO_STACK(sandbox, b);
-  PUSH_VAL_TO_STACK(sandbox, uintptr_t, callback);
+	PUSH_VAL_TO_STACK(sandbox, unsigned, a);
+	PUSH_STRING_TO_STACK(sandbox, b);
+	PUSH_VAL_TO_STACK(sandbox, uintptr_t, callback);
 
-  invokeFunctionCall(sandbox, simpleCallbackTestPtr);
+	invokeFunctionCall(sandbox, simpleCallbackTestPtr);
 
-  ret = (unsigned) functionCallReturnRawPrimitiveInt(sandbox);
+	ret = (int) functionCallReturnRawPrimitiveInt(sandbox);
 
-  //Best to unregister after it is done
-  //In an adversarial setting, the sandboxed app may decide to invoke the callback
-  //arbitrarily in the future, which may allow it to destabilize the hosting app
-  //Note will return 0 if given a slot number greater than getTotalNumberOfCallbackSlots(), 1 if it succeeds
-  unregisterSandboxCallback(sandbox, slotNumber);
-  return ret;
+	//Best to unregister after it is done
+	//In an adversarial setting, the sandboxed app may decide to invoke the callback
+	//arbitrarily in the future, which may allow it to destabilize the hosting app
+	//Note will return 0 if given a slot number greater than getTotalNumberOfCallbackSlots(), 1 if it succeeds
+	unregisterSandboxCallback(sandbox, slotNumber);
+	return ret;
 }
 
 //////////////////////////////////////////////////////////////////
 
 int invokeSimpleWriteToFileTest(NaClSandbox* sandbox, void* simpleWriteToFileTest, FILE* file, char* str)
 {
-  // FILE* file = CREATE_ON_STACK(sandbox, FILE);
-  // memcpy(file, cfile, sizeof(FILE));
+	// FILE* file = CREATE_ON_STACK(sandbox, FILE);
+	// memcpy(file, cfile, sizeof(FILE));
 
-  preFunctionCall(sandbox, sizeof(FILE*) + sizeof(str), STRING_SIZE(str));
+	preFunctionCall(sandbox, sizeof(FILE*) + sizeof(str), STRING_SIZE(str));
 
-  PUSH_PTR_TO_STACK(sandbox, FILE*, file);
-  PUSH_STRING_TO_STACK(sandbox, str);
+	PUSH_PTR_TO_STACK(sandbox, FILE*, file);
+	PUSH_STRING_TO_STACK(sandbox, str);
 
-  invokeFunctionCall(sandbox, simpleWriteToFileTest);
+	invokeFunctionCall(sandbox, simpleWriteToFileTest);
 
-  return (int)functionCallReturnRawPrimitiveInt(sandbox);
-	// if(sandbox){}
-	// if(simpleWriteToFileTest){}
-	// return fputs(str, file);
+	return (int)functionCallReturnRawPrimitiveInt(sandbox);
 }
 
 //////////////////////////////////////////////////////////////////
@@ -174,7 +177,7 @@ int fileTestPassed(NaClSandbox* sandbox, void* simpleWriteToFileTest)
 
 	invokeSimpleWriteToFileTest(sandbox, simpleWriteToFileTest, file, "test123");
 
-    printf("File written\n");
+	printf("File written\n");
 
 	if(fcloseInSandbox(sandbox, file))
 	{
@@ -182,6 +185,50 @@ int fileTestPassed(NaClSandbox* sandbox, void* simpleWriteToFileTest)
 		return 0;
 	}
 	return 1;
+}
+
+//////////////////////////////////////////////////////////////////
+
+int invokeSimpleEchoTestPassed(NaClSandbox* sandbox, void* simpleEchoTestPtr, char* str)
+{
+	char* strInSandbox;
+	char* retStr;
+	int ret;
+
+	//str is allocated in our heap, not the sandbox's heap
+	if(!isAddressInNonSandboxMemoryOrNull(sandbox, (uintptr_t) str))
+	{
+		return 0;
+	}
+
+	strInSandbox = (char*) mallocInSandbox(sandbox, strlen(str) + 1);
+	strcpy(strInSandbox, str);
+
+	//str is allocated in sandbox heap, not our heap
+	if(!isAddressInSandboxMemoryOrNull(sandbox, (uintptr_t) strInSandbox))
+	{
+		return 0;
+	}
+
+	preFunctionCall(sandbox, sizeof(strInSandbox), 0 /* size of any arrays being pushed on the stack */);
+
+	PUSH_PTR_TO_STACK(sandbox, char*, strInSandbox);
+
+	invokeFunctionCall(sandbox, simpleEchoTestPtr);
+
+	retStr = (char*)functionCallReturnPtr(sandbox);
+
+	//retStr is allocated in sandbox heap, not our heap
+	if(!isAddressInSandboxMemoryOrNull(sandbox, (uintptr_t) retStr))
+	{
+		return 0;
+	}
+
+	ret = strcmp(str, retStr) == 0;
+
+	freeInSandbox(sandbox, strInSandbox);
+
+	return ret;
 }
 
 /**************** Main function ****************/
@@ -198,6 +245,7 @@ int main(int argc, char** argv)
 	void* simpleStrLenTestResult;
 	void* simpleCallbackTestResult;
 	void* simpleWriteToFileTestResult;
+	void* simpleEchoTestResult;
 
 	/**************** Some calculations of relative paths ****************/
 	char* execFolder;
@@ -233,7 +281,12 @@ int main(int argc, char** argv)
 
 	printf("Starting Dyn loader Test\n");
 
-	initializeDlSandboxCreator(0 /* Should enable detailed logging */);
+	if(!initializeDlSandboxCreator(0 /* Should enable detailed logging */))
+	{
+		printf("Dyn loader Test: initializeDlSandboxCreator returned null\n");
+		return 1;
+	}
+
 	sandbox = createDlSandbox(libraryPath, sandbox_init_app);
 
 	if(sandbox == NULL)
@@ -257,11 +310,13 @@ int main(int argc, char** argv)
 	simpleStrLenTestResult      = dlsymInSandbox(sandbox, dlHandle, "simpleStrLenTest");
 	simpleCallbackTestResult    = dlsymInSandbox(sandbox, dlHandle, "simpleCallbackTest");
 	simpleWriteToFileTestResult = dlsymInSandbox(sandbox, dlHandle, "simpleWriteToFileTest");
+	simpleEchoTestResult        = dlsymInSandbox(sandbox, dlHandle, "simpleEchoTest");
 
 	if(simpleAddTestSymResult == NULL 
 		|| simpleStrLenTestResult == NULL 
 		|| simpleCallbackTestResult == NULL
-		|| simpleWriteToFileTestResult == NULL)
+		|| simpleWriteToFileTestResult == NULL
+		|| simpleEchoTestResult == NULL)
 	{
 		printf("Dyn loader Test: dlSym returned null\n");
 		return 1;
@@ -299,6 +354,12 @@ int main(int argc, char** argv)
 		return 1;	
 	}
 
+	if(!invokeSimpleEchoTestPassed(sandbox, simpleEchoTestResult, "Hello"))
+	{
+		printf("Dyn loader Test 6: Failed\n");
+		return 1;	
+	}
+
 	printf("Dyn loader Test Succeeded\n");
 
 	/**************** Cleanup ****************/
@@ -315,14 +376,14 @@ int main(int argc, char** argv)
 
 int lastIndexOf(const char * s, char target)
 {
-   int ret = -1;
-   int curIdx = 0;
-   while(s[curIdx] != '\0')
-   {
-      if (s[curIdx] == target) ret = curIdx;
-      curIdx++;
-   }
-   return ret;
+	 int ret = -1;
+	 int curIdx = 0;
+	 while(s[curIdx] != '\0')
+	 {
+	    if (s[curIdx] == target) ret = curIdx;
+	    curIdx++;
+	 }
+	 return ret;
 }
 
 void replaceChar(char* str, char toReplace, char replaceWith)

@@ -39,17 +39,74 @@ uintptr_t NaClSysToUserOrNull(struct NaClApp *nap, uintptr_t uaddr) {
   if (uaddr == 0) { return 0;}
   return NaClSysToUser(nap, uaddr);
 }
+int isAddressInSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr){
+  return uaddr == 0 || NaClIsUserAddr(sandbox->nap, uaddr);
+}
+int isAddressInNonSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr){
+  return uaddr == 0 || !NaClIsUserAddr(sandbox->nap, uaddr);  
+}
+
 
 /********************* Main functions ***********************/
 
-void initializeDlSandboxCreator(int enableLogging)
+int initializeDlSandboxCreator(int enableLogging)
 {
+  NaClErrorCode           pq_error;
+
+  // #if NACL_LINUX
+  //    NaClSignalHandlerInit();
+  // #elif NACL_OSX
+  //    if (!NaClInterceptMachExceptions()) {
+  //      NaClLog(LOG_ERROR, "ERROR setting up Mach exception interception.\n");
+  //      return FALSE;
+  //    }
+  // #elif NACL_WINDOWS 
+  //    #if (NACL_WINDOWS && NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64)
+  //      /*
+  //       * Patch the Windows exception dispatcher to be safe in the case of
+  //       * faults inside x86-64 sandboxed code.  The sandbox is not secure
+  //       * on 64-bit Windows without this.
+  //       */
+  //      NaClPatchWindowsExceptionDispatcher();
+  //    #endif
+  // #else
+  //    # error Unknown host OS
+  // #endif
+
   NaClAllModulesInit();
 
   if(enableLogging)
   {
     NaClLogSetVerbosity(5);
   }
+
+  pq_error = NaClRunSelQualificationTests();
+  if (LOAD_OK != pq_error) {
+    NaClLog(LOG_ERROR, "Error while running platform checks: %s\n", NaClErrorString(pq_error));
+    goto error;
+  }
+
+  return TRUE;
+
+error:
+  fflush(stdout);
+  NaClLog(LOG_ERROR, "Failed in creating sandbox\n");
+  fflush(stdout);
+
+  closeSandboxCreator();
+
+  return FALSE;
+}
+
+int closeSandboxCreator(void)
+{
+  // #if NACL_LINUX
+  //   NaClSignalHandlerFini();
+  // #endif
+
+  NaClAllModulesFini();
+
+  return TRUE;
 }
 
 unsigned invokeLocalMathTest(NaClSandbox* sandbox, unsigned a, unsigned b, unsigned c);
@@ -106,36 +163,8 @@ NaClSandbox* createDlSandbox(char* naclGlibcLibraryPathWithTrailingSlash, char* 
   nap->enable_exception_handling = FALSE;//options->enable_exception_handling;
 
   // #if NACL_WINDOWS
-  //   nap->attach_debug_exception_handler_func =
-  //     NaClDebugExceptionHandlerStandaloneAttach;
-  // #elif NACL_LINUX
-  //     /* NaCl's signal handler is always enabled on Linux. */
-  // #elif NACL_OSX
-  //     if (!NaClInterceptMachExceptions()) {
-  //       NaClLog(LOG_ERROR, "ERROR setting up Mach exception interception.\n");
-  //       return FALSE;
-  //     }
-  // #else
-  // # error Unknown host OS
+  //   nap->attach_debug_exception_handler_func = NaClDebugExceptionHandlerStandaloneAttach;
   // #endif
-
-  pq_error = NaClRunSelQualificationTests();
-  if (LOAD_OK != pq_error) {
-    NaClLog(LOG_ERROR, "Error while running platform checks: %s\n", NaClErrorString(pq_error));
-    goto error;
-  }
-
- #if NACL_LINUX
-  NaClSignalHandlerInit();
- #endif
-//    /*
-//     * Patch the Windows exception dispatcher to be safe in the case of
-//     * faults inside x86-64 sandboxed code.  The sandbox is not secure
-//     * on 64-bit Windows without this.
-//     */
-//  #if (NACL_WINDOWS && NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64)
-//    NaClPatchWindowsExceptionDispatcher();
-//  #endif
 
   NaClAppInitialDescriptorHookup(nap);
 
@@ -233,11 +262,6 @@ error:
   NaClLog(LOG_ERROR, "Failed in creating sandbox\n");
   fflush(stdout);
 
-#if NACL_LINUX
-  NaClSignalHandlerFini();
-#endif
-  NaClAllModulesFini();
-
   return NULL;
 }
 
@@ -281,6 +305,7 @@ void preFunctionCall(NaClSandbox* sandbox, size_t paramsSize, size_t arraysSize)
 {
   #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
 
+    sandbox->stack_ptr = NaClUserToSysOrNull(sandbox->nap, sandbox->mainThread->user.stack_ptr);
     sandbox->saved_stack_ptr_forFunctionCall = sandbox->stack_ptr;
 
     //Our stack would look as follows
@@ -295,8 +320,17 @@ void preFunctionCall(NaClSandbox* sandbox, size_t paramsSize, size_t arraysSize)
     //We set the location for any stack arrays
     sandbox->stack_ptr_arrayLocation = sandbox->stack_ptr - ROUND_UP_TO_POW2(arraysSize, 16);
 
+    //We also add a small buffer just in case.
+    //We have seen that during when a sandbox makes a callback to a function outside the sandbox, the 
+    //  stack pointer is not quite where we would expect it to be due to the fact that this callback 
+    //  is mediated by the trampoline, which is hand written assembly that messes with these values
+    //  In this situation, if we now make a function call back into the sandbox, we could overwrite part of the stack
+    //  if we continue from the current stack pointer.
+    //  This buffer guards against such problems by leaving some space to ensure we aren't overwriting 
+    //  anything on the stack.
+    #define STACK_JUST_IN_CASE_BUFFER_SPACE 128
     //make space for the return address
-    paramsSize = ROUND_UP_TO_POW2(paramsSize + sizeof(uintptr_t), STACKALIGNMENT);
+    paramsSize = ROUND_UP_TO_POW2(paramsSize + sizeof(uintptr_t) + STACK_JUST_IN_CASE_BUFFER_SPACE, STACKALIGNMENT);
 
     /* make space for arrays, args and the return address. */
     sandbox->stack_ptr = sandbox->stack_ptr_arrayLocation - paramsSize;
@@ -326,6 +360,15 @@ void invokeFunctionCallWithSandboxPtr(NaClSandbox* sandbox, uintptr_t functionPt
     sandbox->mainThread->suspend_state = NACL_APP_THREAD_UNTRUSTED;
     /*this is like a jump instruction, in that it does not return*/
     NaClStartThreadInApp(sandbox->mainThread, (nacl_reg_t) functionPtrInSandbox);
+  }
+  else
+  {
+    #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
+      sandbox->stack_ptr = sandbox->saved_stack_ptr_forFunctionCall;
+      sandbox->mainThread->user.stack_ptr = NaClSysToUserOrNull(sandbox->nap, sandbox->stack_ptr);
+    #else
+      #error Unsupported architecture
+    #endif
   }
 }
 
@@ -431,7 +474,6 @@ unsigned functionCallReturnRawPrimitiveInt(NaClSandbox* sandbox)
 
   #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
     ret = (unsigned) sandbox->sharedState->register_eax;      
-    sandbox->stack_ptr = sandbox->saved_stack_ptr_forFunctionCall;
     NaClLog(LOG_INFO, "Return int %u\n", ret);
   #else
     #error Unsupported architecture
@@ -446,7 +488,6 @@ uintptr_t functionCallReturnPtr(NaClSandbox* sandbox)
 
   #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32 
     ret = (uintptr_t) NaClUserToSysOrNull(sandbox->nap, (uintptr_t) sandbox->sharedState->register_eax);
-    sandbox->stack_ptr = sandbox->saved_stack_ptr_forFunctionCall;
     NaClLog(LOG_INFO, "Return pointer. Sandbox: %p, App: %p\n", (void*) sandbox->sharedState->register_eax, (void*) ret);
   #else
     #error Unsupported architecture

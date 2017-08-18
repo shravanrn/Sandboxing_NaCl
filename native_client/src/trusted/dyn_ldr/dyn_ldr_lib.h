@@ -18,7 +18,8 @@ typedef struct
 	struct AppSharedState* sharedState;
 } NaClSandbox;
 
-void initializeDlSandboxCreator(int enableLogging);
+int initializeDlSandboxCreator(int enableLogging);
+int closeSandboxCreator(void);
 NaClSandbox* createDlSandbox   (char* naclGlibcLibraryPathWithTrailingSlash, char* naclInitAppFullPath);
 
 void* mallocInSandbox(NaClSandbox* sandbox, size_t size);
@@ -38,6 +39,8 @@ void invokeFunctionCallWithSandboxPtr(NaClSandbox* sandbox, uintptr_t functionPt
 
 uintptr_t NaClUserToSysOrNull(struct NaClApp *nap, uintptr_t uaddr);
 uintptr_t NaClSysToUserOrNull(struct NaClApp *nap, uintptr_t uaddr);
+int isAddressInSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr);
+int isAddressInNonSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr);
 
 //Note that various GCCs on different architecture seem to want stack alignments - either 4, 8 or 16. So 16 should work generally
 #define STACKALIGNMENT 16
