@@ -6,35 +6,36 @@
 #include "native_client/src/trusted/dyn_ldr/dyn_ldr_sharedstate.h"
 #include "native_client/src/trusted/service_runtime/nacl_config.h"
 #include "native_client/src/trusted/service_runtime/include/bits/nacl_syscalls.h"
+#include "native_client/src/trusted/service_runtime/sel_rt.h"
+#define EXIT_FROM_MAIN 0
+#define EXIT_FROM_CALL 1
 
 typedef int32_t (*IntPtrType) (uintptr_t);
-typedef int32_t (*IntVoidType)(void);
-typedef int32_t (*IntUnsignedType)(unsigned);
-
-struct AppSharedState* appSharedState = NULL;
+typedef int32_t (*IntU32RegType)(uint32_t, nacl_reg_t);
+typedef int32_t (*IntU32Type)(uint32_t);
 
 void MakeNaClSysCall_register_shared_state(uintptr_t sharedState)
 {
 	((IntPtrType)NACL_SYSCALL_ADDR(NACL_sys_register_shared_state))(sharedState);
 }
 
-void MakeNaClSysCall_exit_sandbox(void)
+void MakeNaClSysCall_exit_sandbox(uint32_t exitLocation, nacl_reg_t eax)
 {
-	((IntVoidType)NACL_SYSCALL_ADDR(NACL_sys_exit_sandbox))();
+	((IntU32RegType)NACL_SYSCALL_ADDR(NACL_sys_exit_sandbox))(exitLocation, eax);
 }
 
 //Specifically not making this a new function as this may add a new stack frame
-#define MakeNaClSysCall_callback(slotNumber) ((IntUnsignedType)NACL_SYSCALL_ADDR(NACL_sys_callback))(slotNumber)
+#define MakeNaClSysCall_callback(slotNumber) ((IntU32Type)NACL_SYSCALL_ADDR(NACL_sys_callback))(slotNumber)
 
 void exitFunctionWrapper(void)
 {
-	register nacl_register eax asm("eax");
+	register nacl_reg_t eax asm("eax");
     //Depending on the callback return type, the return value could be in the 
     //   eax register - simple integers or pointers
     //   ST0 x87 for floating point
     //We need to save these values as the NaCl springboard clobbers these
-	appSharedState->register_eax = eax;
-	MakeNaClSysCall_exit_sandbox();
+	nacl_reg_t register_eax = eax;
+	MakeNaClSysCall_exit_sandbox(EXIT_FROM_CALL, register_eax);
 }
 
 void callbackFunctionWrapper0(void) { MakeNaClSysCall_callback(0); }
@@ -60,7 +61,7 @@ size_t test_localString(char* test)
 
 int main(int argc, char** argv)
 {
-	appSharedState = (struct AppSharedState*) malloc(sizeof(struct AppSharedState));
+	struct AppSharedState* appSharedState = (struct AppSharedState*) malloc(sizeof(struct AppSharedState));
 
 	appSharedState->exitFunctionWrapperPtr = exitFunctionWrapper;
 	appSharedState->callbackFunctionWrapper[0] = callbackFunctionWrapper0;
@@ -87,6 +88,6 @@ int main(int argc, char** argv)
 	appSharedState->fclosePtr = fclose;
 
 	MakeNaClSysCall_register_shared_state((uintptr_t)appSharedState);
-	MakeNaClSysCall_exit_sandbox();
+	MakeNaClSysCall_exit_sandbox(EXIT_FROM_MAIN, 0 /* eax - this is unused and is used only in EXIT_FROM_CALL */);
 	return 0;
 }

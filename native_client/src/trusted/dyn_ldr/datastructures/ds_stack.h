@@ -7,13 +7,17 @@
 #define STACK_TYPE jmp_buf
 #define STACK_ARR_SIZE 10
 
-typedef struct {
+struct _DS_Stack {
     STACK_TYPE data[STACK_ARR_SIZE];
     unsigned currentTop;
-} DS_Stack;
+};
 
-#define Stack_CreateStack(var) DS_Stack var { .currentTop = 0 }
+typedef struct _DS_Stack DS_Stack;
 
+inline void Stack_Init(DS_Stack* stack)
+{
+    stack->currentTop = 0;
+}
 
 inline STACK_TYPE* Stack_GetTopPtrForPush(DS_Stack* stack)
 {

@@ -16,6 +16,7 @@
 #include "native_client/src/include/nacl_base.h"
 #include "native_client/src/shared/platform/nacl_host_desc.h"
 #include "native_client/src/trusted/service_runtime/include/sys/time.h"
+#include "native_client/src/trusted/service_runtime/sel_rt.h"
 
 EXTERN_C_BEGIN
 
@@ -95,8 +96,8 @@ int32_t NaClSysSecondTlsSet(struct NaClAppThread *natp,
                             uint32_t             new_value);
 
 int32_t NaClSysRegisterSharedState(struct NaClAppThread *natp, uintptr_t sharedState);
-int32_t NaClSysExitSandbox(struct NaClAppThread *natp);
-int32_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumber);
+int32_t NaClSysExitSandbox(struct NaClAppThread *natp, uint32_t exitLocation, nacl_reg_t register_eax);
+nacl_reg_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumber);
 
 int32_t NaClSysSecondTlsGet(struct NaClAppThread *natp);
 

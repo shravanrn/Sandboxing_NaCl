@@ -53,7 +53,7 @@
 #include "native_client/src/trusted/service_runtime/nacl_tls.h"
 #include "native_client/src/trusted/service_runtime/sel_ldr.h"
 
-#include "native_client/src/trusted/dyn_ldr/dyn_ldr_sharedstate.h"
+#include "native_client/src/trusted/dyn_ldr/datastructures/ds_stack.h"
 
 int32_t NaClSysNotImplementedDecoder(struct NaClAppThread *natp) {
   NaClCopyDropLock(natp->nap);
@@ -279,22 +279,38 @@ int32_t NaClSysSecondTlsSet(struct NaClAppThread *natp,
 
 //NACL_sys_register_shared_state
 int32_t NaClSysRegisterSharedState(struct NaClAppThread *natp, uintptr_t sharedState) {
-  NaClLog(LOG_INFO, "Entered NaclSysRegisterSharedState\n");
+  NaClLog(LOG_INFO, "Entered NaClSysRegisterSharedState\n");
   natp->nap->custom_shared_app_state = NaClUserToSys(natp->nap, sharedState);
   return 0;
 }
 
 //NACL_sys_exit_sandbox
-int32_t NaClSysExitSandbox(struct NaClAppThread *natp) {
+int32_t NaClSysExitSandbox(struct NaClAppThread *natp, uint32_t exitLocation, nacl_reg_t register_eax) {
   jmp_buf* jump_buf_loc;
 
-  jump_buf_loc = Stack_GetTopPtrForPop(&(natp->nap->jumpBufferStack));
+  NaClLog(LOG_INFO, "Entered NaClSysExitSandbox: %u\n", (unsigned) exitLocation);
+
+  if(exitLocation == 0)
+  {
+    jump_buf_loc = &(natp->nap->mainJumpBuffer);
+  }
+  else if(exitLocation == 1)
+  {
+    natp->register_eax = register_eax;
+    jump_buf_loc = Stack_GetTopPtrForPop(natp->jumpBufferStack);
+  }
+  else
+  {
+    NaClLog(LOG_WARNING, "NaClSysExitSandbox: Unknown exit location: %u\n", (unsigned) exitLocation);
+    return 1;
+  }
+
   longjmp(*jump_buf_loc, 1);  
   return 0;
 }
 
 //NACL_sys_callback
-int32_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumber) {
+nacl_reg_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumber) {
   
   NaClLog(LOG_INFO, "Entered NaClSysCallback: %u\n", (unsigned) callbackSlotNumber);
 
@@ -306,7 +322,7 @@ int32_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumber)
 
     #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
       VoidPtrFunc func;
-      register int32_t eax asm("eax");
+      register nacl_reg_t eax asm("eax");
 
       //We are here in the following situation.
       //The app makes a function call into the sandbox (let's call this S1).

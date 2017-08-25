@@ -163,6 +163,15 @@ struct NaClAppThread {
    */
   uint32_t                  futex_wait_addr;
   struct NaClCondVar        futex_condvar;
+
+  /* A variable that is used by dyn_ldr to store the jump buffers,
+   * used to jump back and forth between NaCl'd and un-NaCl'd code
+   */
+  struct _DS_Stack *        jumpBufferStack;
+  /* A variable that stores the contents of the eax register in NaCl as the 
+   * NaCl app switches to trusted code via the NaClExitSandbox syscall
+  */
+  nacl_reg_t                register_eax;
 };
 
 /* 

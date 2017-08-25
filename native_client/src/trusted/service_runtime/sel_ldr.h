@@ -28,6 +28,7 @@
 #ifndef NATIVE_CLIENT_SRC_TRUSTED_SERVICE_RUNTIME_SEL_LDR_H_
 #define NATIVE_CLIENT_SRC_TRUSTED_SERVICE_RUNTIME_SEL_LDR_H_ 1
 
+#include <setjmp.h>
 #include "native_client/src/include/atomic_ops.h"
 #include "native_client/src/include/build_config.h"
 #include "native_client/src/include/nacl_base.h"
@@ -56,8 +57,6 @@
 #include "native_client/src/trusted/service_runtime/sys_futex.h"
 
 #include "native_client/src/trusted/validator/ncvalidate.h"
-
-#include "native_client/src/trusted/dyn_ldr/datastructures/ds_stack.h"
 
 EXTERN_C_BEGIN
 
@@ -408,7 +407,7 @@ struct NaClApp {
    */
   uintptr_t custom_shared_app_state;
 
-  /* Creating a pointer slot that cthat the user of this lib can use
+  /* Creating a pointer slot that that the user of this lib can use
    * to save any custom state. This state is available in NaCl sys calls
    * and the NaCl runtime, but not the NaCl app.
    */
@@ -418,10 +417,11 @@ struct NaClApp {
    * sandboxes app to jump to the outer loader */
   uintptr_t callbackSlot[8];
 
-  /* A variable that is used by dyn_ldr to store the jump buffers,
-   * used to jump back and forth between NaCl'd and un-NaCl'd code
+  /* A variable that is used by dyn_ldr to store the jump buffer,
+   * used to jump back to the trusted code after running the main function of 
+   * the NaCl application
    */
-  DS_Stack           jumpBufferStack;
+  jmp_buf mainJumpBuffer;
 };
 
 
