@@ -7,16 +7,25 @@
 #include <stdio.h>
 #include <string.h>
 
-typedef struct
+struct _NaClSandbox_Thread
 {
-	struct NaClApp* nap;
-	struct NaClAppThread* mainThread;
+	struct _NaClSandbox* sandbox;
+	struct NaClAppThread* thread;
 	uintptr_t stack_ptr_forParameters;
 	uintptr_t saved_stack_ptr_forFunctionCall;
 	uintptr_t stack_ptr_arrayLocation;
 	size_t callbackParamsAlreadyRead;
+};
+
+struct _NaClSandbox
+{
+	struct NaClApp* nap;
+	struct _DS_Map* threadDataMap;
 	struct AppSharedState* sharedState;
-} NaClSandbox;
+};
+
+typedef struct _NaClSandbox NaClSandbox;
+typedef struct _NaClSandbox_Thread NaClSandbox_Thread;
 
 int initializeDlSandboxCreator(int enableLogging);
 int closeSandboxCreator(void);
@@ -33,9 +42,9 @@ int   dlcloseInSandbox(NaClSandbox* sandbox, void *handle);
 FILE* fopenInSandbox(NaClSandbox* sandbox, const char * filename, const char * mode);
 int fcloseInSandbox(NaClSandbox* sandbox, FILE * stream);
 
-void preFunctionCall(NaClSandbox* sandbox, size_t paramsSize, size_t arraysSize);
-void invokeFunctionCall(NaClSandbox* sandbox, void* functionPtr);
-void invokeFunctionCallWithSandboxPtr(NaClSandbox* sandbox, uintptr_t functionPtrInSandbox);
+NaClSandbox_Thread* preFunctionCall(NaClSandbox* sandbox, size_t paramsSize, size_t arraysSize);
+void invokeFunctionCall(NaClSandbox_Thread* threadData, void* functionPtr);
+void invokeFunctionCallWithSandboxPtr(NaClSandbox_Thread* threadData, uintptr_t functionPtrInSandbox);
 
 uintptr_t getUnsandboxedAddress(NaClSandbox* sandbox, uintptr_t uaddr);
 uintptr_t getSandboxedAddress(NaClSandbox* sandbox, uintptr_t uaddr);
@@ -49,36 +58,28 @@ int isAddressInNonSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr);
 
 #define ADJUST_STACK_PTR(ptr, size) (ptr + size)
 
-#define REMOVE_ARRAY_FROM_STACK(sandbox, type, count) do { \
-  sandbox->stack_ptr_forParameters = ADJUST_STACK_PTR(sandbox->stack_ptr_forParameters, ROUND_UP_TO_POW2(count * sizeof(type), sizeof(uintptr_t)) ); \
-} while (0)
-#define REMOVE_FROM_STACK(sandbox, type) REMOVE_ARRAY_FROM_STACK(sandbox, type, 1)
-
-#define CREATE_ARRAY_ON_STACK(sandbox, type, count) (sandbox->stack_ptr_forParameters = ADJUST_STACK_PTR(sandbox->stack_ptr_forParameters, - ROUND_UP_TO_POW2(count * sizeof(type), sizeof(uintptr_t)) ), (type*)(sandbox->stack_ptr_forParameters))
-#define CREATE_ON_STACK(sandbox, type) CREATE_ARRAY_ON_STACK(sandbox, type, 1)
-
-#define PUSH_VAL_TO_STACK(sandbox, type, value) do { \
-  /*printf("Entering PUSH_VAL_TO_STACK: %u loc %u\n", (unsigned) value,(unsigned)(sandbox->stack_ptr_forParameters));*/ \
-  *(type *) (sandbox->stack_ptr_forParameters) = (type) value; \
-  sandbox->stack_ptr_forParameters = ADJUST_STACK_PTR(sandbox->stack_ptr_forParameters, sizeof(type)); \
+#define PUSH_VAL_TO_STACK(threadData, type, value) do { \
+  /*printf("Entering PUSH_VAL_TO_STACK: %u loc %u\n", (unsigned) value,(unsigned)(threadData->stack_ptr_forParameters));*/ \
+  *(type *) (threadData->stack_ptr_forParameters) = (type) value; \
+  threadData->stack_ptr_forParameters = ADJUST_STACK_PTR(threadData->stack_ptr_forParameters, sizeof(type)); \
 } while (0)
 
-#define PUSH_SANDBOXEDPTR_TO_STACK(sandbox, type, value) PUSH_VAL_TO_STACK(sandbox, type, value)
+#define PUSH_SANDBOXEDPTR_TO_STACK(threadData, type, value) PUSH_VAL_TO_STACK(threadData, type, value)
 
-#define PUSH_PTR_TO_STACK(sandbox, type, value) do {                               \
-  PUSH_VAL_TO_STACK(sandbox, type, (getSandboxedAddress(sandbox, (uintptr_t) value))); \
+#define PUSH_PTR_TO_STACK(threadData, type, value) do {                               \
+  PUSH_VAL_TO_STACK(threadData, type, (getSandboxedAddress(threadData->sandbox, (uintptr_t) value))); \
 } while (0)
 
-#define PUSH_GEN_ARRAY_TO_STACK(sandbox, value, unpaddedSize) do { \
+#define PUSH_GEN_ARRAY_TO_STACK(threadData, value, unpaddedSize) do { \
   size_t paddedSize = ROUND_UP_TO_POW2(unpaddedSize, STACKALIGNMENT); \
-  memcpy((void *) sandbox->stack_ptr_arrayLocation, (void *) value, unpaddedSize); \
-  PUSH_PTR_TO_STACK(sandbox, uintptr_t, (uintptr_t) sandbox->stack_ptr_arrayLocation); \
-  sandbox->stack_ptr_arrayLocation = ADJUST_STACK_PTR(sandbox->stack_ptr_arrayLocation, paddedSize); \
+  memcpy((void *) threadData->stack_ptr_arrayLocation, (void *) value, unpaddedSize); \
+  PUSH_PTR_TO_STACK(threadData, uintptr_t, (uintptr_t) threadData->stack_ptr_arrayLocation); \
+  threadData->stack_ptr_arrayLocation = ADJUST_STACK_PTR(threadData->stack_ptr_arrayLocation, paddedSize); \
 } while(0)
 
-#define PUSH_ARRAY_TO_STACK(sandbox, value) PUSH_GEN_ARRAY_TO_STACK(sandbox, value, sizeof(val))
+#define PUSH_ARRAY_TO_STACK(threadData, value) PUSH_GEN_ARRAY_TO_STACK(threadData, value, sizeof(val))
 
-#define PUSH_STRING_TO_STACK(sandbox, value) PUSH_GEN_ARRAY_TO_STACK(sandbox, value, (strlen(value) + 1))
+#define PUSH_STRING_TO_STACK(threadData, value) PUSH_GEN_ARRAY_TO_STACK(threadData, value, (strlen(value) + 1))
 
 #define ARR_SIZE(val)    ROUND_UP_TO_POW2(sizeof(val)    , STACKALIGNMENT)
 #define STRING_SIZE(val) ROUND_UP_TO_POW2(strlen(val) + 1, STACKALIGNMENT)
@@ -86,17 +87,17 @@ int isAddressInNonSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr);
 unsigned getTotalNumberOfCallbackSlots(void);
 uintptr_t registerSandboxCallback(NaClSandbox* sandbox, unsigned slotNumber, uintptr_t callback);
 int unregisterSandboxCallback(NaClSandbox* sandbox, unsigned slotNumber);
-uintptr_t getCallbackParam(NaClSandbox* sandbox, size_t size);
+NaClSandbox_Thread* callbackParamsBegin(NaClSandbox* sandbox);
+uintptr_t getCallbackParam(NaClSandbox_Thread* threadData, size_t size);
 
-#define COMPLETELY_UNTRUSTED_CALLBACK_PTR_TO_STACK_PARAM(sandbox, type) ((type *) getCallbackParam(sandbox, sizeof(type)))
-#define COMPLETELY_UNTRUSTED_CALLBACK_STACK_PARAM(sandbox, type) (* COMPLETELY_UNTRUSTED_CALLBACK_PTR_TO_STACK_PARAM(sandbox, type))
-#define COMPLETELY_UNTRUSTED_CALLBACK_PTR_PARAM(sandbox, type) ((type) getUnsandboxedAddress(sandbox, COMPLETELY_UNTRUSTED_CALLBACK_STACK_PARAM(sandbox, uintptr_t)))
-#define CALLBACK_PARAMS_FINISHED(sandbox) (sandbox->callbackParamsAlreadyRead = 0)
-#define CALLBACK_RETURN_PTR(sandbox, type, value) ((type) getSandboxedAddress(sandbox, value))
+#define COMPLETELY_UNTRUSTED_CALLBACK_PTR_TO_STACK_PARAM(threadData, type) ((type *) getCallbackParam(threadData, sizeof(type)))
+#define COMPLETELY_UNTRUSTED_CALLBACK_STACK_PARAM(threadData, type) (* COMPLETELY_UNTRUSTED_CALLBACK_PTR_TO_STACK_PARAM(threadData, type))
+#define COMPLETELY_UNTRUSTED_CALLBACK_PTR_PARAM(threadData, type) ((type) getUnsandboxedAddress(threadData->sandbox, COMPLETELY_UNTRUSTED_CALLBACK_STACK_PARAM(threadData, uintptr_t)))
+#define CALLBACK_RETURN_PTR(threadData, type, value) ((type) getSandboxedAddress(threadData->sandbox, value))
 
-unsigned functionCallReturnRawPrimitiveInt(NaClSandbox* sandbox);
-uintptr_t functionCallReturnPtr(NaClSandbox* sandbox);
-uintptr_t functionCallReturnSandboxPtr(NaClSandbox* sandbox);
+unsigned functionCallReturnRawPrimitiveInt(NaClSandbox_Thread* threadData);
+uintptr_t functionCallReturnPtr(NaClSandbox_Thread* threadData);
+uintptr_t functionCallReturnSandboxPtr(NaClSandbox_Thread* threadData);
 
 #if defined(_M_IX86) || defined(__i386__)
 	#if defined(_MSC_VER) && (_MSC_VER >= 800)

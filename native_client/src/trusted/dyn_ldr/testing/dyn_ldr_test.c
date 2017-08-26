@@ -15,27 +15,27 @@
 
 int invokeSimpleAddTest(NaClSandbox* sandbox, void* simpleAddTestPtr, int a, int b)
 {
-	preFunctionCall(sandbox, sizeof(a) + sizeof(b), 0 /* size of any arrays being pushed on the stack */);
+	NaClSandbox_Thread* threadData = preFunctionCall(sandbox, sizeof(a) + sizeof(b), 0 /* size of any arrays being pushed on the stack */);
 
-	PUSH_VAL_TO_STACK(sandbox, int, a);
-	PUSH_VAL_TO_STACK(sandbox, int, b);
+	PUSH_VAL_TO_STACK(threadData, int, a);
+	PUSH_VAL_TO_STACK(threadData, int, b);
 
-	invokeFunctionCall(sandbox, simpleAddTestPtr);
+	invokeFunctionCall(threadData, simpleAddTestPtr);
 
-	return (int)functionCallReturnRawPrimitiveInt(sandbox);
+	return (int)functionCallReturnRawPrimitiveInt(threadData);
 }
 
 //////////////////////////////////////////////////////////////////
 
 size_t invokeSimpleStrLenTestWithStackString(NaClSandbox* sandbox, void* simpleStrLenTestPtr, char* str)
 {
-	preFunctionCall(sandbox, sizeof(str), STRING_SIZE(str));
+	NaClSandbox_Thread* threadData = preFunctionCall(sandbox, sizeof(str), STRING_SIZE(str));
 
-	PUSH_STRING_TO_STACK(sandbox, str);
+	PUSH_STRING_TO_STACK(threadData, str);
 
-	invokeFunctionCall(sandbox, simpleStrLenTestPtr);
+	invokeFunctionCall(threadData, simpleStrLenTestPtr);
 
-	return (size_t)functionCallReturnRawPrimitiveInt(sandbox);
+	return (size_t)functionCallReturnRawPrimitiveInt(threadData);
 }
 
 //////////////////////////////////////////////////////////////////
@@ -44,17 +44,18 @@ size_t invokeSimpleStrLenTestWithHeapString(NaClSandbox* sandbox, void* simpleSt
 {
 	char* strInSandbox;
 	size_t ret;
+	NaClSandbox_Thread* threadData;
 
 	strInSandbox = (char*) mallocInSandbox(sandbox, strlen(str) + 1);
 	strcpy(strInSandbox, str);
 
-	preFunctionCall(sandbox, sizeof(strInSandbox), 0 /* size of any arrays being pushed on the stack */);
+	threadData = preFunctionCall(sandbox, sizeof(strInSandbox), 0 /* size of any arrays being pushed on the stack */);
 
-	PUSH_PTR_TO_STACK(sandbox, char*, strInSandbox);
+	PUSH_PTR_TO_STACK(threadData, char*, strInSandbox);
 
-	invokeFunctionCall(sandbox, simpleStrLenTestPtr);
+	invokeFunctionCall(threadData, simpleStrLenTestPtr);
 
-	ret = (size_t)functionCallReturnRawPrimitiveInt(sandbox);
+	ret = (size_t)functionCallReturnRawPrimitiveInt(threadData);
 
 	freeInSandbox(sandbox, strInSandbox);
 
@@ -89,11 +90,10 @@ SANDBOX_CALLBACK unsigned invokeSimpleCallbackTest_callbackStub(uintptr_t sandbo
 	int a;
 	char* b;
 	NaClSandbox* sandbox = (NaClSandbox*) sandboxPtr;
+	NaClSandbox_Thread* threadData = callbackParamsBegin(sandbox);
 
-	a = COMPLETELY_UNTRUSTED_CALLBACK_STACK_PARAM(sandbox, int);
-	b = COMPLETELY_UNTRUSTED_CALLBACK_PTR_PARAM(sandbox, char*);
-
-	CALLBACK_PARAMS_FINISHED(sandbox);
+	a = COMPLETELY_UNTRUSTED_CALLBACK_STACK_PARAM(threadData, int);
+	b = COMPLETELY_UNTRUSTED_CALLBACK_PTR_PARAM(threadData, char*);
 
 	//We should not assume anything about a, b
 	//b could be a pointer to garbage instead of a null terminated string
@@ -124,19 +124,20 @@ int invokeSimpleCallbackTest(NaClSandbox* sandbox, void* simpleCallbackTestPtr, 
 {
 	int ret;
 	short slotNumber = 0;
+	NaClSandbox_Thread* threadData;
 
 	//Note will return NULL if given a slot number greater than getTotalNumberOfCallbackSlots(), a valid ptr if it succeeds
 	uintptr_t callback = registerSandboxCallback(sandbox, slotNumber, (uintptr_t) invokeSimpleCallbackTest_callbackStub);
 
-	preFunctionCall(sandbox, sizeof(a) + sizeof(b) + sizeof(callback), 0 /* size of any arrays being pushed on the stack */);
+	threadData = preFunctionCall(sandbox, sizeof(a) + sizeof(b) + sizeof(callback), 0 /* size of any arrays being pushed on the stack */);
 
-	PUSH_VAL_TO_STACK(sandbox, unsigned, a);
-	PUSH_STRING_TO_STACK(sandbox, b);
-	PUSH_VAL_TO_STACK(sandbox, uintptr_t, callback);
+	PUSH_VAL_TO_STACK(threadData, unsigned, a);
+	PUSH_STRING_TO_STACK(threadData, b);
+	PUSH_VAL_TO_STACK(threadData, uintptr_t, callback);
 
-	invokeFunctionCall(sandbox, simpleCallbackTestPtr);
+	invokeFunctionCall(threadData, simpleCallbackTestPtr);
 
-	ret = (int) functionCallReturnRawPrimitiveInt(sandbox);
+	ret = (int) functionCallReturnRawPrimitiveInt(threadData);
 
 	//Best to unregister after it is done
 	//In an adversarial setting, the sandboxed app may decide to invoke the callback
@@ -150,17 +151,14 @@ int invokeSimpleCallbackTest(NaClSandbox* sandbox, void* simpleCallbackTestPtr, 
 
 int invokeSimpleWriteToFileTest(NaClSandbox* sandbox, void* simpleWriteToFileTest, FILE* file, char* str)
 {
-	// FILE* file = CREATE_ON_STACK(sandbox, FILE);
-	// memcpy(file, cfile, sizeof(FILE));
+	NaClSandbox_Thread* threadData = preFunctionCall(sandbox, sizeof(FILE*) + sizeof(str), STRING_SIZE(str));
 
-	preFunctionCall(sandbox, sizeof(FILE*) + sizeof(str), STRING_SIZE(str));
+	PUSH_PTR_TO_STACK(threadData, FILE*, file);
+	PUSH_STRING_TO_STACK(threadData, str);
 
-	PUSH_PTR_TO_STACK(sandbox, FILE*, file);
-	PUSH_STRING_TO_STACK(sandbox, str);
+	invokeFunctionCall(threadData, simpleWriteToFileTest);
 
-	invokeFunctionCall(sandbox, simpleWriteToFileTest);
-
-	return (int)functionCallReturnRawPrimitiveInt(sandbox);
+	return (int)functionCallReturnRawPrimitiveInt(threadData);
 }
 
 //////////////////////////////////////////////////////////////////
@@ -177,13 +175,12 @@ int fileTestPassed(NaClSandbox* sandbox, void* simpleWriteToFileTest)
 
 	invokeSimpleWriteToFileTest(sandbox, simpleWriteToFileTest, file, "test123");
 
-	printf("File written\n");
-
 	if(fcloseInSandbox(sandbox, file))
 	{
 		printf("File close failed\n");
 		return 0;
 	}
+
 	return 1;
 }
 
@@ -194,6 +191,7 @@ int invokeSimpleEchoTestPassed(NaClSandbox* sandbox, void* simpleEchoTestPtr, ch
 	char* strInSandbox;
 	char* retStr;
 	int ret;
+	NaClSandbox_Thread* threadData;
 
 	//str is allocated in our heap, not the sandbox's heap
 	if(!isAddressInNonSandboxMemoryOrNull(sandbox, (uintptr_t) str))
@@ -210,13 +208,13 @@ int invokeSimpleEchoTestPassed(NaClSandbox* sandbox, void* simpleEchoTestPtr, ch
 		return 0;
 	}
 
-	preFunctionCall(sandbox, sizeof(strInSandbox), 0 /* size of any arrays being pushed on the stack */);
+	threadData = preFunctionCall(sandbox, sizeof(strInSandbox), 0 /* size of any arrays being pushed on the stack */);
 
-	PUSH_PTR_TO_STACK(sandbox, char*, strInSandbox);
+	PUSH_PTR_TO_STACK(threadData, char*, strInSandbox);
 
-	invokeFunctionCall(sandbox, simpleEchoTestPtr);
+	invokeFunctionCall(threadData, simpleEchoTestPtr);
 
-	retStr = (char*)functionCallReturnPtr(sandbox);
+	retStr = (char*)functionCallReturnPtr(threadData);
 
 	//retStr is allocated in sandbox heap, not our heap
 	if(!isAddressInSandboxMemoryOrNull(sandbox, (uintptr_t) retStr))
@@ -281,7 +279,7 @@ int main(int argc, char** argv)
 
 	printf("Starting Dyn loader Test\n");
 
-	if(!initializeDlSandboxCreator(0 /* Should enable detailed logging */))
+	if(!initializeDlSandboxCreator(1 /* Should enable detailed logging */))
 	{
 		printf("Dyn loader Test: initializeDlSandboxCreator returned null\n");
 		return 1;
@@ -380,7 +378,7 @@ int lastIndexOf(const char * s, char target)
 	 int curIdx = 0;
 	 while(s[curIdx] != '\0')
 	 {
-	    if (s[curIdx] == target) ret = curIdx;
+	    if (s[curIdx] == target) { ret = curIdx; }
 	    curIdx++;
 	 }
 	 return ret;
@@ -395,11 +393,7 @@ void replaceChar(char* str, char toReplace, char replaceWith)
 
 	while(*str != '\0')
 	{
-		if(*str == toReplace)
-		{
-			*str = replaceWith;
-		}
-
+		if(*str == toReplace) { *str = replaceWith; }
 		str++;
 	}
 }
@@ -413,16 +407,21 @@ char* getExecFolder(char* executablePath)
 
 	if(index < 0)
 	{
-		execFolder = (char*)malloc(3);
+		execFolder = (char*)malloc(4);
 		execFolder[0] = '.';
 		execFolder[1] = SEPARATOR;
 		execFolder[2] = '\0';
 	}
 	else
 	{
-		execFolder = (char*)malloc(strlen(executablePath) + 1);
+		size_t len = strlen(executablePath);
+		execFolder = (char*)malloc(len + 2);
 		strcpy(execFolder, executablePath);
-		execFolder[index + 1] = '\0';		
+
+		if((size_t)index < len)
+		{
+			execFolder[index + 1] = '\0';
+		}
 	}
 
 	return execFolder;
@@ -432,7 +431,7 @@ char* concatenateAndFixSlash(char* string1, char* string2)
 {
 	char* ret;
 
-	ret = (char*)malloc(strlen(string1) + strlen(string2) + 1);
+	ret = (char*)malloc(strlen(string1) + strlen(string2) + 2);
 	strcpy(ret, string1);
 	strcat(ret, string2);
 
