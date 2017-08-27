@@ -2,6 +2,7 @@
 
 #include "native_client/src/public/nacl_desc.h"
 #include "native_client/src/shared/gio/gio.h"
+#include "native_client/src/shared/platform/nacl_threads.h"
 #include "native_client/src/trusted/desc/nacl_desc_io.h"
 #include "native_client/src/trusted/dyn_ldr/datastructures/ds_stack.h"
 #include "native_client/src/trusted/dyn_ldr/datastructures/ds_map.h"
@@ -20,7 +21,6 @@
 #include "native_client/src/trusted/service_runtime/sel_ldr.h"
 #include "native_client/src/trusted/service_runtime/sel_main_common.h"
 #include "native_client/src/trusted/service_runtime/sel_qualify.h"
-
 #ifndef FALSE
 #define FALSE 0
 #endif
@@ -289,8 +289,11 @@ NaClSandbox_Thread* constructNaClSandboxThread(NaClSandbox* sandbox)
 
 NaClSandbox* constructNaClSandbox(struct NaClApp* nap)
 {
+  NaClSandbox* sandbox;
   NaClSandbox_Thread* threadData;
-  NaClSandbox* sandbox = (NaClSandbox*) malloc(sizeof(NaClSandbox));
+  uint32_t threadId = NaClThreadId();
+
+  sandbox = (NaClSandbox*) malloc(sizeof(NaClSandbox));
   sandbox->nap = nap;
   sandbox->sharedState = (struct AppSharedState*) nap->custom_shared_app_state;
   Map_Init(sandbox->threadDataMap);
@@ -303,14 +306,14 @@ NaClSandbox* constructNaClSandbox(struct NaClApp* nap)
   }
 
   threadData = constructNaClSandboxThread(sandbox);
-  Map_Put(sandbox->threadDataMap, 0, (uintptr_t) threadData);
+  Map_Put(sandbox->threadDataMap, threadId, (uintptr_t) threadData);
   return sandbox;
 }
 
 /********************** "Function call stub" helpers *****************************/
 NaClSandbox_Thread* getThreadData(NaClSandbox* sandbox)
 {
-  uint32_t threadId = 0;
+  uint32_t threadId = NaClThreadId();
   return (NaClSandbox_Thread*) Map_Get(sandbox->threadDataMap, threadId);
 }
 
