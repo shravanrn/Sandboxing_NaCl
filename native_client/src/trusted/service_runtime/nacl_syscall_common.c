@@ -323,6 +323,7 @@ nacl_reg_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumb
     #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
       VoidPtrFunc func;
       register nacl_reg_t eax asm("eax");
+      nacl_reg_t eaxCopy;
       unsigned eaxU;
 
       //We are here in the following situation.
@@ -345,7 +346,8 @@ nacl_reg_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumb
       NaClLog(LOG_INFO, "Making NaClSysCallback: %"PRIu32"\n", callbackSlotNumber);
       func = (VoidPtrFunc) (natp->nap->callbackSlot[callbackSlotNumber]);
       func(natp->nap->custom_app_state);
-      eaxU = eax;
+      eaxCopy = eax;
+      eaxU = eaxCopy;
       NaClLog(LOG_INFO, "Returned from NaClSysCallback with eax: %u\n", eaxU);
 
       natp->user.ebx = saved_ebx;
@@ -364,7 +366,7 @@ nacl_reg_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumb
       //just flow through. However NaCl Sys calls require a return type.Since 
       //this function returns a primitive value, we will return the contents of eax
       //so as not to clobber the eax register
-      return eax;
+      return eaxCopy;
 
     #else
       #error "Unsupported platform"

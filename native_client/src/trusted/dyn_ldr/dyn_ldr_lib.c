@@ -266,32 +266,30 @@ error:
 
 NaClSandbox_Thread* constructNaClSandboxThread(NaClSandbox* sandbox)
 {
-  NaClSandbox_Thread* sandboxThread = (NaClSandbox_Thread*) malloc(sizeof(NaClSandbox_Thread));
-  sandboxThread->sandbox = sandbox;
-  sandboxThread->thread = (struct NaClAppThread *) DynArrayGet(&(sandbox->nap->threads), sandbox->nap->threads.num_entries - 1);
-  sandboxThread->thread->jumpBufferStack = (DS_Stack *) malloc(sizeof(DS_Stack));
-  Stack_Init(sandboxThread->thread->jumpBufferStack);
+  NaClSandbox_Thread* threadData = (NaClSandbox_Thread*) malloc(sizeof(NaClSandbox_Thread));
+  threadData->sandbox = sandbox;
+  threadData->thread = (struct NaClAppThread *) DynArrayGet(&(sandbox->nap->threads), sandbox->nap->threads.num_entries - 1);
+  threadData->thread->jumpBufferStack = (DS_Stack *) malloc(sizeof(DS_Stack));
+  threadData->thread->custom_app_state = (uintptr_t) threadData;
+  Stack_Init(threadData->thread->jumpBufferStack);
 
   {
-    uintptr_t alignedValue = ROUND_DOWN_TO_POW2(sandboxThread->thread->user.stack_ptr, 16);
+    uintptr_t alignedValue = ROUND_DOWN_TO_POW2(threadData->thread->user.stack_ptr, 16);
 
-    if(sandboxThread->thread->user.stack_ptr != alignedValue)
+    if(threadData->thread->user.stack_ptr != alignedValue)
     {
       NaClLog(LOG_INFO, "Re-aligning the NaCl stack to %u bytes\n", 16);
-      sandboxThread->thread->user.stack_ptr = alignedValue;
+      threadData->thread->user.stack_ptr = alignedValue;
     }
   }
 
-  sandboxThread->stack_ptr_forParameters = getUnsandboxedAddress(sandbox, sandboxThread->thread->user.stack_ptr);
-  NaClLog(LOG_INFO, "NaCl stack aligned value %u bytes\n", (unsigned) sandboxThread->stack_ptr_forParameters);
-
-  sandboxThread->callbackParamsAlreadyRead = 0;
-  return sandboxThread;
+  threadData->callbackParamsAlreadyRead = 0;
+  return threadData;
 }
 
 NaClSandbox* constructNaClSandbox(struct NaClApp* nap)
 {
-  NaClSandbox_Thread* sandboxThread;
+  NaClSandbox_Thread* threadData;
   NaClSandbox* sandbox = (NaClSandbox*) malloc(sizeof(NaClSandbox));
   sandbox->nap = nap;
   sandbox->sharedState = (struct AppSharedState*) nap->custom_shared_app_state;
@@ -303,9 +301,9 @@ NaClSandbox* constructNaClSandbox(struct NaClApp* nap)
     NaClLog(LOG_ERROR, "Failed in retrieving thread information. Expected count: 1. Actual thread count: %d\n", sandbox->nap->num_threads);
     return NULL;
   }
-                                                                                                                                            
-  sandboxThread = constructNaClSandboxThread(sandbox);
-  Map_Put(sandbox->threadDataMap, 0, (uintptr_t) sandboxThread);
+
+  threadData = constructNaClSandboxThread(sandbox);
+  Map_Put(sandbox->threadDataMap, 0, (uintptr_t) threadData);
   return sandbox;
 }
 
@@ -366,6 +364,16 @@ void invokeFunctionCallWithSandboxPtr(NaClSandbox_Thread* threadData, uintptr_t 
 {
   jmp_buf*              jmp_buf_loc;
   int                   setJmpReturn;
+  uintptr_t             saved_stack_ptr_forFunctionCall;
+
+  //It is very important to save this data locally as this data could be overwritten
+  //in the following scenario
+  //If we make a function call (let's call this F1), and that function call makes a callback 
+  //(let's call this C1) and that callback makes another call into the sandbox, (let's call this F2)
+  //then F1's saved threadData->saved_stack_ptr_forFunctionCall would be overwritten by F2's
+  //threadData->saved_stack_ptr_forFunctionCall
+  //However if we save the value locally, we can restore the appropriate value
+  saved_stack_ptr_forFunctionCall = threadData->saved_stack_ptr_forFunctionCall;
 
   jmp_buf_loc = Stack_GetTopPtrForPush(threadData->thread->jumpBufferStack);
   setJmpReturn = setjmp(*jmp_buf_loc);
@@ -382,7 +390,38 @@ void invokeFunctionCallWithSandboxPtr(NaClSandbox_Thread* threadData, uintptr_t 
   else
   {
     #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
-      threadData->thread->user.stack_ptr = threadData->saved_stack_ptr_forFunctionCall;
+
+      //make sure the saved stack pointer makes sense
+      if(
+        //saved stack pointer should be below the current stack pointer
+        saved_stack_ptr_forFunctionCall >= threadData->thread->user.stack_ptr && 
+        //saved stack pointer should be in the valid range for a NaCl sandbox address
+        saved_stack_ptr_forFunctionCall <= ((uintptr_t) 1U << threadData->sandbox->nap->addr_bits)
+      ) 
+      {
+        threadData->thread->user.stack_ptr = saved_stack_ptr_forFunctionCall;
+      }
+      else
+      {
+        //This branch should never be taken
+        //For some reason, this happened briefly during development, where 
+        // threadData->saved_stack_ptr_forFunctionCall got modified, without any explanation
+        //This problem went away after development was completed, but saving the notes on this 
+        // problem when it was occuring
+        //
+        //This could possibly be the case that this value is stored in a register which is not saved
+        //Then as part of the register restoration, when we longjmp after the function call
+        //this value isn't restored and this causes it to get an unexpected stack pointer
+        //However it is not clear if this is what is causing this issue, as some preliminary testing
+        //refutes this idea
+        //That said, we can just ignore the replaced values in this case, as
+        //we won't bother reclaiming a part of the stack
+        NaClLog(LOG_WARNING, "WARNING: Got an unexpected value for saved stack pointer. Curr stack pointer(sandboxed): %p , saved(sandboxed): %p\n",
+          (void *) threadData->thread->user.stack_ptr,
+          (void *) threadData->saved_stack_ptr_forFunctionCall
+        );
+      }
+
     #else
       #error Unsupported architecture
     #endif
@@ -623,6 +662,7 @@ FILE* fopenInSandbox(NaClSandbox* sandbox, const char * filename, const char * m
   PUSH_STRING_TO_STACK(threadData, mode);
 
   invokeFunctionCallWithSandboxPtr(threadData, (uintptr_t)sandbox->sharedState->fopenPtr);
+
   return (FILE*) functionCallReturnPtr(threadData);
 }
 

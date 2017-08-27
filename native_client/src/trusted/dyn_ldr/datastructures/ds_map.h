@@ -1,8 +1,8 @@
 #ifndef DYN_LDR_DS_MAP_H__
 #define DYN_LDR_DS_MAP_H__ 1
 
-#include <stdio.h>
 #include "native_client/src/shared/platform/nacl_log.h"
+#include "native_client/src/include/nacl_compiler_annotations.h"
 
 #define MAP_KEY_TYPE uint32_t
 #define MAP_VALUE_TYPE uintptr_t
@@ -16,12 +16,12 @@ struct _DS_Map {
 
 typedef struct _DS_Map DS_Map;
 
-inline void Map_Init(DS_Map* map)
+static INLINE void Map_Init(DS_Map* map)
 {
 	map->currentTop = 0;
 }
 
-inline void Map_Put(DS_Map* map, MAP_KEY_TYPE key, MAP_VALUE_TYPE value)
+static INLINE void Map_Put(DS_Map* map, MAP_KEY_TYPE key, MAP_VALUE_TYPE value)
 {
 	if(map->currentTop == MAP_ARR_SIZE)
 	{
@@ -35,7 +35,7 @@ inline void Map_Put(DS_Map* map, MAP_KEY_TYPE key, MAP_VALUE_TYPE value)
 	map->currentTop++;
 }
 
-inline MAP_VALUE_TYPE Map_Get(DS_Map* map, MAP_KEY_TYPE key)
+static INLINE MAP_VALUE_TYPE Map_Get(DS_Map* map, MAP_KEY_TYPE key)
 {
 	for(unsigned i = 0; i < MAP_ARR_SIZE; i++)
 	{

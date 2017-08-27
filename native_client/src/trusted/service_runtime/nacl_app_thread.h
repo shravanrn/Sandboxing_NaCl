@@ -172,6 +172,11 @@ struct NaClAppThread {
    * NaCl app switches to trusted code via the NaClExitSandbox syscall
   */
   nacl_reg_t                register_eax;
+  /* Creating a pointer slot that that the user of this lib can use
+   * to save any custom state. This state is available in NaCl sys calls
+   * and the NaCl runtime, but not the NaCl app.
+   */
+  uintptr_t custom_app_state;
 };
 
 /* 

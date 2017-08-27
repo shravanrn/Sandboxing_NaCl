@@ -3,6 +3,7 @@
 
 #include <setjmp.h> 
 #include "native_client/src/shared/platform/nacl_log.h"
+#include "native_client/src/include/nacl_compiler_annotations.h"
 
 #define STACK_TYPE jmp_buf
 #define STACK_ARR_SIZE 10
@@ -14,12 +15,12 @@ struct _DS_Stack {
 
 typedef struct _DS_Stack DS_Stack;
 
-inline void Stack_Init(DS_Stack* stack)
+static INLINE void Stack_Init(DS_Stack* stack)
 {
     stack->currentTop = 0;
 }
 
-inline STACK_TYPE* Stack_GetTopPtrForPush(DS_Stack* stack)
+static INLINE STACK_TYPE* Stack_GetTopPtrForPush(DS_Stack* stack)
 {
     STACK_TYPE* ret = NULL;
 
@@ -34,7 +35,7 @@ inline STACK_TYPE* Stack_GetTopPtrForPush(DS_Stack* stack)
     return ret;
 }
 
-inline STACK_TYPE* Stack_GetTopPtrForPop(DS_Stack *stack)
+static INLINE STACK_TYPE* Stack_GetTopPtrForPop(DS_Stack *stack)
 {
     STACK_TYPE* ret = NULL;
 

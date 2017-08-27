@@ -279,7 +279,7 @@ int main(int argc, char** argv)
 
 	printf("Starting Dyn loader Test\n");
 
-	if(!initializeDlSandboxCreator(1 /* Should enable detailed logging */))
+	if(!initializeDlSandboxCreator(0 /* Should enable detailed logging */))
 	{
 		printf("Dyn loader Test: initializeDlSandboxCreator returned null\n");
 		return 1;
@@ -304,11 +304,15 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
+	printf("dlopen successful: %p\n", dlHandle);
+
 	simpleAddTestSymResult      = dlsymInSandbox(sandbox, dlHandle, "simpleAddTest");
 	simpleStrLenTestResult      = dlsymInSandbox(sandbox, dlHandle, "simpleStrLenTest");
 	simpleCallbackTestResult    = dlsymInSandbox(sandbox, dlHandle, "simpleCallbackTest");
 	simpleWriteToFileTestResult = dlsymInSandbox(sandbox, dlHandle, "simpleWriteToFileTest");
 	simpleEchoTestResult        = dlsymInSandbox(sandbox, dlHandle, "simpleEchoTest");
+
+	printf("dlsym successful\n");
 
 	if(simpleAddTestSymResult == NULL 
 		|| simpleStrLenTestResult == NULL 
