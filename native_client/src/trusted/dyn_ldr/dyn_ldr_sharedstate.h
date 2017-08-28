@@ -1,7 +1,8 @@
 #include <stdio.h>
 
-typedef void     (*exitFunctionWrapper_type)(void);
-typedef void     (*callbackFunctionWrapper_type)(void);
+typedef int   (*threadMain_type)(void);
+typedef void  (*exitFunctionWrapper_type)(void);
+typedef void  (*callbackFunctionWrapper_type)(void);
 
 typedef unsigned (*test_localMath_type)     (unsigned, unsigned, unsigned);
 typedef size_t   (*test_localString_type)   (char*);
@@ -19,6 +20,7 @@ typedef int   (*fclose_type) (FILE * stream);
 
 struct AppSharedState
 {
+	threadMain_type              threadMainPtr;
     exitFunctionWrapper_type     exitFunctionWrapperPtr;
     callbackFunctionWrapper_type callbackFunctionWrapper[8];
 

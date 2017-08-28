@@ -59,10 +59,17 @@ size_t test_localString(char* test)
 	return strlen(test);
 }
 
+int threadMain(void)
+{
+	MakeNaClSysCall_exit_sandbox(EXIT_FROM_MAIN, 0 /* eax - this is unused and is used only in EXIT_FROM_CALL */);
+	return 0;
+}
+
 int main(int argc, char** argv)
 {
 	struct AppSharedState* appSharedState = (struct AppSharedState*) malloc(sizeof(struct AppSharedState));
 
+	appSharedState->threadMainPtr = threadMain;
 	appSharedState->exitFunctionWrapperPtr = exitFunctionWrapper;
 	appSharedState->callbackFunctionWrapper[0] = callbackFunctionWrapper0;
 	appSharedState->callbackFunctionWrapper[1] = callbackFunctionWrapper1;

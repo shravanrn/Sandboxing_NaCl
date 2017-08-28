@@ -6,8 +6,10 @@
 
 #if defined(_WIN32)
 	char SEPARATOR = '\\';
+	#include <process.h>
 #else
 	char SEPARATOR = '/';
+	#include <pthread.h>
 #endif
 
 /**************** Dynamic Library function stubs ****************/
@@ -234,16 +236,68 @@ int invokeSimpleEchoTestPassed(NaClSandbox* sandbox, void* simpleEchoTestPtr, ch
 char* getExecFolder(char* executablePath);
 char* concatenateAndFixSlash(char* string1, char* string2);
 
+NaClSandbox* sandbox;
+void* simpleAddTestSymResult;
+void* simpleStrLenTestResult;
+void* simpleCallbackTestResult;
+void* simpleWriteToFileTestResult;
+void* simpleEchoTestResult;
+int testResult = -1;
+
+void* runTests(void* unusedParam)
+{
+	if(unusedParam){}
+	testResult = -1;
+
+	if(invokeSimpleAddTest(sandbox, simpleAddTestSymResult, 2, 3) != 5)
+	{
+		printf("Dyn loader Test 1: Failed\n");
+		testResult = 0;
+		return NULL;
+	}
+
+	if(invokeSimpleStrLenTestWithStackString(sandbox, simpleStrLenTestResult, "Hello") != 5)
+	{
+		printf("Dyn loader Test 2: Failed\n");
+		testResult = 0;
+		return NULL;
+	}
+
+	if(invokeSimpleStrLenTestWithStackString(sandbox, simpleStrLenTestResult, "Hello") != 5)
+	{
+		printf("Dyn loader Test 3: Failed\n");
+		testResult = 0;
+		return NULL;
+	}
+
+	if(invokeSimpleCallbackTest(sandbox, simpleCallbackTestResult, 4, "Hello") != 9)
+	{
+		printf("Dyn loader Test 4: Failed\n");
+		testResult = 0;
+		return NULL;
+	}
+
+	if(!fileTestPassed(sandbox, simpleWriteToFileTestResult))
+	{
+		printf("Dyn loader Test 5: Failed\n");
+		testResult = 0;
+		return NULL;	
+	}
+
+	if(!invokeSimpleEchoTestPassed(sandbox, simpleEchoTestResult, "Hello"))
+	{
+		printf("Dyn loader Test 6: Failed\n");
+		testResult = 0;
+		return NULL;	
+	}
+
+	testResult = 1;
+	return NULL;
+}
 
 int main(int argc, char** argv)
 {
-	NaClSandbox* sandbox;
 	void* dlHandle;
-	void* simpleAddTestSymResult;
-	void* simpleStrLenTestResult;
-	void* simpleCallbackTestResult;
-	void* simpleWriteToFileTestResult;
-	void* simpleEchoTestResult;
 
 	/**************** Some calculations of relative paths ****************/
 	char* execFolder;
@@ -326,41 +380,60 @@ int main(int argc, char** argv)
 
 	/**************** Invoking functions in sandbox ****************/
 
-	if(invokeSimpleAddTest(sandbox, simpleAddTestSymResult, 2, 3) != 5)
+	runTests(NULL);
+	if(testResult != 1)
 	{
-		printf("Dyn loader Test 1: Failed\n");
+		printf("Main thread tests failed\n");
 		return 1;
 	}
 
-	if(invokeSimpleStrLenTestWithStackString(sandbox, simpleStrLenTestResult, "Hello") != 5)
+	printf("Main thread tests successful\n");
+
+	#if defined(_WIN32)
+	{ 
+		unsigned threadID;  
+		HANDLE newThread = (HANDLE) _beginthreadex(NULL /* security */, 0 /* use default stack size */, runTests, NULL /* no parameter */, 0/* initflag */, &threadID);
+
+		if(!newThread)
+		{
+			printf("Error creating thread\n");
+			return 1;	
+		}
+
+	    DWORD result = WaitForSingleObject(newThread, INFINITE);
+		if (result != WAIT_OBJECT_0) 
+		{
+			printf("Error joining thread\n");
+			return 1;
+		}
+
+		CloseHandle(newThread);
+	}
+	#else
 	{
-		printf("Dyn loader Test 2: Failed\n");
+		pthread_t newThread;
+		
+		if(pthread_create(&newThread, NULL /* use default thread attributes */, runTests, NULL /* no parameter */))
+		{
+			printf("Error creating thread\n");
+			return 1;
+		}
+
+		if(pthread_join(newThread, NULL))
+		{
+			printf("Error joining thread\n");
+			return 1;
+		}
+	}
+	#endif
+
+	if(testResult != 1)
+	{
+		printf("Secondary thread tests failed\n");
 		return 1;
 	}
 
-	if(invokeSimpleStrLenTestWithStackString(sandbox, simpleStrLenTestResult, "Hello") != 5)
-	{
-		printf("Dyn loader Test 3: Failed\n");
-		return 1;
-	}
-
-	if(invokeSimpleCallbackTest(sandbox, simpleCallbackTestResult, 4, "Hello") != 9)
-	{
-		printf("Dyn loader Test 4: Failed\n");
-		return 1;
-	}
-
-	if(!fileTestPassed(sandbox, simpleWriteToFileTestResult))
-	{
-		printf("Dyn loader Test 5: Failed\n");
-		return 1;	
-	}
-
-	if(!invokeSimpleEchoTestPassed(sandbox, simpleEchoTestResult, "Hello"))
-	{
-		printf("Dyn loader Test 6: Failed\n");
-		return 1;	
-	}
+	printf("Secondary thread tests successful\n");
 
 	printf("Dyn loader Test Succeeded\n");
 

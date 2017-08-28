@@ -9,6 +9,7 @@
 #include "native_client/src/trusted/dyn_ldr/dyn_ldr_lib.h"
 #include "native_client/src/trusted/dyn_ldr/dyn_ldr_sharedstate.h"
 #include "native_client/src/trusted/service_runtime/env_cleanser.h"
+#include "native_client/src/trusted/service_runtime/include/bits/mman.h"
 #include "native_client/src/trusted/service_runtime/include/sys/fcntl.h"
 #include "native_client/src/trusted/service_runtime/load_file.h"
 #include "native_client/src/trusted/service_runtime/nacl_app_thread.h"
@@ -17,10 +18,13 @@
 #include "native_client/src/trusted/service_runtime/nacl_signal.h"
 #include "native_client/src/trusted/service_runtime/nacl_switch_to_app.h"
 #include "native_client/src/trusted/service_runtime/nacl_syscall_common.h"  
+#include "native_client/src/trusted/service_runtime/nacl_tls.h"
 #include "native_client/src/trusted/service_runtime/nacl_valgrind_hooks.h"
 #include "native_client/src/trusted/service_runtime/sel_ldr.h"
 #include "native_client/src/trusted/service_runtime/sel_main_common.h"
 #include "native_client/src/trusted/service_runtime/sel_qualify.h"
+#include "native_client/src/trusted/service_runtime/sys_memory.h"
+
 #ifndef FALSE
 #define FALSE 0
 #endif
@@ -208,7 +212,7 @@ NaClSandbox* createDlSandbox(char* naclGlibcLibraryPathWithTrailingSlash, char* 
   app_argv_arr[3] = naclInitAppFullPath;
   app_argv = app_argv_arr;
 
-  //Normally, the NaClCreateMainThread invokes the NaCl application, nap
+  //Normally, the NaClCreateMainThread/NaClCreateAdditionalThread invokes the NaCl application, nap
   // in a new thread. This is not necessary here. So, call a function we 
   // have added to the runtime, that ignores the next request to create a
   // thread. It instead calls the target app on the current thread.
@@ -267,9 +271,22 @@ error:
 NaClSandbox_Thread* constructNaClSandboxThread(NaClSandbox* sandbox)
 {
   NaClSandbox_Thread* threadData = (NaClSandbox_Thread*) malloc(sizeof(NaClSandbox_Thread));
+
+  if(threadData == NULL)
+  {
+    return NULL;
+  }
+
   threadData->sandbox = sandbox;
   threadData->thread = (struct NaClAppThread *) DynArrayGet(&(sandbox->nap->threads), sandbox->nap->threads.num_entries - 1);
   threadData->thread->jumpBufferStack = (DS_Stack *) malloc(sizeof(DS_Stack));
+
+  if(threadData->thread->jumpBufferStack == NULL)
+  {
+    free(threadData);
+    return NULL;
+  }
+
   threadData->thread->custom_app_state = (uintptr_t) threadData;
   Stack_Init(threadData->thread->jumpBufferStack);
 
@@ -294,6 +311,13 @@ NaClSandbox* constructNaClSandbox(struct NaClApp* nap)
   uint32_t threadId = NaClThreadId();
 
   sandbox = (NaClSandbox*) malloc(sizeof(NaClSandbox));
+
+  if(sandbox == NULL)
+  {
+    NaClLog(LOG_ERROR, "Malloc failed while creating sandbox datastructure\n");
+    return NULL;
+  }
+
   sandbox->nap = nap;
   sandbox->sharedState = (struct AppSharedState*) nap->custom_shared_app_state;
   Map_Init(sandbox->threadDataMap);
@@ -302,10 +326,19 @@ NaClSandbox* constructNaClSandbox(struct NaClApp* nap)
   if(nap->num_threads != 1)
   {
     NaClLog(LOG_ERROR, "Failed in retrieving thread information. Expected count: 1. Actual thread count: %d\n", sandbox->nap->num_threads);
+    free(sandbox);
     return NULL;
   }
 
   threadData = constructNaClSandboxThread(sandbox);
+
+  if(threadData == NULL)
+  {
+    NaClLog(LOG_ERROR, "Failed to create data structure for thread\n");
+    free(sandbox);
+    return NULL;
+  }
+
   Map_Put(sandbox->threadDataMap, threadId, (uintptr_t) threadData);
   return sandbox;
 }
@@ -313,8 +346,90 @@ NaClSandbox* constructNaClSandbox(struct NaClApp* nap)
 /********************** "Function call stub" helpers *****************************/
 NaClSandbox_Thread* getThreadData(NaClSandbox* sandbox)
 {
-  uint32_t threadId = NaClThreadId();
-  return (NaClSandbox_Thread*) Map_Get(sandbox->threadDataMap, threadId);
+  uint32_t threadId; 
+  NaClSandbox_Thread* threadData;
+  threadId = NaClThreadId();
+  threadData = (NaClSandbox_Thread*) Map_Get(sandbox->threadDataMap, threadId);
+
+  if(threadData == NULL)
+  {
+    uintptr_t newStackSandboxed;
+    int32_t threadCreateFailed;
+    struct NaClAppThread* existingThread;
+
+    NaClLog(LOG_INFO, "Creating new thread structure for id: %u\n", (unsigned) threadId);
+
+    existingThread = ((NaClSandbox_Thread*)sandbox->threadDataMap->values[0])->thread;
+
+    NaClLog(LOG_INFO, "Data start %p, (sandboxed) %p. Stack size : %p\n", 
+      (void *) getUnsandboxedAddress(sandbox, sandbox->nap->data_start),
+      (void*) sandbox->nap->data_start,
+      (void*) sandbox->nap->stack_size);
+
+    newStackSandboxed = (uintptr_t) NaClSysMmapIntern(
+      sandbox->nap,
+      //We need to create the new stack in the memory region the app can access
+      (void *) sandbox->nap->data_start,
+      sandbox->nap->stack_size,
+      NACL_ABI_PROT_READ | NACL_ABI_PROT_WRITE, 
+      NACL_ABI_MAP_ANONYMOUS | NACL_ABI_MAP_PRIVATE,
+      //We are creating anonymous memory so file descriptor is -1 and offset is 0
+      -1,
+      0
+    );
+
+    if(
+      ((void *)newStackSandboxed == NACL_ABI_MAP_FAILED) || 
+      NaClPtrIsNegErrno(&newStackSandboxed)
+    )
+    {
+      NaClLog(LOG_FATAL, "Failed to create a new stack for the thread: %u\n", (unsigned) threadId);
+    }
+
+    NaClLog(LOG_INFO, "New Stack Range %p to %p (sandboxed: %p to %p)",
+      (void *) getUnsandboxedAddress(sandbox, newStackSandboxed),
+      (void *) getUnsandboxedAddress(sandbox, newStackSandboxed + sandbox->nap->stack_size),
+      (void *) (newStackSandboxed),
+      (void *) (newStackSandboxed + sandbox->nap->stack_size)
+    );
+
+    //Move the stack pointer to the bottom of the stack as it grows upwards
+    newStackSandboxed = newStackSandboxed + sandbox->nap->stack_size;
+
+    //Normally, the NaClCreateMainThread/NaClCreateAdditionalThread invokes the NaCl application, nap
+    // in a new thread. This is not necessary here. So, call a function we 
+    // have added to the runtime, that ignores the next request to create a
+    // thread. It instead calls the target app on the current thread.
+    NaClOverrideNextThreadCreateToRunOnCurrentThread(TRUE, &(sandbox->nap->mainJumpBuffer));
+
+    threadCreateFailed = NaClCreateAdditionalThread(sandbox->nap, 
+      (uintptr_t) sandbox->sharedState->threadMainPtr, 
+      getUnsandboxedAddress(sandbox, newStackSandboxed),
+      //These are Thread local storage variables
+      //NaCl uses these to store address of code that helps switch in and out of NaCl'd code
+      //We just reuse the values from the existing thread
+      NaClTlsGetTlsValue1(existingThread),
+      NaClTlsGetTlsValue2(existingThread)
+    );
+
+    if(threadCreateFailed)
+    {
+      NaClLog(LOG_FATAL, "Failed in creating thread data structure\n");
+      return NULL;
+    }
+
+    threadData = constructNaClSandboxThread(sandbox);
+
+    if(threadData == NULL)
+    {
+      NaClLog(LOG_FATAL, "Failed to create data structure for thread\n");
+      return NULL;
+    }
+
+    Map_Put(sandbox->threadDataMap, threadId, (uintptr_t) threadData);
+  }
+
+  return threadData;
 }
 
 NaClSandbox_Thread* preFunctionCall(NaClSandbox* sandbox, size_t paramsSize, size_t arraysSize)
