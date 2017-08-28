@@ -12,6 +12,7 @@ mv scons-out-firefox scons-out
 mv scons-out scons-out-firefox
 mv scons-out-clean scons-out
 
+(Note - instructions for how to fetch a fresh copy are provided in MyBuildInstr.txt. This is not necessary unless, say you want to rebase this project on the latest NaCl)
 
 # Usage
 Example located in native_client/src/trusted/dyn_ldr/testing/dyn_ldr_test.c and https://github.com/shravanrn/libjpeg-turbo_nacltests

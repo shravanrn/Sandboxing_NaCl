@@ -386,7 +386,7 @@ NaClSandbox_Thread* getThreadData(NaClSandbox* sandbox)
       NaClLog(LOG_FATAL, "Failed to create a new stack for the thread: %u\n", (unsigned) threadId);
     }
 
-    NaClLog(LOG_INFO, "New Stack Range %p to %p (sandboxed: %p to %p)",
+    NaClLog(LOG_INFO, "New Stack Range %p to %p (sandboxed: %p to %p)\n",
       (void *) getUnsandboxedAddress(sandbox, newStackSandboxed),
       (void *) getUnsandboxedAddress(sandbox, newStackSandboxed + sandbox->nap->stack_size),
       (void *) (newStackSandboxed),
