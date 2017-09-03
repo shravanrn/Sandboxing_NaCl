@@ -4,6 +4,8 @@ A modification of NaCl to support sandoxing of dynamic libraries from the main a
 # Build instructions
 For first build from the native client library run './scons --nacl_glibc'. For incremental builds that skip some tests use './scons MODE=opt-linux,nacl --nacl_glibc --verbose'. The 32-bit Build has been tested on an Ubuntu 17.04 64 bit.
 
+To run the test app use "scons-out/opt-linux-x86-32/staging/dyn_ldr_test"
+
 To build a version compatible with Firefox
 
 mv scons-out scons-out-clean

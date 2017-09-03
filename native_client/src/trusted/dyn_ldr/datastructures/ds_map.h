@@ -6,7 +6,7 @@
 
 #define MAP_KEY_TYPE uint32_t
 #define MAP_VALUE_TYPE uintptr_t
-#define MAP_ARR_SIZE 32
+#define MAP_ARR_SIZE 128
 
 struct _DS_Map {
     MAP_KEY_TYPE keys[MAP_ARR_SIZE];

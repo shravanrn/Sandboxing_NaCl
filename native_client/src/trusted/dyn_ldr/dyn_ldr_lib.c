@@ -2,6 +2,7 @@
 
 #include "native_client/src/public/nacl_desc.h"
 #include "native_client/src/shared/gio/gio.h"
+#include "native_client/src/shared/platform/nacl_sync_checked.h"
 #include "native_client/src/shared/platform/nacl_threads.h"
 #include "native_client/src/trusted/desc/nacl_desc_io.h"
 #include "native_client/src/trusted/dyn_ldr/datastructures/ds_stack.h"
@@ -318,16 +319,36 @@ NaClSandbox* constructNaClSandbox(struct NaClApp* nap)
     return NULL;
   }
 
+  sandbox->threadCreateMutex = (struct NaClMutex*) malloc(sizeof(struct NaClMutex));
+  if (!sandbox->threadCreateMutex)
+  {
+    NaClLog(LOG_ERROR, "Failed to create mutex\n");
+    goto err_createdSandbox;
+  }
+
+  if (!NaClMutexCtor(sandbox->threadCreateMutex)) 
+  {
+    NaClLog(LOG_ERROR, "Failed to init mutex\n");
+    goto err_createdMutex;
+  }
+
   sandbox->nap = nap;
   sandbox->sharedState = (struct AppSharedState*) nap->custom_shared_app_state;
+  sandbox->threadDataMap = (DS_Map *) malloc(sizeof(DS_Map));
+
+  if(sandbox->threadDataMap == NULL)
+  {
+    NaClLog(LOG_ERROR, "Failed to allocate thread map\n");
+    goto err_createdThreadMap;
+  }
+
   Map_Init(sandbox->threadDataMap);
 
   /*Attempting to retrieve the nacl thread context as we need this to get the location of the stack*/
   if(nap->num_threads != 1)
   {
     NaClLog(LOG_ERROR, "Failed in retrieving thread information. Expected count: 1. Actual thread count: %d\n", sandbox->nap->num_threads);
-    free(sandbox);
-    return NULL;
+    goto err_createdThreadMap;
   }
 
   threadData = constructNaClSandboxThread(sandbox);
@@ -335,12 +356,19 @@ NaClSandbox* constructNaClSandbox(struct NaClApp* nap)
   if(threadData == NULL)
   {
     NaClLog(LOG_ERROR, "Failed to create data structure for thread\n");
-    free(sandbox);
-    return NULL;
+    goto err_createdThreadMap;
   }
 
   Map_Put(sandbox->threadDataMap, threadId, (uintptr_t) threadData);
   return sandbox;
+
+err_createdThreadMap:
+  free(sandbox->threadDataMap);
+err_createdMutex:
+  free(sandbox->threadCreateMutex);
+err_createdSandbox:
+  free(sandbox);
+  return NULL;
 }
 
 /********************** "Function call stub" helpers *****************************/
@@ -400,33 +428,39 @@ NaClSandbox_Thread* getThreadData(NaClSandbox* sandbox)
     // in a new thread. This is not necessary here. So, call a function we 
     // have added to the runtime, that ignores the next request to create a
     // thread. It instead calls the target app on the current thread.
-    NaClOverrideNextThreadCreateToRunOnCurrentThread(TRUE, &(sandbox->nap->mainJumpBuffer));
-
-    threadCreateFailed = NaClCreateAdditionalThread(sandbox->nap, 
-      (uintptr_t) sandbox->sharedState->threadMainPtr, 
-      getUnsandboxedAddress(sandbox, newStackSandboxed),
-      //These are Thread local storage variables
-      //NaCl uses these to store address of code that helps switch in and out of NaCl'd code
-      //We just reuse the values from the existing thread
-      NaClTlsGetTlsValue1(existingThread),
-      NaClTlsGetTlsValue2(existingThread)
-    );
-
-    if(threadCreateFailed)
+    NaClXMutexLock(sandbox->threadCreateMutex);
     {
-      NaClLog(LOG_FATAL, "Failed in creating thread data structure\n");
-      return NULL;
+      NaClOverrideNextThreadCreateToRunOnCurrentThread(TRUE, &(sandbox->nap->mainJumpBuffer));
+
+      threadCreateFailed = NaClCreateAdditionalThread(sandbox->nap, 
+        (uintptr_t) sandbox->sharedState->threadMainPtr, 
+        getUnsandboxedAddress(sandbox, newStackSandboxed),
+        //These are Thread local storage variables
+        //NaCl uses these to store address of code that helps switch in and out of NaCl'd code
+        //We just reuse the values from the existing thread
+        NaClTlsGetTlsValue1(existingThread),
+        NaClTlsGetTlsValue2(existingThread)
+      );
+
+      if(threadCreateFailed)
+      {
+        NaClXMutexUnlock(sandbox->threadCreateMutex);
+        NaClLog(LOG_FATAL, "Failed in creating thread data structure\n");
+        return NULL;
+      }
+
+      threadData = constructNaClSandboxThread(sandbox);
+    
+      if(threadData == NULL)
+      {
+        NaClXMutexUnlock(sandbox->threadCreateMutex);
+        NaClLog(LOG_FATAL, "Failed to create data structure for thread\n");
+        return NULL;
+      }
+
+      Map_Put(sandbox->threadDataMap, threadId, (uintptr_t) threadData);
     }
-
-    threadData = constructNaClSandboxThread(sandbox);
-
-    if(threadData == NULL)
-    {
-      NaClLog(LOG_FATAL, "Failed to create data structure for thread\n");
-      return NULL;
-    }
-
-    Map_Put(sandbox->threadDataMap, threadId, (uintptr_t) threadData);
+    NaClXMutexUnlock(sandbox->threadCreateMutex);
   }
 
   return threadData;

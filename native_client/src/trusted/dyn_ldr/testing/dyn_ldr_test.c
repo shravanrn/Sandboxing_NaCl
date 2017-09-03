@@ -242,62 +242,62 @@ void* simpleStrLenTestResult;
 void* simpleCallbackTestResult;
 void* simpleWriteToFileTestResult;
 void* simpleEchoTestResult;
-int testResult = -1;
 
-void* runTests(void* unusedParam)
+void* runTests(void* testResultPtr)
 {
-	if(unusedParam){}
-	testResult = -1;
+	int* testResult = (int *)testResultPtr;
+	*testResult = -1;
 
 	if(invokeSimpleAddTest(sandbox, simpleAddTestSymResult, 2, 3) != 5)
 	{
 		printf("Dyn loader Test 1: Failed\n");
-		testResult = 0;
+		*testResult = 0;
 		return NULL;
 	}
 
 	if(invokeSimpleStrLenTestWithStackString(sandbox, simpleStrLenTestResult, "Hello") != 5)
 	{
 		printf("Dyn loader Test 2: Failed\n");
-		testResult = 0;
+		*testResult = 0;
 		return NULL;
 	}
 
 	if(invokeSimpleStrLenTestWithStackString(sandbox, simpleStrLenTestResult, "Hello") != 5)
 	{
 		printf("Dyn loader Test 3: Failed\n");
-		testResult = 0;
+		*testResult = 0;
 		return NULL;
 	}
 
 	if(invokeSimpleCallbackTest(sandbox, simpleCallbackTestResult, 4, "Hello") != 9)
 	{
 		printf("Dyn loader Test 4: Failed\n");
-		testResult = 0;
+		*testResult = 0;
 		return NULL;
 	}
 
 	if(!fileTestPassed(sandbox, simpleWriteToFileTestResult))
 	{
 		printf("Dyn loader Test 5: Failed\n");
-		testResult = 0;
+		*testResult = 0;
 		return NULL;	
 	}
 
 	if(!invokeSimpleEchoTestPassed(sandbox, simpleEchoTestResult, "Hello"))
 	{
 		printf("Dyn loader Test 6: Failed\n");
-		testResult = 0;
+		*testResult = 0;
 		return NULL;	
 	}
 
-	testResult = 1;
+	*testResult = 1;
 	return NULL;
 }
 
 int main(int argc, char** argv)
 {
 	void* dlHandle;
+	#define ThreadsToTest 4
 
 	/**************** Some calculations of relative paths ****************/
 	char* execFolder;
@@ -380,60 +380,84 @@ int main(int argc, char** argv)
 
 	/**************** Invoking functions in sandbox ****************/
 
-	runTests(NULL);
-	if(testResult != 1)
 	{
-		printf("Main thread tests failed\n");
-		return 1;
-	}
+		int mainThreadTestResult;
 
-	printf("Main thread tests successful\n");
-
-	#if defined(_WIN32)
-	{ 
-		unsigned threadID;  
-		HANDLE newThread = (HANDLE) _beginthreadex(NULL /* security */, 0 /* use default stack size */, runTests, NULL /* no parameter */, 0/* initflag */, &threadID);
-
-		if(!newThread)
+		runTests((void *) &mainThreadTestResult);
+		if(mainThreadTestResult != 1)
 		{
-			printf("Error creating thread\n");
-			return 1;	
-		}
-
-	    DWORD result = WaitForSingleObject(newThread, INFINITE);
-		if (result != WAIT_OBJECT_0) 
-		{
-			printf("Error joining thread\n");
+			printf("Main thread tests failed\n");
 			return 1;
 		}
 
-		CloseHandle(newThread);
+		printf("Main thread tests successful\n");
 	}
-	#else
+
 	{
-		pthread_t newThread;
-		
-		if(pthread_create(&newThread, NULL /* use default thread attributes */, runTests, NULL /* no parameter */))
-		{
-			printf("Error creating thread\n");
-			return 1;
-		}
+		int threadTestResults[ThreadsToTest];
 
-		if(pthread_join(newThread, NULL))
+		#if defined(_WIN32)
+		{ 
+			unsigned threadID;
+			HANDLE newThreads[ThreadsToTest];
+
+			for(unsigned i = 0; i < ThreadsToTest; i++)
+			{
+				newThreads[i] = (HANDLE) _beginthreadex(NULL /* security */, 0 /* use default stack size */, runTests, (void *) &(threadTestResults[i]) /* parameter */, 0/* initflag */, &threadID);
+				if(!newThreads[i])
+				{
+					printf("Error creating thread %d\n", i);
+					return 1;
+				}
+			}
+
+			for(unsigned i = 0; i < ThreadsToTest; i++)
+			{
+				DWORD result = WaitForSingleObject(newThreads[i], INFINITE);
+				if (result != WAIT_OBJECT_0) 
+				{
+					printf("Error joining thread %d\n", i);
+					return 1;
+				}
+
+				CloseHandle(newThreads[i]);
+			}
+		}
+		#else
 		{
-			printf("Error joining thread\n");
-			return 1;
+			pthread_t newThreads[ThreadsToTest];
+
+			for(unsigned i = 0; i < ThreadsToTest; i++)
+			{
+				if(pthread_create(&newThreads[i], NULL /* use default thread attributes */, runTests, (void *) &(threadTestResults[i]) /* parameter */))
+				{
+					printf("Error creating thread %d\n", i);
+					return 1;
+				}
+			}
+
+			for(unsigned i = 0; i < ThreadsToTest; i++)
+			{
+				if(pthread_join(newThreads[i], NULL))
+				{
+					printf("Error joining thread %d\n", i);
+					return 1;
+				}
+			}
+		}
+		#endif
+
+		for(unsigned i = 0; i < ThreadsToTest; i++)
+		{
+			if(threadTestResults[i] != 1)
+			{
+				printf("Secondary thread tests %d failed\n", i);
+				return 1;
+			}
+
+			printf("Secondary thread tests %d successful\n", i);
 		}
 	}
-	#endif
-
-	if(testResult != 1)
-	{
-		printf("Secondary thread tests failed\n");
-		return 1;
-	}
-
-	printf("Secondary thread tests successful\n");
 
 	printf("Dyn loader Test Succeeded\n");
 

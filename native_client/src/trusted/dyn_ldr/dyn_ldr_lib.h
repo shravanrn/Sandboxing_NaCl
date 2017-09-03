@@ -22,6 +22,7 @@ struct _NaClSandbox
 	struct NaClApp* nap;
 	struct _DS_Map* threadDataMap;
 	struct AppSharedState* sharedState;
+	struct NaClMutex* threadCreateMutex;
 };
 
 typedef struct _NaClSandbox NaClSandbox;
