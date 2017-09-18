@@ -82,9 +82,17 @@ int initializeDlSandboxCreator(int enableLogging)
 
   NaClAllModulesInit();
 
-  if(enableLogging)
+  if(enableLogging == 2)
   {
     NaClLogSetVerbosity(5);
+  }
+  else if(enableLogging == 1)
+  {
+    //use the default which logs anything < 0 such as LOG_INFO, LOG_ERROR but not any internal logs
+  }
+  else
+  {
+    NaClLogSetVerbosity(LOG_FATAL);
   }
 
   pq_error = NaClRunSelQualificationTests();
