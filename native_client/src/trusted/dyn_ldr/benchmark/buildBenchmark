@@ -1,3 +1,3 @@
 cd "$(dirname "$0")"
-g++ -c -O3 -m32 -mno-align-double -I/home/shr/Code/nacl2/ -o dyn_ldr_benchmark.o dyn_ldr_benchmark.cpp
+g++ -c -O0 -m32 -mno-align-double -I/home/shr/Code/nacl2/ -o dyn_ldr_benchmark.o dyn_ldr_benchmark.cpp
 g++ -m32 -mno-align-double -o dyn_ldr_benchmark -Wl,-rpath=/home/shr/Code/nacl2/native_client/scons-out/opt-linux-x86-32/lib -L/home/shr/Code/nacl2/native_client/scons-out/opt-linux-x86-32/lib dyn_ldr_benchmark.o -ldyn_ldr -lsel -lnacl_error_code -lenv_cleanser -lnrd_xfer -lnacl_perf_counter -lnacl_base -limc -lnacl_fault_inject -lnacl_interval -lplatform_qual_lib -lvalidators -ldfa_validate_caller_x86_32 -lcpu_features -lvalidation_cache -lplatform -lgio -lnccopy_x86_32 -lrt -lpthread

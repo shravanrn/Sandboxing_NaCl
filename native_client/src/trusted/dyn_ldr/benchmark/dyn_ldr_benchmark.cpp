@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <inttypes.h>
+#include <time.h>
 #include <chrono>
 using namespace std::chrono;
 
@@ -87,31 +88,83 @@ int main(int argc, char** argv)
 	}
 
 	printf("Sandbox created\n");
-	printf("Enter the number of interations to test: ");
-
-	int iterations;
-	if(!scanf("%d", &iterations))
-	{
-		printf("Scanf failure\n");
-		return 1;
-	}
 
 	unsigned ret1;
-	high_resolution_clock::time_point functionEnterTime = high_resolution_clock::now();
-	for(unsigned i = 0; i < iterations; i++)
-	{
-		ret1 = unsandboxedLocalMath(2, 3, 4);
-	}
-	high_resolution_clock::time_point functionExitTime = high_resolution_clock::now();
+	long long timeSpentInFunc;
 
 	unsigned ret2;
-	high_resolution_clock::time_point sandboxEnterTime = high_resolution_clock::now();
-	for(unsigned i = 0; i < iterations; i++)
+	long long timeSpentInSandbox;
+
+	srand(time(NULL));
+	unsigned val0_1;
+	unsigned val0_2;
+	unsigned val0_3;
+	unsigned val1_1;
+	unsigned val1_2;
+	unsigned val1_3;
+	unsigned val2_1;
+	unsigned val2_2;
+	unsigned val2_3;
+	unsigned val3_1;
+	unsigned val3_2;
+	unsigned val3_3;
+	unsigned val4_1;
+	unsigned val4_2;
+	unsigned val4_3;
+	unsigned val5_1;
+	unsigned val5_2;
+	unsigned val5_3;
+
+	val0_1 = rand();
+	val0_2 = rand();
+	val0_3 = rand();
+	val1_1 = rand();
+	val1_2 = rand();
+	val1_3 = rand();
+	val2_1 = rand();
+	val2_2 = rand();
+	val2_3 = rand();
+	val3_1 = rand();
+	val3_2 = rand();
+	val3_3 = rand();
+	val4_1 = rand();
+	val4_2 = rand();
+	val4_3 = rand();
+	val5_1 = rand();
+	val5_2 = rand();
+	val5_3 = rand();
+
+	ret1 = 0;
+	timeSpentInFunc = 0;
+	ret2 = 0;
+	timeSpentInSandbox = 0;
+
 	{
-		ret2 = sandboxedLocalMath(2, 3, 4);
+		//some warm up rounds
+		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
+		ret1 += unsandboxedLocalMath(val0_1, val0_2, val0_3);
+		ret2 += sandboxedLocalMath(val0_1, val0_2, val0_3);
+		ret1 += unsandboxedLocalMath(val0_1, val0_2, val0_3);
+		ret2 += sandboxedLocalMath(val0_1, val0_2, val0_3);
+		ret1 += unsandboxedLocalMath(val0_1, val0_2, val0_3);
+		ret2 += sandboxedLocalMath(val0_1, val0_2, val0_3);
+		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
+		printf("Warm up for = %10" PRId64 " ns\n", duration_cast<nanoseconds>(exitTime - enterTime).count());
 	}
-	
-	high_resolution_clock::time_point sandboxExitTime = high_resolution_clock::now();
+
+	{
+		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
+		ret1 += unsandboxedLocalMath(val1_1, val1_2, val1_3);
+		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
+		timeSpentInFunc += duration_cast<nanoseconds>(exitTime - enterTime).count();
+	}
+
+	{
+		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
+		ret2 += sandboxedLocalMath(val1_1, val1_2, val1_3);
+		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
+		timeSpentInSandbox += duration_cast<nanoseconds>(exitTime  - enterTime).count();
+	}
 
 	if(ret1 != ret2)
 	{
@@ -119,11 +172,224 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	long long timeSpentInFunc    = duration_cast<nanoseconds>(functionExitTime - functionEnterTime).count();
-	long long timeSpentInSandbox = duration_cast<nanoseconds>(sandboxExitTime  - sandboxEnterTime ).count();
+	printf("1 Function Call = %10" PRId64 ", Sandbox Time = %10" PRId64 " ns\n", timeSpentInFunc, timeSpentInSandbox);
 
-    printf("Function Call = %10" PRId64 ", Sandbox Time = %10" PRId64 " ns\n", timeSpentInFunc, timeSpentInSandbox);
+	///////////////////////////////////////////////////////////////////////////////////////////////////////
 
+	val0_1 = rand();
+	val0_2 = rand();
+	val0_3 = rand();
+	val1_1 = rand();
+	val1_2 = rand();
+	val1_3 = rand();
+	val2_1 = rand();
+	val2_2 = rand();
+	val2_3 = rand();
+	val3_1 = rand();
+	val3_2 = rand();
+	val3_3 = rand();
+	val4_1 = rand();
+	val4_2 = rand();
+	val4_3 = rand();
+	val5_1 = rand();
+	val5_2 = rand();
+	val5_3 = rand();
+
+	ret1 = 0;
+	timeSpentInFunc = 0;
+	ret2 = 0;
+	timeSpentInSandbox = 0;
+
+
+	{
+		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
+		ret1 += unsandboxedLocalMath(val1_1, val1_2, val1_3);
+		ret1 += unsandboxedLocalMath(val2_1, val2_2, val2_3);
+		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
+		timeSpentInFunc += duration_cast<nanoseconds>(exitTime - enterTime).count();
+	}
+	{
+		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
+		ret2 += sandboxedLocalMath(val1_1, val1_2, val1_3);
+		ret2 += sandboxedLocalMath(val2_1, val2_2, val2_3);
+		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
+		timeSpentInSandbox += duration_cast<nanoseconds>(exitTime  - enterTime).count();
+	}
+
+	if(ret1 != ret2)
+	{
+		printf("Return values don't agree\n");
+		return 1;
+	}
+
+	printf("2 Function Call = %10" PRId64 ", Sandbox Time = %10" PRId64 " ns\n", timeSpentInFunc, timeSpentInSandbox);
+
+	///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	val0_1 = rand();
+	val0_2 = rand();
+	val0_3 = rand();
+	val1_1 = rand();
+	val1_2 = rand();
+	val1_3 = rand();
+	val2_1 = rand();
+	val2_2 = rand();
+	val2_3 = rand();
+	val3_1 = rand();
+	val3_2 = rand();
+	val3_3 = rand();
+	val4_1 = rand();
+	val4_2 = rand();
+	val4_3 = rand();
+	val5_1 = rand();
+	val5_2 = rand();
+	val5_3 = rand();
+
+	ret1 = 0;
+	timeSpentInFunc = 0;
+	ret2 = 0;
+	timeSpentInSandbox = 0;
+
+
+	{
+		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
+		ret1 += unsandboxedLocalMath(val1_1, val1_2, val1_3);
+		ret1 += unsandboxedLocalMath(val2_1, val2_2, val2_3);
+		ret1 += unsandboxedLocalMath(val3_1, val3_2, val3_3);
+		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
+		timeSpentInFunc += duration_cast<nanoseconds>(exitTime - enterTime).count();
+	}
+
+	{
+		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
+		ret2 += sandboxedLocalMath(val1_1, val1_2, val1_3);
+		ret2 += sandboxedLocalMath(val2_1, val2_2, val2_3);
+		ret2 += sandboxedLocalMath(val3_1, val3_2, val3_3);
+		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
+		timeSpentInSandbox += duration_cast<nanoseconds>(exitTime  - enterTime).count();
+	}
+
+	if(ret1 != ret2)
+	{
+		printf("Return values don't agree\n");
+		return 1;
+	}
+
+	printf("3 Function Call = %10" PRId64 ", Sandbox Time = %10" PRId64 " ns\n", timeSpentInFunc, timeSpentInSandbox);
+
+	///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	val0_1 = rand();
+	val0_2 = rand();
+	val0_3 = rand();
+	val1_1 = rand();
+	val1_2 = rand();
+	val1_3 = rand();
+	val2_1 = rand();
+	val2_2 = rand();
+	val2_3 = rand();
+	val3_1 = rand();
+	val3_2 = rand();
+	val3_3 = rand();
+	val4_1 = rand();
+	val4_2 = rand();
+	val4_3 = rand();
+	val5_1 = rand();
+	val5_2 = rand();
+	val5_3 = rand();
+
+	ret1 = 0;
+	timeSpentInFunc = 0;
+	ret2 = 0;
+	timeSpentInSandbox = 0;
+
+
+	{
+		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
+		ret1 += unsandboxedLocalMath(val1_1, val1_2, val1_3);
+		ret1 += unsandboxedLocalMath(val2_1, val2_2, val2_3);
+		ret1 += unsandboxedLocalMath(val3_1, val3_2, val3_3);
+		ret1 += unsandboxedLocalMath(val4_1, val4_2, val4_3);
+		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
+		timeSpentInFunc += duration_cast<nanoseconds>(exitTime - enterTime).count();
+	}
+
+	{
+		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
+		ret2 += sandboxedLocalMath(val1_1, val1_2, val1_3);
+		ret2 += sandboxedLocalMath(val2_1, val2_2, val2_3);
+		ret2 += sandboxedLocalMath(val3_1, val3_2, val3_3);
+		ret2 += sandboxedLocalMath(val4_1, val4_2, val4_3);
+		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
+		timeSpentInSandbox += duration_cast<nanoseconds>(exitTime  - enterTime).count();
+	}
+
+	if(ret1 != ret2)
+	{
+		printf("Return values don't agree\n");
+		return 1;
+	}
+
+	printf("4 Function Call = %10" PRId64 ", Sandbox Time = %10" PRId64 " ns\n", timeSpentInFunc, timeSpentInSandbox);
+
+	///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	val0_1 = rand();
+	val0_2 = rand();
+	val0_3 = rand();
+	val1_1 = rand();
+	val1_2 = rand();
+	val1_3 = rand();
+	val2_1 = rand();
+	val2_2 = rand();
+	val2_3 = rand();
+	val3_1 = rand();
+	val3_2 = rand();
+	val3_3 = rand();
+	val4_1 = rand();
+	val4_2 = rand();
+	val4_3 = rand();
+	val5_1 = rand();
+	val5_2 = rand();
+	val5_3 = rand();
+
+	ret1 = 0;
+	timeSpentInFunc = 0;
+	ret2 = 0;
+	timeSpentInSandbox = 0;
+
+
+	{
+		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
+		ret1 += unsandboxedLocalMath(val1_1, val1_2, val1_3);
+		ret1 += unsandboxedLocalMath(val2_1, val2_2, val2_3);
+		ret1 += unsandboxedLocalMath(val3_1, val3_2, val3_3);
+		ret1 += unsandboxedLocalMath(val4_1, val4_2, val4_3);
+		ret1 += unsandboxedLocalMath(val5_1, val5_2, val5_3);
+		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
+		timeSpentInFunc += duration_cast<nanoseconds>(exitTime - enterTime).count();
+	}
+
+	{
+		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
+		ret2 += sandboxedLocalMath(val1_1, val1_2, val1_3);
+		ret2 += sandboxedLocalMath(val2_1, val2_2, val2_3);
+		ret2 += sandboxedLocalMath(val3_1, val3_2, val3_3);
+		ret2 += sandboxedLocalMath(val4_1, val4_2, val4_3);
+		ret2 += sandboxedLocalMath(val5_1, val5_2, val5_3);
+		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
+		timeSpentInSandbox += duration_cast<nanoseconds>(exitTime  - enterTime).count();
+	}
+
+	if(ret1 != ret2)
+	{
+		printf("Return values don't agree\n");
+		return 1;
+	}
+
+	printf("5 Function Call = %10" PRId64 ", Sandbox Time = %10" PRId64 " ns\n", timeSpentInFunc, timeSpentInSandbox);
+
+	///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	/**************** Cleanup ****************/
 
