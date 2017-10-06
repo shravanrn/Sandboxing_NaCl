@@ -167,7 +167,7 @@ int invokeSimpleWriteToFileTest(NaClSandbox* sandbox, void* simpleWriteToFileTes
 
 int fileTestPassed(NaClSandbox* sandbox, void* simpleWriteToFileTest)
 {
-	FILE* file = fopenInSandbox(sandbox, "/home/shr/Desktop/test123.txt", "w");
+	FILE* file = fopenInSandbox(sandbox, "test123.txt", "w");
 
 	if(!file)
 	{
