@@ -168,7 +168,7 @@ struct NaClAppThread {
    * used to jump back and forth between NaCl'd and un-NaCl'd code
    */
   struct _DS_Stack *        jumpBufferStack;
-  /* A variable that stores the contents of the eax register in NaCl as the 
+  /* A variable that stores the contents of the eax (rax in 64 bit) register in NaCl as the 
    * NaCl app switches to trusted code via the NaClExitSandbox syscall
   */
   nacl_reg_t                register_eax;

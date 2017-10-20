@@ -37,4 +37,6 @@ struct AppSharedState
 
     fopen_type                   fopenPtr;
     fclose_type                  fclosePtr;
+
+    long checkChar;
 };

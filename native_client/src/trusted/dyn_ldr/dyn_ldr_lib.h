@@ -15,6 +15,12 @@ struct _NaClSandbox_Thread
 	uintptr_t saved_stack_ptr_forFunctionCall;
 	uintptr_t stack_ptr_arrayLocation;
 	size_t callbackParamsAlreadyRead;
+	#if defined(_M_X64) || defined(__x86_64__)
+		//On 64 bit systems, different parameters go into different locations
+		//After param 6, we put it onto the stack, so we stop counting after this
+		unsigned registerParameterNumber;
+		unsigned callbackParameterNumber;
+	#endif
 };
 
 struct _NaClSandbox
@@ -47,8 +53,18 @@ NaClSandbox_Thread* preFunctionCall(NaClSandbox* sandbox, size_t paramsSize, siz
 void invokeFunctionCall(NaClSandbox_Thread* threadData, void* functionPtr);
 void invokeFunctionCallWithSandboxPtr(NaClSandbox_Thread* threadData, uintptr_t functionPtrInSandbox);
 
-uintptr_t getUnsandboxedAddress(NaClSandbox* sandbox, uintptr_t uaddr);
-uintptr_t getSandboxedAddress(NaClSandbox* sandbox, uintptr_t uaddr);
+#if defined(_M_IX86) || defined(__i386__)
+	uintptr_t getUnsandboxedAddress(NaClSandbox* sandbox, uintptr_t uaddr);
+	uintptr_t getSandboxedAddress(NaClSandbox* sandbox, uintptr_t uaddr);
+#elif defined(_M_X64) || defined(__x86_64__) 
+	#define getUnsandboxedAddress(a, b) (b)
+	#define getSandboxedAddress(a, b) (b)
+#elif defined(__ARMEL__) || defined(__MIPSEL__)
+	#error Unsupported platform!
+#else
+	#error Unknown platform!
+#endif
+
 int isAddressInSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr);
 int isAddressInNonSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr);
 
@@ -59,11 +75,43 @@ int isAddressInNonSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr);
 
 #define ADJUST_STACK_PTR(ptr, size) (ptr + size)
 
-#define PUSH_VAL_TO_STACK(threadData, type, value) do { \
-  /*printf("Entering PUSH_VAL_TO_STACK: %u loc %u\n", (unsigned) value,(unsigned)(threadData->stack_ptr_forParameters));*/ \
-  *(type *) (threadData->stack_ptr_forParameters) = (type) value; \
-  threadData->stack_ptr_forParameters = ADJUST_STACK_PTR(threadData->stack_ptr_forParameters, sizeof(type)); \
-} while (0)
+#if defined(_M_IX86) || defined(__i386__)
+
+	#define PUSH_VAL_TO_STACK(threadData, type, value) do { \
+		/*printf("Entering PUSH_VAL_TO_STACK: %u loc %u\n", (unsigned) value,(unsigned)(threadData->stack_ptr_forParameters));*/ \
+		*(type *) (threadData->stack_ptr_forParameters) = (type) value; \
+		threadData->stack_ptr_forParameters = ADJUST_STACK_PTR(threadData->stack_ptr_forParameters, sizeof(type)); \
+	} while (0)
+
+#elif defined(_M_X64) || defined(__x86_64__) 
+
+	uint64_t* getParamRegister(NaClSandbox_Thread* threadData, unsigned parameterNumber);
+
+	#define PUSH_64BIT_VAL_TO_REG(threadData, value) { \
+		uint64_t* regPtr = getParamRegister(threadData, threadData->registerParameterNumber); \
+		*regPtr = value; \
+		threadData->registerParameterNumber++; \
+	}
+
+	#define PUSH_VAL_TO_STACK(threadData, type, value) do { \
+		if(threadData->registerParameterNumber < 6 && sizeof(value) <= 64) {		\
+			PUSH_64BIT_VAL_TO_REG(threadData, (uint64_t) (value)); \
+		} else if(threadData->registerParameterNumber < 5 && sizeof(value) <= 128) {		\
+			const type tempVar = (type) value; \
+			uint64_t* valCasted = (uint64_t *) &tempVar; \
+			PUSH_64BIT_VAL_TO_REG(threadData, valCasted[0]); \
+			PUSH_64BIT_VAL_TO_REG(threadData, valCasted[1]); \
+		} else { \
+			*(type *) (threadData->stack_ptr_forParameters) = (type) value; \
+			threadData->stack_ptr_forParameters = ADJUST_STACK_PTR(threadData->stack_ptr_forParameters, sizeof(type)); \
+		} \
+	} while (0)
+
+#elif defined(__ARMEL__) || defined(__MIPSEL__)
+	#error Unsupported platform!
+#else
+	#error Unknown platform!
+#endif
 
 #define PUSH_SANDBOXEDPTR_TO_STACK(threadData, type, value) PUSH_VAL_TO_STACK(threadData, type, value)
 
@@ -108,7 +156,10 @@ uintptr_t functionCallReturnSandboxPtr(NaClSandbox_Thread* threadData);
 	#else
 		#error CDecl not supported in this platform!
 	#endif
-#elif defined(_M_X64) || defined(__x86_64__) || defined(__ARMEL__) || defined(__MIPSEL__)
+#elif defined(_M_X64) || defined(__x86_64__) 
+	//There is only one calling convention in x64 - this is slightly different in Windows/Linux, and is handled elsewhere in the system
+	#define SANDBOX_CALLBACK
+#elif defined(__ARMEL__) || defined(__MIPSEL__)
 	#error Unsupported platform!
 #else
 	#error Unknown platform!

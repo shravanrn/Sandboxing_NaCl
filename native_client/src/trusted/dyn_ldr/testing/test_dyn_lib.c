@@ -8,7 +8,6 @@ int simpleAddTest(int a, int b)
 {
 	printf("simpleAddTest\n");
 	fflush(stdout);
-	fflush(stdout);
 	return a + b;
 }
 

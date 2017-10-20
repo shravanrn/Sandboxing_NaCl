@@ -324,40 +324,40 @@ nacl_reg_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumb
       VoidPtrFunc func;
       register nacl_reg_t eax asm("eax");
       nacl_reg_t eaxCopy;
-      unsigned eaxU;
+      uint32_t eaxU;
 
       //We are here in the following situation.
       //The app makes a function call into the sandbox (let's call this S1).
-      //The sandbox makes a callback (let's call this C) into main aoo
+      //The sandbox makes a callback (let's call this C) into main app
       //Note we need to save register values and restore them after the C
       //This is because, when we execute C below, C could 
       //make a different call into the sandbox(let's call this S2) at which point, the instruction pointer, stack pointer
       //registers etc. would all have changed when the call S2 executes. Thus when S2 returns, C returns and 
       //we continue execution of S1, thes values would be destroyed. So we save this, and restore it before we return.
-      nacl_reg_t saved_ebx = natp->user.ebx;
-      nacl_reg_t saved_esi = natp->user.esi;
-      nacl_reg_t saved_edi = natp->user.edi;
-      nacl_reg_t saved_prog_ctr = natp->user.prog_ctr;
-      nacl_reg_t saved_frame_ptr = natp->user.frame_ptr;
-      nacl_reg_t saved_stack_ptr = natp->user.stack_ptr;
+      nacl_reg_t saved_ebx          = natp->user.ebx;
+      nacl_reg_t saved_esi          = natp->user.esi;
+      nacl_reg_t saved_edi          = natp->user.edi;
+      nacl_reg_t saved_prog_ctr     = natp->user.prog_ctr;
+      nacl_reg_t saved_frame_ptr    = natp->user.frame_ptr;
+      nacl_reg_t saved_stack_ptr    = natp->user.stack_ptr;
       nacl_reg_t saved_new_prog_ctr = natp->user.new_prog_ctr;
-      nacl_reg_t saved_sysret = natp->user.sysret;
+      nacl_reg_t saved_sysret       = natp->user.sysret;
 
       NaClLog(LOG_INFO, "Making NaClSysCallback: %"PRIu32"\n", callbackSlotNumber);
       func = (VoidPtrFunc) (natp->nap->callbackSlot[callbackSlotNumber]);
       func(natp->nap->custom_app_state);
       eaxCopy = eax;
       eaxU = eaxCopy;
-      NaClLog(LOG_INFO, "Returned from NaClSysCallback with eax: %u\n", eaxU);
+      NaClLog(LOG_INFO, "Returned from NaClSysCallback with eax: %"PRIu32"\n", eaxU);
 
-      natp->user.ebx = saved_ebx;
-      natp->user.esi = saved_esi;
-      natp->user.edi = saved_edi;
-      natp->user.prog_ctr = saved_prog_ctr;
-      natp->user.frame_ptr = saved_frame_ptr;
-      natp->user.stack_ptr = saved_stack_ptr;
+      natp->user.ebx          = saved_ebx;
+      natp->user.esi          = saved_esi;
+      natp->user.edi          = saved_edi;
+      natp->user.prog_ctr     = saved_prog_ctr;
+      natp->user.frame_ptr    = saved_frame_ptr;
+      natp->user.stack_ptr    = saved_stack_ptr;
       natp->user.new_prog_ctr = saved_new_prog_ctr;
-      natp->user.sysret = saved_sysret;
+      natp->user.sysret       = saved_sysret;
 
       //Depending on the callback return type, the return value could be in the 
       //   eax register - simple integers or pointers
@@ -367,6 +367,43 @@ nacl_reg_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumb
       //this function returns a primitive value, we will return the contents of eax
       //so as not to clobber the eax register
       return eaxCopy;
+
+    #elif NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64
+      VoidPtrFunc func;
+      register nacl_reg_t rax asm("rax");
+      nacl_reg_t raxCopy;
+      uint64_t raxU;
+
+      nacl_reg_t saved_rbx          = natp->user.rbx;
+      nacl_reg_t saved_r12          = natp->user.r12;
+      nacl_reg_t saved_r13          = natp->user.r13;
+      nacl_reg_t saved_r14          = natp->user.r14;
+      nacl_reg_t saved_r15          = natp->user.r15;
+      nacl_reg_t saved_prog_ctr     = natp->user.prog_ctr;
+      nacl_reg_t saved_rbp          = natp->user.rbp;
+      nacl_reg_t saved_rsp          = natp->user.rsp;
+      nacl_reg_t saved_new_prog_ctr = natp->user.new_prog_ctr;
+      nacl_reg_t saved_sysret       = natp->user.sysret;
+
+      NaClLog(LOG_INFO, "Making NaClSysCallback: %"PRIu32"\n", callbackSlotNumber);
+      func = (VoidPtrFunc) (natp->nap->callbackSlot[callbackSlotNumber]);
+      func(natp->nap->custom_app_state);
+      raxCopy = rax;
+      raxU = raxCopy;
+      NaClLog(LOG_INFO, "Returned from NaClSysCallback with rax: %"PRIu64"\n", raxU);
+
+      natp->user.rbx          = saved_rbx;
+      natp->user.r12          = saved_r12;
+      natp->user.r13          = saved_r13;
+      natp->user.r14          = saved_r14;
+      natp->user.r15          = saved_r15;
+      natp->user.prog_ctr     = saved_prog_ctr;
+      natp->user.rbp          = saved_rbp;
+      natp->user.rsp          = saved_rsp;
+      natp->user.new_prog_ctr = saved_new_prog_ctr;
+      natp->user.sysret       = saved_sysret;
+
+      return raxCopy;
 
     #else
       #error "Unsupported platform"

@@ -38,14 +38,29 @@
 
 /********************* Utility functions ***********************/
 
-uintptr_t getUnsandboxedAddress(NaClSandbox* sandbox, uintptr_t uaddr){
-  if (uaddr == 0) { return 0;}
-  return NaClUserToSys(sandbox->nap, uaddr);
-}
-uintptr_t getSandboxedAddress(NaClSandbox* sandbox, uintptr_t uaddr){
-  if (uaddr == 0) { return 0;}
-  return NaClSysToUser(sandbox->nap, uaddr);
-}
+#if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
+  #define GetStackPointer(user) (user.stack_ptr)
+#elif NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64
+  #define GetStackPointer(user) (user.rsp)
+#elif defined(__ARMEL__) || defined(__MIPSEL__)
+  #error Unsupported platform!
+#else
+  #error Unknown platform!
+#endif
+
+
+
+#if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
+  uintptr_t getUnsandboxedAddress(NaClSandbox* sandbox, uintptr_t uaddr){
+    if (uaddr == 0) { return 0;}
+    return NaClUserToSys(sandbox->nap, uaddr);
+  }
+  uintptr_t getSandboxedAddress(NaClSandbox* sandbox, uintptr_t uaddr){
+    if (uaddr == 0) { return 0;}
+    return NaClSysToUser(sandbox->nap, uaddr);
+  }
+#endif
+
 int isAddressInSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr){
   return uaddr == 0 || NaClIsUserAddr(sandbox->nap, uaddr);
 }
@@ -142,7 +157,8 @@ NaClSandbox* createDlSandbox(char* naclGlibcLibraryPathWithTrailingSlash, char* 
   char**                  app_argv;
   char*                   app_argv_arr[4];
   unsigned                testResult = 0;
-  size_t                  testResult2 = 0;
+  int                     testResult2 = 0;
+  long                    checkChar = 0;
 
   nap = NaClAppCreate();
   if (nap == NULL) {
@@ -246,6 +262,29 @@ NaClSandbox* createDlSandbox(char* naclGlibcLibraryPathWithTrailingSlash, char* 
     goto error;
   }
 
+  checkChar = sandbox->sharedState->checkChar;
+  if(checkChar != 1234)
+  {
+    struct AppSharedState * ptr = (struct AppSharedState *)(((uintptr_t)sandbox->sharedState) & 0xFFFFFFFF);
+    NaClLog(LOG_ERROR, "Check bit on shared state has failed: Expected return of 1234. Got %d, %p\n", (int) sandbox->sharedState->checkChar, (void *)ptr); 
+    goto error;
+  }
+
+  #if defined(_M_X64) || defined(__x86_64__)
+    sandbox->sharedState->threadMainPtr           = (threadMain_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->threadMainPtr);
+    //Note exitFunctionWrapperPtr and callbackFunctionWrapper are called only from inside the sandbox, so we don't have to unsandbox their locations
+    sandbox->sharedState->test_localMathPtr       = (test_localMath_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->test_localMathPtr);
+    sandbox->sharedState->test_localStringPtr     = (test_localString_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->test_localStringPtr);
+    sandbox->sharedState->mallocPtr               = (malloc_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->mallocPtr);
+    sandbox->sharedState->freePtr                 = (free_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->freePtr);
+    sandbox->sharedState->dlopenPtr               = (dlopen_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->dlopenPtr);
+    sandbox->sharedState->dlerrorPtr              = (dlerror_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->dlerrorPtr);
+    sandbox->sharedState->dlsymPtr                = (dlsym_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->dlsymPtr);
+    sandbox->sharedState->dlclosePtr              = (dlclose_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->dlclosePtr);
+    sandbox->sharedState->fopenPtr                = (fopen_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->fopenPtr);
+    sandbox->sharedState->fclosePtr               = (fclose_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->fclosePtr);
+  #endif
+
   nap->custom_app_state = (uintptr_t) sandbox;
 
   NaClLog(LOG_INFO, "Running a sandbox test\n");
@@ -300,16 +339,21 @@ NaClSandbox_Thread* constructNaClSandboxThread(NaClSandbox* sandbox)
   Stack_Init(threadData->thread->jumpBufferStack);
 
   {
-    uintptr_t alignedValue = ROUND_DOWN_TO_POW2(threadData->thread->user.stack_ptr, 16);
+    uintptr_t alignedValue = ROUND_DOWN_TO_POW2(GetStackPointer(threadData->thread->user), 16);
 
-    if(threadData->thread->user.stack_ptr != alignedValue)
+    if(GetStackPointer(threadData->thread->user) != alignedValue)
     {
       NaClLog(LOG_INFO, "Re-aligning the NaCl stack to %u bytes\n", 16);
-      threadData->thread->user.stack_ptr = alignedValue;
+      GetStackPointer(threadData->thread->user) = alignedValue;
     }
   }
 
   threadData->callbackParamsAlreadyRead = 0;
+  #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64
+    threadData->registerParameterNumber = 0;
+    threadData->callbackParameterNumber = 0;
+  #endif
+
   return threadData;
 }
 
@@ -476,17 +520,29 @@ NaClSandbox_Thread* getThreadData(NaClSandbox* sandbox)
 
 NaClSandbox_Thread* preFunctionCall(NaClSandbox* sandbox, size_t paramsSize, size_t arraysSize)
 {
-  #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
+  #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 //32 or 64 bit
 
     NaClSandbox_Thread* threadData = getThreadData(sandbox);
-    threadData->saved_stack_ptr_forFunctionCall = threadData->thread->user.stack_ptr;
-    threadData->stack_ptr_forParameters = getUnsandboxedAddress(sandbox, ROUND_DOWN_TO_POW2(threadData->thread->user.stack_ptr, STACKALIGNMENT));
+    #if NACL_BUILD_SUBARCH == 64
+      threadData->registerParameterNumber = 0;
+    #endif
+    threadData->saved_stack_ptr_forFunctionCall = GetStackPointer(threadData->thread->user);
+    threadData->stack_ptr_forParameters = getUnsandboxedAddress(sandbox, ROUND_DOWN_TO_POW2(GetStackPointer(threadData->thread->user), STACKALIGNMENT));
 
     //Our stack would look as follows
     //return address
+    //----------if 32 bit----------
     //function param 1
     //function param 2
     //function param 3
+    //...
+    //function param 9
+    //-------else if 64 bit--------
+    //function param 7
+    //function param 8
+    //function param 9
+    // <..unused space..>
+    //----------end if----------
     //inline array 1
     //inline array 2
     //Existing StackFrames
@@ -509,7 +565,7 @@ NaClSandbox_Thread* preFunctionCall(NaClSandbox* sandbox, size_t paramsSize, siz
     /* make space for arrays, args and the return address. */
     threadData->stack_ptr_forParameters = threadData->stack_ptr_arrayLocation - paramsSize;
 
-    threadData->thread->user.stack_ptr = getSandboxedAddress(sandbox, threadData->stack_ptr_forParameters);
+    GetStackPointer(threadData->thread->user) = getSandboxedAddress(sandbox, threadData->stack_ptr_forParameters);
     /* push the return address of the exit wrapper on the stack. The exit wrapper is  */
     /* for cleanup and exiting the sandbox */
     PUSH_SANDBOXEDPTR_TO_STACK(threadData, uintptr_t, (uintptr_t) sandbox->sharedState->exitFunctionWrapperPtr);
@@ -519,6 +575,40 @@ NaClSandbox_Thread* preFunctionCall(NaClSandbox* sandbox, size_t paramsSize, siz
     #error Unsupported architecture
   #endif
 }
+
+#if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64
+
+  uint64_t* getParamRegister(NaClSandbox_Thread* threadData, unsigned parameterNumber)
+  {
+    if(parameterNumber == 0) 
+    {
+      return &(threadData->thread->user.rdi);
+    }
+    else if(parameterNumber == 1) 
+    {
+      return &(threadData->thread->user.rsi);
+    }
+    else if(parameterNumber == 2) 
+    {
+      return &(threadData->thread->user.rdx);
+    }
+    else if(parameterNumber == 3) 
+    {
+      return &(threadData->thread->user.rcx);
+    }
+    else if(parameterNumber == 4) 
+    {
+      return &(threadData->thread->user.r8);
+    }
+    else if(parameterNumber == 5) 
+    {
+      return &(threadData->thread->user.r9);
+    }
+
+    return NULL;
+  }
+
+#endif
 
 void invokeFunctionCallWithSandboxPtr(NaClSandbox_Thread* threadData, uintptr_t functionPtrInSandbox)
 {
@@ -549,17 +639,18 @@ void invokeFunctionCallWithSandboxPtr(NaClSandbox_Thread* threadData, uintptr_t 
   }
   else
   {
-    #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
+    #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 // 32 or 64 bit
 
       //make sure the saved stack pointer makes sense
       if(
         //saved stack pointer should be below the current stack pointer
-        saved_stack_ptr_forFunctionCall >= threadData->thread->user.stack_ptr && 
+        saved_stack_ptr_forFunctionCall >= GetStackPointer(threadData->thread->user) && 
         //saved stack pointer should be in the valid range for a NaCl sandbox address
+        //this check was inferred from the NaClIsUserAddr function in native_client/src/trusted/service_runtime/sel_ldr-inl.h
         saved_stack_ptr_forFunctionCall <= ((uintptr_t) 1U << threadData->sandbox->nap->addr_bits)
       ) 
       {
-        threadData->thread->user.stack_ptr = saved_stack_ptr_forFunctionCall;
+        GetStackPointer(threadData->thread->user) = saved_stack_ptr_forFunctionCall;
       }
       else
       {
@@ -577,7 +668,7 @@ void invokeFunctionCallWithSandboxPtr(NaClSandbox_Thread* threadData, uintptr_t 
         //That said, we can just ignore the replaced values in this case, as
         //we won't bother reclaiming a part of the stack
         NaClLog(LOG_WARNING, "WARNING: Got an unexpected value for saved stack pointer. Curr stack pointer(sandboxed): %p , saved(sandboxed): %p\n",
-          (void *) threadData->thread->user.stack_ptr,
+          (void *) GetStackPointer(threadData->thread->user),
           (void *) threadData->saved_stack_ptr_forFunctionCall
         );
       }
@@ -633,19 +724,20 @@ NaClSandbox_Thread* callbackParamsBegin(NaClSandbox* sandbox)
 {
   NaClSandbox_Thread* threadData = getThreadData(sandbox);
   threadData->callbackParamsAlreadyRead = 0;
+  threadData->callbackParameterNumber = 0;
   return threadData;
 }
 
 uintptr_t getCallbackParam(NaClSandbox_Thread* threadData, size_t size)
 {
+  //The set of calls to exit the sandbox look as follows
+  //
+  // 1) functionInLibThatMakesCallback(param1, param2, param3)
+  // 2) callbackFunctionWrapperN in dyn_ldr_sandbox_init.c
+  // 3) NaClSysCall - NaClSysCallback in nacl_syscall_common.c
+
   #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
     //The parameters start at the location of the NaCl sp
-    //
-    //The set of calls to exit the sandbox look as follows
-    //
-    // 1) functionInLibThatMakesCallback(param1, param2, param3)
-    // 2) callbackFunctionWrapperN in dyn_ldr_sandbox_init.c
-    // 3) NaClSysCall - NaClSysCallback in nacl_syscall_common.c
     //
     //It is expected that the top of the NaCl stack would look like
     //
@@ -676,16 +768,59 @@ uintptr_t getCallbackParam(NaClSandbox_Thread* threadData, size_t size)
     //
     //Since the NaCl Springboard does mess with assembly, it is possible, that it has messed with sp as well
     //
-    //Through trial, the padding used was found to be 32 bytes. This offset was derived by printing the contents of the NaCl stack. This means
+    //Through trial and error, the padding used was found to be 32 bytes. This offset was derived by printing the contents of the NaCl stack. This means
     //(functionInLibThatMakesCallback) Param 1 is located 32 bytes ahead of the sp
     //
     #define CallbackParmetersStartOffset 32
     uintptr_t paramPointer = getUnsandboxedAddress(threadData->sandbox,
-      threadData->thread->user.stack_ptr + CallbackParmetersStartOffset + threadData->callbackParamsAlreadyRead);
+      GetStackPointer(threadData->thread->user) + CallbackParmetersStartOffset + threadData->callbackParamsAlreadyRead);
 
     threadData->callbackParamsAlreadyRead += size;
     return paramPointer;
 
+  #elif NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64
+    //Similar to x86 version except the first 6 parameters are in registers
+    //Parameter 7 onwards is on the stack
+    if(threadData->registerParameterNumber < 6 && size <= 64) 
+    {
+      uint64_t* regPtr = getParamRegister(threadData, threadData->callbackParameterNumber);
+      threadData->callbackParameterNumber++;
+      return (uintptr_t) regPtr;
+    }
+    else if(threadData->registerParameterNumber < 5 && size <= 128) 
+    {
+      //This is a wierd case where the struct is split across the registers, but we need send back a pointer to the object
+      //We can't just return a pointer to the NACL's copy of the registers like the previous case
+      //as NACL doesn't store the parameter register contents in adjascent locations in memeory (See native_client/src/trusted/service_runtime/arch/x86_64/sel_rt_64.h)
+      //So we need to copy the values into a new memory location. 
+      //This makes this function wierd in that there is now one case where it allocates memory which the caller has to de-allocate later
+      //We will ignore this for now - but this will obviously cause a memory leak in the program till it is fixed      
+      uint64_t* regPtr1;
+      uint64_t* regPtr2;
+
+      uint64_t* valCasted = (uint64_t *) malloc(128);
+
+      regPtr1 = getParamRegister(threadData, threadData->callbackParameterNumber);
+      threadData->callbackParameterNumber++;
+      
+      regPtr2 = getParamRegister(threadData, threadData->callbackParameterNumber);
+      threadData->callbackParameterNumber++;
+
+      valCasted[0] = *regPtr1;
+      valCasted[1] = *regPtr2;
+
+      return (uintptr_t) valCasted;
+    }
+    else
+    {
+      //See x86 section above for explanation 
+      #define CallbackParmetersStartOffset 32
+      uintptr_t paramPointer = getUnsandboxedAddress(threadData->sandbox,
+        GetStackPointer(threadData->thread->user) + CallbackParmetersStartOffset + threadData->callbackParamsAlreadyRead);
+
+      threadData->callbackParamsAlreadyRead += size;
+      return paramPointer;
+    }
   #else
     #error Unsupported architecture
   #endif
@@ -695,7 +830,8 @@ unsigned functionCallReturnRawPrimitiveInt(NaClSandbox_Thread* threadData)
 {
   unsigned ret;
 
-  #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
+  #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 //32 and 64 bit
+    //Note for 64 bit this is actuall the rax register
     ret = (unsigned) threadData->thread->register_eax;
     NaClLog(LOG_INFO, "Return int %u\n", ret);
   #else
@@ -709,7 +845,7 @@ uintptr_t functionCallReturnPtr(NaClSandbox_Thread* threadData)
 {
   uintptr_t ret;  
 
-  #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32 
+  #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 //32 and 64 bit
     ret = (uintptr_t) getUnsandboxedAddress(threadData->sandbox, (uintptr_t) threadData->thread->register_eax);
     NaClLog(LOG_INFO, "Return pointer. Sandbox: %p, App: %p\n", (void*) threadData->thread->register_eax, (void*) ret);
   #else

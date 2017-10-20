@@ -51,3 +51,5 @@ testserver.log
 # Ignore the hermetic cygwin used on windows toolchain builds.
 /cygwin/
 /scons-out-firefox/
+/scons-out-x86/
+/scons-out-64/

@@ -321,6 +321,13 @@ int main(int argc, char** argv)
 		sandbox_init_app = concatenateAndFixSlash(execFolder, "../../../scons-out/nacl-x86-32-glibc/staging/dyn_ldr_sandbox_init.nexe");
 		//dlToOpen is something like: "/home/shr/Code/nacl2/native_client/scons-out/nacl-x86-32-glibc/staging/libtest_dyn_lib.so"
 		dlToOpen = concatenateAndFixSlash(execFolder, "../../../scons-out/nacl-x86-32-glibc/staging/libtest_dyn_lib.so");
+	#elif defined(_M_X64) || defined(__x86_64__)
+		//libraryPath is something like: "/home/shr/Code/nacl2/native_client/toolchain/linux_x86/nacl_x86_glibc/x86_64-nacl/lib/"
+		libraryPath = concatenateAndFixSlash(execFolder, "../../../toolchain/linux_x86/nacl_x86_glibc/x86_64-nacl/lib/");
+		//sandbox_init_app is something like: "/home/shr/Code/nacl2/native_client/scons-out/nacl-x86-64-glibc/staging/dyn_ldr_sandbox_init.nexe"
+		sandbox_init_app = concatenateAndFixSlash(execFolder, "../../../scons-out/nacl-x86-64-glibc/staging/dyn_ldr_sandbox_init.nexe");
+		//dlToOpen is something like: "/home/shr/Code/nacl2/native_client/scons-out/nacl-x86-64-glibc/staging/libtest_dyn_lib.so"
+		dlToOpen = concatenateAndFixSlash(execFolder, "../../../scons-out/nacl-x86-64-glibc/staging/libtest_dyn_lib.so");
 	#else
 		#error Unknown platform!
 	#endif
