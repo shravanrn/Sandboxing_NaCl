@@ -422,6 +422,10 @@ struct NaClApp {
    * the NaCl application
    */
   jmp_buf mainJumpBuffer;
+
+  /* Structure that holds the symbol table mapping of (symbol->address)
+   */
+  struct SymbolTableMapping * symbolTableMapping;
 };
 
 
@@ -446,6 +450,8 @@ int NaClAppCtor(struct NaClApp  *nap) NACL_WUR;
  * can be added explicitly using NACL_REGISTER_SYSCALL.
  */
 int NaClAppWithEmptySyscallTableCtor(struct NaClApp *nap) NACL_WUR;
+
+void NaClAppLoadSymbolTableMapping(int loadSymbolTableMapping);
 
 /*
  * Loads a NaCl ELF file into memory in preparation for running it.

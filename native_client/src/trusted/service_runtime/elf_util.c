@@ -1027,3 +1027,244 @@ void NaClElfImageDelete(struct NaClElfImage *image) {
 uintptr_t NaClElfImageGetEntryPoint(struct NaClElfImage *image) {
   return image->ehdr.e_entry;
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+#ifndef BOOL
+#define BOOL int
+#endif
+
+#ifndef FALSE
+#define FALSE 0
+#endif
+
+#ifndef TRUE
+#define TRUE 1
+#endif
+
+#define SHT_SYMTAB 2
+#define SHT_STRTAB 3
+#define ELF_ST_TYPE(x) (((unsigned int) x) & 0xf)
+#define STT_FUNC 2
+
+typedef struct {
+  Elf32_Word      st_name;
+  Elf32_Addr      st_value;
+  Elf32_Word      st_size;
+  unsigned char   st_info;
+  unsigned char   st_other;
+  Elf32_Half      st_shndx;
+} Elf32_Sym;
+
+typedef struct {
+  Elf64_Word      st_name;
+  unsigned char   st_info;
+  unsigned char   st_other;
+  Elf64_Half      st_shndx;
+  Elf64_Addr      st_value;
+  Elf64_Xword     st_size;
+} Elf64_Sym;
+
+struct ElfSectionData32
+{
+  Elf32_Shdr *stringTableHeader;
+  Elf32_Shdr *symbolTableHeader;
+  uint32_t stringTableSize;
+  uint32_t symbolCount;
+  char* stringTable;
+  Elf32_Sym *symbolTable;
+};
+
+struct ElfSectionData64
+{
+  Elf64_Shdr *stringTableHeader;
+  Elf64_Shdr *symbolTableHeader;
+  uint32_t stringTableSize;
+  uint32_t symbolCount;
+  char* stringTable;
+  Elf64_Sym *symbolTable;
+};
+
+#define GenNaClElfGetSymbolInfo(bits)\
+BOOL NaClElfGetSymbolInfo##bits(struct NaClElfImage* image, struct NaClDesc* ndp, struct ElfSectionData##bits * out_elfSectionData) \
+{\
+  ssize_t read_ret;\
+  int sectionHeaderNum;\
+  Elf##bits##_Shdr shdr[NACL_MAX_PROGRAM_HEADERS];\
+\
+  if(image->ehdr.e_shnum > NACL_MAX_PROGRAM_HEADERS)\
+  {\
+    NaClLog(2, "too many section headers\n");\
+    return FALSE;\
+  }\
+\
+  read_ret = (*NACL_VTBL(NaClDesc, ndp)->\
+            PRead)(ndp,\
+                   &shdr[0],\
+                   image->ehdr.e_shnum * sizeof shdr[0],\
+                   (nacl_off64_t) image->ehdr.e_shoff);\
+\
+  if (NaClSSizeIsNegErrno(&read_ret) || (size_t) read_ret != image->ehdr.e_shnum * sizeof shdr[0]) \
+  {\
+    NaClLog(2, "cannot load section headers\n");\
+    return FALSE;\
+  }\
+\
+  for (sectionHeaderNum = 0; sectionHeaderNum < image->ehdr.e_shnum; ++sectionHeaderNum) \
+  {\
+    Elf##bits##_Shdr *sectionHeader = &shdr[sectionHeaderNum];\
+    \
+    if(sectionHeader->sh_type == SHT_STRTAB)\
+    {\
+      out_elfSectionData->stringTableHeader = sectionHeader;\
+      out_elfSectionData->stringTableSize = sectionHeader->sh_size;\
+      out_elfSectionData->stringTable = malloc(sectionHeader->sh_size);\
+\
+      read_ret = (*NACL_VTBL(NaClDesc, ndp)->\
+          PRead)(ndp,\
+                 out_elfSectionData->stringTable,\
+                 sectionHeader->sh_size,\
+                 (nacl_off64_t) sectionHeader->sh_offset);\
+\
+      if (NaClSSizeIsNegErrno(&read_ret) || (size_t) read_ret != sectionHeader->sh_size) \
+      {\
+        NaClLog(2, "cannot load string table\n");\
+        return FALSE;\
+      }\
+    }\
+    else if(sectionHeader->sh_type == SHT_SYMTAB)\
+    {\
+      out_elfSectionData->symbolTableHeader = sectionHeader;\
+\
+      if(sectionHeader->sh_entsize != sizeof(Elf##bits##_Sym))\
+      {\
+        NaClLog(2, "Unexpected symbol table entry size\n");\
+        return FALSE;\
+      }\
+\
+      out_elfSectionData->symbolTable = malloc(sectionHeader->sh_size);\
+      out_elfSectionData->symbolCount = sectionHeader->sh_size / sizeof(Elf##bits##_Sym);\
+\
+      read_ret = (*NACL_VTBL(NaClDesc, ndp)->\
+        PRead)(ndp,\
+               out_elfSectionData->symbolTable,\
+               sectionHeader->sh_size,\
+               (nacl_off64_t) sectionHeader->sh_offset);\
+\
+      if (NaClSSizeIsNegErrno(&read_ret) || (size_t) read_ret != sectionHeader->sh_size) \
+      {\
+        NaClLog(2, "cannot load symbol table\n");\
+        return FALSE;\
+      }\
+    }\
+\
+  }\
+\
+  return TRUE;\
+}
+
+GenNaClElfGetSymbolInfo(32)
+GenNaClElfGetSymbolInfo(64)
+
+struct SymbolTableMapping* ConstructSymbolTableMapping(uint32_t symbolCount)
+{
+  struct SymbolTableMapping* symbolTableMapping = malloc(sizeof(struct SymbolTableMapping));
+  symbolTableMapping->symbolCount = symbolCount;
+  symbolTableMapping->symbolMap = malloc(symbolCount * sizeof(struct SymbolTableMapEntry));
+  return symbolTableMapping;
+}
+
+char* GetFromStringTable(char* stringTable, uint32_t stringTableSize, uint32_t index)
+{
+  const int maxStringLength = 257;
+  char* ret = malloc(maxStringLength);
+  char* symbolNameStart = stringTable + index;
+  char* stringTableEnd = stringTable + stringTableSize;
+
+  for (int i = 0; i < maxStringLength && (&symbolNameStart[i] <= stringTableEnd); i++)
+  {
+    ret[i] = symbolNameStart[i];
+    if(symbolNameStart[i] == '\0')
+    {
+      return ret;
+    }
+  }
+
+  free(ret);
+  return NULL;
+}
+
+#define GenGetSymbolTableMapping(bits) \
+struct SymbolTableMapping* GetSymbolTableMapping##bits(struct ElfSectionData##bits sectionData) \
+{ \
+  struct SymbolTableMapping* symbolTableMapping = NULL; \
+  uint32_t functionSymbolCount = 0; \
+  uint32_t actualSymbolCount = 0; \
+ \
+  for(uint32_t i = 0; i < sectionData.symbolCount; i++) \
+  { \
+    Elf##bits##_Sym* currSymbol = &sectionData.symbolTable[i]; \
+    if(ELF_ST_TYPE(currSymbol->st_info) == STT_FUNC) { functionSymbolCount++; } \
+  } \
+ \
+  symbolTableMapping = ConstructSymbolTableMapping(functionSymbolCount); \
+ \
+  for(uint32_t i = 0; i < sectionData.symbolCount; i++) \
+  { \
+    Elf##bits##_Sym* currSymbol = &sectionData.symbolTable[i]; \
+ \
+    if(ELF_ST_TYPE(currSymbol->st_info) == STT_FUNC) \
+    { \
+      char* symbolName = GetFromStringTable(sectionData.stringTable, sectionData.stringTableSize, currSymbol->st_name); \
+      if(symbolName != NULL && symbolName[0] != '\0') \
+      { \
+        symbolTableMapping->symbolMap[actualSymbolCount].name = symbolName; \
+        symbolTableMapping->symbolMap[actualSymbolCount].address = currSymbol->st_value; \
+        actualSymbolCount++; \
+      } \
+    } \
+  } \
+ \
+  symbolTableMapping->symbolCount = actualSymbolCount; \
+  return symbolTableMapping; \
+}
+
+GenGetSymbolTableMapping(32)
+GenGetSymbolTableMapping(64)
+
+#define GenDestructElfSectionData(bits)\
+void DestructElfSectionData##bits(struct ElfSectionData##bits * sectionData)\
+{\
+  free(sectionData->stringTableHeader);\
+  free(sectionData->symbolTableHeader);\
+  free(sectionData->stringTable);\
+  free(sectionData->symbolTable);\
+}
+
+GenDestructElfSectionData(32)
+GenDestructElfSectionData(64)
+
+struct SymbolTableMapping * NaClElfGetSymbolTableMapping(struct NaClElfImage *image, struct NaClDesc *ndp) 
+{
+  if (ELFCLASS64 == image->ehdr.e_ident[EI_CLASS]) 
+  {
+    struct ElfSectionData64 sectionData;
+    if(NaClElfGetSymbolInfo64(image, ndp, &sectionData))
+    {
+      struct SymbolTableMapping* symbolTableMapping = GetSymbolTableMapping64(sectionData);
+      DestructElfSectionData64(&sectionData);
+      return symbolTableMapping;
+    } 
+  }
+  else
+  {
+    struct ElfSectionData32 sectionData;
+    if(NaClElfGetSymbolInfo32(image, ndp, &sectionData))
+    {
+      struct SymbolTableMapping* symbolTableMapping = GetSymbolTableMapping32(sectionData);
+      DestructElfSectionData32(&sectionData);
+      return symbolTableMapping;
+    }
+  }
+
+  return NULL;
+}

@@ -8,6 +8,7 @@
 #define NATIVE_CLIENT_SRC_TRUSTED_SERVICE_RUNTIME_ELF_UTIL_H__ 1
 
 #include "native_client/src/include/portability.h"
+#include "native_client/src/trusted/service_runtime/elf_symboltable_mapping.h"
 #include "native_client/src/trusted/service_runtime/nacl_error_code.h"
 #include "native_client/src/trusted/service_runtime/sel_ldr.h"
 
@@ -53,6 +54,11 @@ NaClErrorCode NaClElfImageLoadDynamically(
     struct NaClValidationMetadata *metadata);
 
 void NaClElfImageDelete(struct NaClElfImage *image);
+
+////////////////////////////////////////
+
+
+struct SymbolTableMapping * NaClElfGetSymbolTableMapping(struct NaClElfImage *image, struct NaClDesc *ndp) ;
 
 
 #endif  /* NATIVE_CLIENT_SRC_TRUSTED_SERVICE_RUNTIME_ELF_UTIL_H__ */

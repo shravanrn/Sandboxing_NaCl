@@ -207,6 +207,11 @@ NaClSandbox* createDlSandbox(char* naclGlibcLibraryPathWithTrailingSlash, char* 
   strcpy(dynamic_loader, naclGlibcLibraryPathWithTrailingSlash);
   strcat(dynamic_loader, "runnable-ld.so");
 
+  //Normally the symbol table in the file is basically ignored
+  // This basically turns on the some code that has been added for the purpose of this library
+  // that loads the symbol table in the struct NaClApp
+  NaClAppLoadSymbolTableMapping(TRUE);
+
   pq_error = NaClAppLoadFileFromFilename(nap, dynamic_loader);
 
   if (LOAD_OK != pq_error) {
@@ -724,7 +729,9 @@ NaClSandbox_Thread* callbackParamsBegin(NaClSandbox* sandbox)
 {
   NaClSandbox_Thread* threadData = getThreadData(sandbox);
   threadData->callbackParamsAlreadyRead = 0;
-  threadData->callbackParameterNumber = 0;
+  #if defined(_M_X64) || defined(__x86_64__)
+    threadData->callbackParameterNumber = 0;
+  #endif
   return threadData;
 }
 
