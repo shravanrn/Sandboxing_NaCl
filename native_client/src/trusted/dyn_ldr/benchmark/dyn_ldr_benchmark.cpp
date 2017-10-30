@@ -1,5 +1,4 @@
 #include "native_client/src/trusted/dyn_ldr/dyn_ldr_lib.h"
-#include "native_client/src/trusted/dyn_ldr/dyn_ldr_sharedstate.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,6 +14,7 @@ using namespace std::chrono;
 #endif
 
 NaClSandbox* sandbox;
+uintptr_t test_localMathPtr;
 
 unsigned __attribute__ ((noinline)) unsandboxedLocalMath(unsigned a, unsigned  b, unsigned c)
 {
@@ -32,7 +32,7 @@ unsigned sandboxedLocalMath(unsigned a, unsigned b, unsigned c)
   PUSH_VAL_TO_STACK(threadData, unsigned, b);
   PUSH_VAL_TO_STACK(threadData, unsigned, c);
 
-  invokeFunctionCallWithSandboxPtr(threadData, (uintptr_t)sandbox->sharedState->test_localMathPtr);
+  invokeFunctionCallWithSandboxPtr(threadData, test_localMathPtr);
 
   return (unsigned)functionCallReturnRawPrimitiveInt(threadData);
 }
@@ -46,7 +46,7 @@ int main(int argc, char** argv)
 	/**************** Some calculations of relative paths ****************/
 	char* execFolder;
 	char* libraryPath;
-	char* sandbox_init_app;
+	char* libraryToLoad;
 
 	if(argc < 1)
 	{
@@ -58,34 +58,41 @@ int main(int argc, char** argv)
 	execFolder = getExecFolder(argv[0]);
 
 	#if defined(_M_IX86) || defined(__i386__)
-		//libraryPath is something like: "/home/shr/Code/nacl2/native_client/toolchain/linux_x86/nacl_x86_glibc/x86_64-nacl/lib32/"
-		libraryPath = concatenateAndFixSlash(execFolder, "../../../../toolchain/linux_x86/nacl_x86_glibc/x86_64-nacl/lib32/");
-		//sandbox_init_app is something like: "/home/shr/Code/nacl2/native_client/scons-out/nacl-x86-32-glibc/staging/dyn_ldr_sandbox_init.nexe"
-		sandbox_init_app = concatenateAndFixSlash(execFolder, "../../../../scons-out/nacl-x86-32-glibc/staging/dyn_ldr_sandbox_init.nexe");
+		//libraryPath is something like: "/home/shr/Code/nacl2/native_client/scons-out/nacl_irt-x86-32/staging/irt_core.nexe"
+		libraryPath = concatenateAndFixSlash(execFolder, "../../../../scons-out/nacl_irt-x86-32/staging/irt_core.nexe");
+		//libraryToLoad is something like: "/home/shr/Code/nacl2/native_client/scons-out/nacl-x86-32/staging/test_dyn_lib.nexe"
+		libraryToLoad = concatenateAndFixSlash(execFolder, "../../../../scons-out/nacl-x86-32/staging/test_dyn_lib.nexe");
+	#elif defined(_M_X64) || defined(__x86_64__)
+		//libraryPath is something like: "/home/shr/Code/nacl2/native_client/scons-out/nacl_irt-x86-64/staging/irt_core.nexe"
+		libraryPath = concatenateAndFixSlash(execFolder, "../../../../scons-out/nacl_irt-x86-64/staging/irt_core.nexe");
+		//libraryToLoad is something like: "/home/shr/Code/nacl2/native_client/scons-out/nacl-x86-64/staging/test_dyn_lib.nexe"
+		libraryToLoad = concatenateAndFixSlash(execFolder, "../../../../scons-out/nacl-x86-64/staging/test_dyn_lib.nexe");
 	#else
 		#error Unknown platform!
 	#endif
 
 	printf("libraryPath: %s\n", libraryPath);
-	printf("sandbox_init_app: %s\n", sandbox_init_app);
+	printf("libraryToLoad: %s\n", libraryToLoad);
 
 	/**************** Actual sandbox with dynamic lib test ****************/
 
 	printf("Starting Dyn loader Benchmark\n");
 
-	if(!initializeDlSandboxCreator(0 /* Should enable detailed logging */))
+	if(!initializeDlSandboxCreator(2 /* Should enable detailed logging */))
 	{
 		printf("Dyn loader Benchmark: initializeDlSandboxCreator returned null\n");
 		return 1;
 	}
 
-	sandbox = createDlSandbox(libraryPath, sandbox_init_app);
+	sandbox = createDlSandbox(libraryPath, libraryToLoad);
 
 	if(sandbox == NULL)
 	{
 		printf("Dyn loader Benchmark: createDlSandbox returned null\n");
 		return 1;
 	}
+
+	test_localMathPtr = getSandboxedAddress(sandbox, (uintptr_t) symbolTableLookupInSandbox(sandbox, "test_localMath"));
 
 	printf("Sandbox created\n");
 
@@ -395,7 +402,7 @@ int main(int argc, char** argv)
 
 	free(execFolder);
 	free(libraryPath);
-	free(sandbox_init_app);
+	free(libraryToLoad);
 
 	return 0;
 }
