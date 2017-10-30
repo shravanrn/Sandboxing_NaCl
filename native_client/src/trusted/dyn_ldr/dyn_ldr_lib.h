@@ -23,13 +23,30 @@ struct _NaClSandbox_Thread
 	#endif
 };
 
+typedef int   (*threadMain_type)(void);
+typedef void  (*exitFunctionWrapper_type)(void);
+typedef void  (*callbackFunctionWrapper_type)(void);
+
+typedef void* (*malloc_type) (size_t);
+typedef void  (*free_type)   (void *);
+typedef FILE* (*fopen_type)  (const char *, const char *);
+typedef int   (*fclose_type) (FILE * stream);
+
 struct _NaClSandbox
 {
 	struct NaClApp* nap;
 	struct _DS_Map* threadDataMap;
-	struct AppSharedState* sharedState;
 	struct NaClMutex* threadCreateMutex;
 	int32_t callbackParameterStartOffset;
+
+	threadMain_type threadMainPtr;
+    exitFunctionWrapper_type exitFunctionWrapperPtr;
+    callbackFunctionWrapper_type callbackFunctionWrapper[8];
+
+    malloc_type mallocPtr;
+    free_type freePtr;
+    fopen_type fopenPtr;
+    fclose_type fclosePtr;
 };
 
 typedef struct _NaClSandbox NaClSandbox;

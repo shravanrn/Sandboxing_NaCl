@@ -399,14 +399,6 @@ struct NaClApp {
   struct NaClListNode       futex_wait_list_head;
 #endif
 
-  /* Creating a pointer slot, that the user of this lib can use 
-   * as a way to have some shared memory between the NaCl runtime
-   * and the NaCl app. The NaCl app is the one that creates this 
-   * value via the NaClSysRegisterSharedState syscall
-   * This is accessible in the NaCl App and the system
-   */
-  uintptr_t custom_shared_app_state;
-
   /* Creating a pointer slot that that the user of this lib can use
    * to save any custom state. This state is available in NaCl sys calls
    * and the NaCl runtime, but not the NaCl app.

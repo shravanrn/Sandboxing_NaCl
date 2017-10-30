@@ -100,7 +100,6 @@ NACL_DEFINE_SYSCALL_3(NaClSysDyncodeCreate)
 NACL_DEFINE_SYSCALL_3(NaClSysDyncodeModify)
 NACL_DEFINE_SYSCALL_2(NaClSysDyncodeDelete)
 NACL_DEFINE_SYSCALL_1(NaClSysSecondTlsSet)
-NACL_DEFINE_SYSCALL_1(NaClSysRegisterSharedState)
 NACL_DEFINE_SYSCALL_2(NaClSysExitSandbox)
 NACL_DEFINE_SYSCALL_1(NaClSysCallback)
 NACL_DEFINE_SYSCALL_0(NaClSysSecondTlsGet)
@@ -193,7 +192,6 @@ void NaClAppRegisterDefaultSyscalls(struct NaClApp *nap) {
   NACL_REGISTER_SYSCALL(nap, NaClSysDyncodeModify, NACL_sys_dyncode_modify);
   NACL_REGISTER_SYSCALL(nap, NaClSysDyncodeDelete, NACL_sys_dyncode_delete);
   NACL_REGISTER_SYSCALL(nap, NaClSysSecondTlsSet, NACL_sys_second_tls_set);
-  NACL_REGISTER_SYSCALL(nap, NaClSysRegisterSharedState, NACL_sys_register_shared_state);
   NACL_REGISTER_SYSCALL(nap, NaClSysExitSandbox, NACL_sys_exit_sandbox);
   NACL_REGISTER_SYSCALL(nap, NaClSysCallback, NACL_sys_callback);
   NACL_REGISTER_SYSCALL(nap, NaClSysSecondTlsGet, NACL_sys_second_tls_get);

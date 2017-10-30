@@ -277,13 +277,6 @@ int32_t NaClSysSecondTlsSet(struct NaClAppThread *natp,
   return 0;
 }
 
-//NACL_sys_register_shared_state
-int32_t NaClSysRegisterSharedState(struct NaClAppThread *natp, uintptr_t sharedState) {
-  NaClLog(LOG_INFO, "Entered NaClSysRegisterSharedState\n");
-  natp->nap->custom_shared_app_state = NaClUserToSys(natp->nap, sharedState);
-  return 0;
-}
-
 //NACL_sys_exit_sandbox
 int32_t NaClSysExitSandbox(struct NaClAppThread *natp, uint32_t exitLocation, nacl_reg_t register_eax) {
   jmp_buf* jump_buf_loc;

@@ -122,14 +122,10 @@ SANDBOX_CALLBACK unsigned invokeSimpleCallbackTest_callbackStub(uintptr_t sandbo
 	}	
 }
 
-int invokeSimpleCallbackTest(NaClSandbox* sandbox, void* simpleCallbackTestPtr, unsigned a, char* b)
+int invokeSimpleCallbackTest(NaClSandbox* sandbox, void* simpleCallbackTestPtr, unsigned a, char* b, uintptr_t callback)
 {
 	int ret;
-	short slotNumber = 0;
 	NaClSandbox_Thread* threadData;
-
-	//Note will return NULL if given a slot number greater than getTotalNumberOfCallbackSlots(), a valid ptr if it succeeds
-	uintptr_t callback = registerSandboxCallback(sandbox, slotNumber, (uintptr_t) invokeSimpleCallbackTest_callbackStub);
 
 	threadData = preFunctionCall(sandbox, sizeof(a) + sizeof(b) + sizeof(callback), 0 /* size of any arrays being pushed on the stack */);
 
@@ -141,11 +137,6 @@ int invokeSimpleCallbackTest(NaClSandbox* sandbox, void* simpleCallbackTestPtr, 
 
 	ret = (int) functionCallReturnRawPrimitiveInt(threadData);
 
-	//Best to unregister after it is done
-	//In an adversarial setting, the sandboxed app may decide to invoke the callback
-	//arbitrarily in the future, which may allow it to destabilize the hosting app
-	//Note will return 0 if given a slot number greater than getTotalNumberOfCallbackSlots(), 1 if it succeeds
-	unregisterSandboxCallback(sandbox, slotNumber);
 	return ret;
 }
 
@@ -242,6 +233,7 @@ void* simpleStrLenTestResult;
 void* simpleCallbackTestResult;
 void* simpleWriteToFileTestResult;
 void* simpleEchoTestResult;
+uintptr_t registeredCallback;
 
 void* runTests(void* testResultPtr)
 {
@@ -269,7 +261,7 @@ void* runTests(void* testResultPtr)
 		return NULL;
 	}
 
-	if(invokeSimpleCallbackTest(sandbox, simpleCallbackTestResult, 4, "Hello") != 9)
+	if(invokeSimpleCallbackTest(sandbox, simpleCallbackTestResult, 4, "Hello", registeredCallback) != 9)
 	{
 		printf("Dyn loader Test 4: Failed\n");
 		*testResult = 0;
@@ -302,6 +294,7 @@ int main(int argc, char** argv)
 	char* execFolder;
 	char* libraryPath;
 	char* libraryToLoad;
+	short slotNumber = 0;
 
 	if(argc < 1)
 	{
@@ -333,7 +326,7 @@ int main(int argc, char** argv)
 
 	printf("Starting Dyn loader Test.\n");
 
-	if(!initializeDlSandboxCreator(2 /* Should enable detailed logging */))
+	if(!initializeDlSandboxCreator(1 /* Should enable detailed logging */))
 	{
 		printf("Dyn loader Test: initializeDlSandboxCreator returned null\n");
 		return 1;
@@ -368,6 +361,9 @@ int main(int argc, char** argv)
 	}
 
 	/**************** Invoking functions in sandbox ****************/
+
+	//Note will return NULL if given a slot number greater than getTotalNumberOfCallbackSlots(), a valid ptr if it succeeds
+	registeredCallback = registerSandboxCallback(sandbox, slotNumber, (uintptr_t) invokeSimpleCallbackTest_callbackStub);
 
 	{
 		int mainThreadTestResult;
@@ -447,6 +443,12 @@ int main(int argc, char** argv)
 			printf("Secondary thread tests %d successful\n", i);
 		}
 	}
+
+	//Best to unregister after it is done
+	//In an adversarial setting, the sandboxed app may decide to invoke the callback
+	//arbitrarily in the future, which may allow it to destabilize the hosting app
+	//Note will return 0 if given a slot number greater than getTotalNumberOfCallbackSlots(), 1 if it succeeds
+	unregisterSandboxCallback(sandbox, slotNumber);
 
 	printf("Dyn loader Test Succeeded\n");
 

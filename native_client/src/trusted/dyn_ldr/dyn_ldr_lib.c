@@ -8,7 +8,6 @@
 #include "native_client/src/trusted/dyn_ldr/datastructures/ds_stack.h"
 #include "native_client/src/trusted/dyn_ldr/datastructures/ds_map.h"
 #include "native_client/src/trusted/dyn_ldr/dyn_ldr_lib.h"
-#include "native_client/src/trusted/dyn_ldr/dyn_ldr_sharedstate.h"
 #include "native_client/src/trusted/service_runtime/elf_symboltable_mapping.h"
 #include "native_client/src/trusted/service_runtime/env_cleanser.h"
 #include "native_client/src/trusted/service_runtime/include/bits/mman.h"
@@ -155,7 +154,6 @@ NaClSandbox* createDlSandbox(char* naclLibraryPath, char* naclInitAppFullPath)
   NaClErrorCode           pq_error;
   unsigned                testResult = 0;
   int                     testResult2 = 0;
-  long                    checkChar = 0;
   struct NaClDesc*        blob_file = NULL;
 
   nap = NaClAppCreate();
@@ -260,25 +258,43 @@ NaClSandbox* createDlSandbox(char* naclLibraryPath, char* naclInitAppFullPath)
     goto error;
   }
 
-  checkChar = sandbox->sharedState->checkChar;
-  if(checkChar != 1234)
+  //Get pointers to commonly used functions
+  //Since these are used commonly, we will store their sandboxed address, to avoid converting each time we call them
   {
-    struct AppSharedState * ptr = (struct AppSharedState *)(((uintptr_t)sandbox->sharedState) & 0xFFFFFFFF);
-    NaClLog(LOG_ERROR, "Check bit on shared state has failed: Expected return of 1234. Got %d, %p\n", (int) sandbox->sharedState->checkChar, (void *)ptr); 
-    goto error;
-  }
 
-  #if defined(_M_X64) || defined(__x86_64__)
-    sandbox->sharedState->threadMainPtr           = (threadMain_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->threadMainPtr);
-    //Note exitFunctionWrapperPtr and callbackFunctionWrapper are called only from inside the sandbox, so we don't have to unsandbox their locations
-    sandbox->sharedState->test_localMathPtr       = (test_localMath_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->test_localMathPtr);
-    sandbox->sharedState->test_localStringPtr     = (test_localString_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->test_localStringPtr);
-    sandbox->identifyCallbackOffsetHelperPtr      = (identifyCallbackOffsetHelper_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->identifyCallbackOffsetHelperPtr);
-    sandbox->sharedState->mallocPtr               = (malloc_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->mallocPtr);
-    sandbox->sharedState->freePtr                 = (free_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->freePtr);
-    sandbox->sharedState->fopenPtr                = (fopen_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->fopenPtr);
-    sandbox->sharedState->fclosePtr               = (fclose_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->fclosePtr);
-  #endif
+    for(unsigned i = 0; i < (unsigned) CALLBACK_SLOTS_AVAILABLE; i++)
+    {
+      char callbackName[50];
+      sprintf(callbackName, "callbackFunctionWrapper%u", i);
+      sandbox->callbackFunctionWrapper[i] = (callbackFunctionWrapper_type) getSandboxedAddress(sandbox, (uintptr_t) symbolTableLookupInSandbox(sandbox, callbackName));
+
+      if(sandbox->callbackFunctionWrapper[i] == NULL)
+      {
+        NaClLog(LOG_ERROR, "Sandbox could not find the address of callback wrapper %u", i);
+        goto error;        
+      }
+    }
+
+    sandbox->threadMainPtr = (threadMain_type) getSandboxedAddress(sandbox, (uintptr_t) symbolTableLookupInSandbox(sandbox, "threadMain"));
+    sandbox->exitFunctionWrapperPtr = (exitFunctionWrapper_type) getSandboxedAddress(sandbox, (uintptr_t) symbolTableLookupInSandbox(sandbox, "exitFunctionWrapper"));
+
+    if(sandbox->threadMainPtr == NULL || sandbox->exitFunctionWrapperPtr == NULL)
+    {
+      NaClLog(LOG_ERROR, "Sandbox could not find thread main or exit wrapper");
+      goto error;
+    }
+
+    sandbox->mallocPtr = (malloc_type) getSandboxedAddress(sandbox, (uintptr_t) symbolTableLookupInSandbox(sandbox, "malloc"));
+    sandbox->freePtr   = (free_type)   getSandboxedAddress(sandbox, (uintptr_t) symbolTableLookupInSandbox(sandbox, "free"));
+    sandbox->fopenPtr  = (fopen_type)  getSandboxedAddress(sandbox, (uintptr_t) symbolTableLookupInSandbox(sandbox, "fopen"));
+    sandbox->fclosePtr = (fclose_type) getSandboxedAddress(sandbox, (uintptr_t) symbolTableLookupInSandbox(sandbox, "fclose"));
+  
+    if(sandbox->mallocPtr == NULL || sandbox->freePtr == NULL || sandbox->fopenPtr == NULL || sandbox->fclosePtr == NULL)
+    {
+      NaClLog(LOG_ERROR, "Sandbox could not find the address of crt functions: malloc, free, fopen, fclose");
+      goto error;
+    }
+  }
 
   nap->custom_app_state = (uintptr_t) sandbox;
 
@@ -304,8 +320,12 @@ NaClSandbox* createDlSandbox(char* naclLibraryPath, char* naclInitAppFullPath)
 
   if(sandbox->callbackParameterStartOffset == -1)
   {
-    NaClLog(LOG_ERROR, "Sandbox failed to acquire the start parameter of offsets\n");
+    NaClLog(LOG_ERROR, "Sandbox failed to acquire callback parameter start offset\n");
     goto error;
+  }
+  else
+  {
+    NaClLog(LOG_INFO, "Sandbox callback parameter start offset: %" PRId32 "\n", sandbox->callbackParameterStartOffset);
   }
 
   NaClLog(LOG_INFO, "Succeeded in creating sandbox\n");
@@ -389,7 +409,6 @@ NaClSandbox* constructNaClSandbox(struct NaClApp* nap)
   }
 
   sandbox->nap = nap;
-  sandbox->sharedState = (struct AppSharedState*) nap->custom_shared_app_state;
   sandbox->threadDataMap = (DS_Map *) malloc(sizeof(DS_Map));
 
   if(sandbox->threadDataMap == NULL)
@@ -489,7 +508,7 @@ NaClSandbox_Thread* getThreadData(NaClSandbox* sandbox)
       NaClOverrideNextThreadCreateToRunOnCurrentThread(TRUE, &(sandbox->nap->mainJumpBuffer));
 
       threadCreateFailed = NaClCreateAdditionalThread(sandbox->nap, 
-        (uintptr_t) sandbox->sharedState->threadMainPtr, 
+        (uintptr_t) sandbox->threadMainPtr, 
         getUnsandboxedAddress(sandbox, newStackSandboxed),
         //These are Thread local storage variables
         //NaCl uses these to store address of code that helps switch in and out of NaCl'd code
@@ -572,7 +591,7 @@ NaClSandbox_Thread* preFunctionCall(NaClSandbox* sandbox, size_t paramsSize, siz
     GetStackPointer(threadData->thread->user) = getSandboxedAddress(sandbox, threadData->stack_ptr_forParameters);
     /* push the return address of the exit wrapper on the stack. The exit wrapper is  */
     /* for cleanup and exiting the sandbox */
-    PUSH_SANDBOXEDPTR_TO_STACK(threadData, uintptr_t, (uintptr_t) sandbox->sharedState->exitFunctionWrapperPtr);
+    PUSH_SANDBOXEDPTR_TO_STACK(threadData, uintptr_t, (uintptr_t) sandbox->exitFunctionWrapperPtr);
 
     return threadData;
   #else
@@ -706,7 +725,7 @@ uintptr_t registerSandboxCallback(NaClSandbox* sandbox, unsigned slotNumber, uin
   }
 
   sandbox->nap->callbackSlot[slotNumber] = callback;
-  return (uintptr_t) sandbox->sharedState->callbackFunctionWrapper[slotNumber];
+  return (uintptr_t) sandbox->callbackFunctionWrapper[slotNumber];
 }
 
 int unregisterSandboxCallback(NaClSandbox* sandbox, unsigned slotNumber)
@@ -916,24 +935,34 @@ void* symbolTableLookupInSandbox(NaClSandbox* sandbox, const char *symbol)
 
 unsigned invokeLocalMathTest(NaClSandbox* sandbox, unsigned a, unsigned b, unsigned c)
 {
-  NaClSandbox_Thread* threadData = preFunctionCall(sandbox, sizeof(a) + sizeof(b) + sizeof(c), 0);
+  NaClSandbox_Thread* threadData;
+  void* test_localMathPtr = (void*) symbolTableLookupInSandbox(sandbox, "test_localMath");
+
+  if(test_localMathPtr == NULL) return 0;
+
+  threadData = preFunctionCall(sandbox, sizeof(a) + sizeof(b) + sizeof(c), 0);
 
   PUSH_VAL_TO_STACK(threadData, unsigned, a);
   PUSH_VAL_TO_STACK(threadData, unsigned, b);
   PUSH_VAL_TO_STACK(threadData, unsigned, c);
 
-  invokeFunctionCallWithSandboxPtr(threadData, (uintptr_t)sandbox->sharedState->test_localMathPtr);
+  invokeFunctionCall(threadData, test_localMathPtr);
 
   return (unsigned)functionCallReturnRawPrimitiveInt(threadData);
 }
 
 size_t invokeLocalStringTest(NaClSandbox* sandbox, char* test)
 {
-  NaClSandbox_Thread* threadData = preFunctionCall(sandbox, sizeof(test), STRING_SIZE(test));
+  NaClSandbox_Thread* threadData;
+  void* test_localStringPtr = (void*) symbolTableLookupInSandbox(sandbox, "test_localString");
+
+  if(test_localStringPtr == NULL) return 0;
+
+  threadData = preFunctionCall(sandbox, sizeof(test), STRING_SIZE(test));
 
   PUSH_STRING_TO_STACK(threadData, test);
 
-  invokeFunctionCallWithSandboxPtr(threadData, (uintptr_t)sandbox->sharedState->test_localStringPtr);
+  invokeFunctionCall(threadData, test_localStringPtr);
 
   return (size_t)functionCallReturnRawPrimitiveInt(threadData);
 }
@@ -942,12 +971,18 @@ void invokeIdentifyCallbackOffsetHelper(NaClSandbox* sandbox)
 {
   short slotNumber = 0;
   NaClSandbox_Thread* threadData;
-  uintptr_t callback = registerSandboxCallback(sandbox, slotNumber, (uintptr_t) identifyCallbackParamOffset);
+  uintptr_t callback;
+
+  void* identifyCallbackOffsetHelperPtr = (void*) symbolTableLookupInSandbox(sandbox, "identifyCallbackOffsetHelper");
+
+  if(identifyCallbackOffsetHelperPtr == NULL) { sandbox->callbackParameterStartOffset = -1; return; }
+
+  callback = registerSandboxCallback(sandbox, slotNumber, (uintptr_t) identifyCallbackParamOffset);
 
   threadData = preFunctionCall(sandbox, sizeof(callback), 0);
   PUSH_VAL_TO_STACK(threadData, uintptr_t, callback);
 
-  invokeFunctionCallWithSandboxPtr(threadData, (uintptr_t) sandbox->sharedState->identifyCallbackOffsetHelperPtr);
+  invokeFunctionCall(threadData, identifyCallbackOffsetHelperPtr);
   unregisterSandboxCallback(sandbox, slotNumber);
 }
 
@@ -957,7 +992,7 @@ void* mallocInSandbox(NaClSandbox* sandbox, size_t size)
 
   PUSH_VAL_TO_STACK(threadData, size_t, size);
 
-  invokeFunctionCallWithSandboxPtr(threadData, (uintptr_t)sandbox->sharedState->mallocPtr);
+  invokeFunctionCallWithSandboxPtr(threadData, (uintptr_t)sandbox->mallocPtr);
 
   return (void *) functionCallReturnPtr(threadData);
 }
@@ -968,7 +1003,7 @@ void freeInSandbox(NaClSandbox* sandbox, void* ptr)
 
   PUSH_PTR_TO_STACK(threadData, void*, ptr);
 
-  invokeFunctionCallWithSandboxPtr(threadData, (uintptr_t)sandbox->sharedState->freePtr);
+  invokeFunctionCallWithSandboxPtr(threadData, (uintptr_t)sandbox->freePtr);
 }
 
 FILE* fopenInSandbox(NaClSandbox* sandbox, const char * filename, const char * mode)
@@ -978,7 +1013,7 @@ FILE* fopenInSandbox(NaClSandbox* sandbox, const char * filename, const char * m
   PUSH_STRING_TO_STACK(threadData, filename);
   PUSH_STRING_TO_STACK(threadData, mode);
 
-  invokeFunctionCallWithSandboxPtr(threadData, (uintptr_t)sandbox->sharedState->fopenPtr);
+  invokeFunctionCallWithSandboxPtr(threadData, (uintptr_t)sandbox->fopenPtr);
 
   return (FILE*) functionCallReturnPtr(threadData);
 }
@@ -989,7 +1024,7 @@ int fcloseInSandbox(NaClSandbox* sandbox, FILE * stream)
 
   PUSH_PTR_TO_STACK(threadData, FILE *, stream);
 
-  invokeFunctionCallWithSandboxPtr(threadData, (uintptr_t)sandbox->sharedState->fclosePtr);
+  invokeFunctionCallWithSandboxPtr(threadData, (uintptr_t)sandbox->fclosePtr);
 
   return (int)functionCallReturnRawPrimitiveInt(threadData);
 }

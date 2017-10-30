@@ -2,21 +2,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include "native_client/src/trusted/dyn_ldr/dyn_ldr_sharedstate.h"
 #include "native_client/src/trusted/service_runtime/nacl_config.h"
 #include "native_client/src/trusted/service_runtime/include/bits/nacl_syscalls.h"
 #include "native_client/src/trusted/service_runtime/sel_rt.h"
 #define EXIT_FROM_MAIN 0
 #define EXIT_FROM_CALL 1
 
-typedef int32_t (*IntPtrType) (uintptr_t);
 typedef int32_t (*IntU32RegType)(uint32_t, nacl_reg_t);
 typedef int32_t (*IntU32Type)(uint32_t);
-
-void MakeNaClSysCall_register_shared_state(uintptr_t sharedState)
-{
-	((IntPtrType)NACL_SYSCALL_ADDR(NACL_sys_register_shared_state))(sharedState);
-}
 
 void MakeNaClSysCall_exit_sandbox(uint32_t exitLocation, nacl_reg_t eax)
 {
@@ -97,7 +90,10 @@ size_t test_localString(char* test)
 	return strlen(test);
 }
 
-void identifyCallbackOffsetHelper(CallbackHelperType callback)
+typedef void (*IdentifyCallbackHelperType) (uint32_t, uint32_t, uint32_t,
+		                                    uint32_t, uint32_t, uint32_t,
+		                                    uint32_t, uint32_t, uint32_t, uint32_t);
+void identifyCallbackOffsetHelper(IdentifyCallbackHelperType callback)
 {
 	callback(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
 }
@@ -108,34 +104,14 @@ int threadMain(void)
 	return 0;
 }
 
+//fopen and fclose aren't used in this file
+//so they are not included in the symbol table
+//Small hack to ensure fopen and fclose remain in the symbol table
+void* fopenCopy = (void *) fopen;
+void* fcloseCopy = (void *) fclose;
+
 int main(int argc, char** argv)
 {
-	struct AppSharedState* appSharedState = (struct AppSharedState*) malloc(sizeof(struct AppSharedState));
-
-	appSharedState->threadMainPtr = threadMain;
-	appSharedState->exitFunctionWrapperPtr = exitFunctionWrapper;
-	appSharedState->callbackFunctionWrapper[0] = callbackFunctionWrapper0;
-	appSharedState->callbackFunctionWrapper[1] = callbackFunctionWrapper1;
-	appSharedState->callbackFunctionWrapper[2] = callbackFunctionWrapper2;
-	appSharedState->callbackFunctionWrapper[3] = callbackFunctionWrapper3;
-	appSharedState->callbackFunctionWrapper[4] = callbackFunctionWrapper4;
-	appSharedState->callbackFunctionWrapper[5] = callbackFunctionWrapper5;
-	appSharedState->callbackFunctionWrapper[6] = callbackFunctionWrapper6;
-	appSharedState->callbackFunctionWrapper[7] = callbackFunctionWrapper7;
-
-	appSharedState->test_localMathPtr = test_localMath;
-	appSharedState->test_localStringPtr = test_localString;
-	appSharedState->identifyCallbackOffsetHelperPtr = identifyCallbackOffsetHelper;
-
-	appSharedState->mallocPtr = malloc;
-	appSharedState->freePtr = free;
-
-	appSharedState->fopenPtr = fopen;
-	appSharedState->fclosePtr = fclose;
-
-	appSharedState->checkChar = 1234;
-
-	MakeNaClSysCall_register_shared_state((uintptr_t)appSharedState);
 	MakeNaClSysCall_exit_sandbox(EXIT_FROM_MAIN, 0 /* eax/rax - this is unused and is used only in EXIT_FROM_CALL */);
 	return 0;
 }
