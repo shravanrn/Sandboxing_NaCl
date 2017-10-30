@@ -5,13 +5,11 @@
 
 Import('env')
 
-dyn_ldr_sandbox_init_nexe = env.ComponentProgram('dyn_ldr_sandbox_init',
+dyn_ldr_sandbox_init_nexe = env.ComponentLibrary('dyn_ldr_sandbox_init',
                                        'dyn_ldr_sandbox_init.c',
-                                       EXTRA_LIBS=['dl'])
+                                       EXTRA_LIBS=[])
 
-dll_env = env.Clone(COMPONENT_STATIC=False)
-
-dll_env.ComponentLibrary(
+test_dyn_lib_nexe = env.ComponentProgram(
     'test_dyn_lib', 
     ['testing/test_dyn_lib.c'],
-    EXTRA_LIBS=[])
+    EXTRA_LIBS=[dyn_ldr_sandbox_init_nexe])

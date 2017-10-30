@@ -296,14 +296,12 @@ void* runTests(void* testResultPtr)
 
 int main(int argc, char** argv)
 {
-	void* dlHandle;
 	#define ThreadsToTest 4
 
 	/**************** Some calculations of relative paths ****************/
 	char* execFolder;
 	char* libraryPath;
-	char* sandbox_init_app;
-	char* dlToOpen;
+	char* libraryToLoad;
 
 	if(argc < 1)
 	{
@@ -315,38 +313,33 @@ int main(int argc, char** argv)
 	execFolder = getExecFolder(argv[0]);
 
 	#if defined(_M_IX86) || defined(__i386__)
-		//libraryPath is something like: "/home/shr/Code/nacl2/native_client/toolchain/linux_x86/nacl_x86_glibc/x86_64-nacl/lib32/"
-		libraryPath = concatenateAndFixSlash(execFolder, "../../../toolchain/linux_x86/nacl_x86_glibc/x86_64-nacl/lib32/");
-		//sandbox_init_app is something like: "/home/shr/Code/nacl2/native_client/scons-out/nacl-x86-32-glibc/staging/dyn_ldr_sandbox_init.nexe"
-		sandbox_init_app = concatenateAndFixSlash(execFolder, "../../../scons-out/nacl-x86-32-glibc/staging/dyn_ldr_sandbox_init.nexe");
-		//dlToOpen is something like: "/home/shr/Code/nacl2/native_client/scons-out/nacl-x86-32-glibc/staging/libtest_dyn_lib.so"
-		dlToOpen = concatenateAndFixSlash(execFolder, "../../../scons-out/nacl-x86-32-glibc/staging/libtest_dyn_lib.so");
+		//libraryPath is something like: "/home/shr/Code/nacl2/native_client/scons-out/nacl_irt-x86-32/staging/irt_core.nexe"
+		libraryPath = concatenateAndFixSlash(execFolder, "../../../scons-out/nacl_irt-x86-32/staging/irt_core.nexe");
+		//libraryToLoad is something like: "/home/shr/Code/nacl2/native_client/scons-out/nacl-x86-32/staging/test_dyn_lib.nexe"
+		libraryToLoad = concatenateAndFixSlash(execFolder, "../../../scons-out/nacl-x86-32/staging/test_dyn_lib.nexe");
 	#elif defined(_M_X64) || defined(__x86_64__)
-		//libraryPath is something like: "/home/shr/Code/nacl2/native_client/toolchain/linux_x86/nacl_x86_glibc/x86_64-nacl/lib/"
-		libraryPath = concatenateAndFixSlash(execFolder, "../../../toolchain/linux_x86/nacl_x86_glibc/x86_64-nacl/lib/");
-		//sandbox_init_app is something like: "/home/shr/Code/nacl2/native_client/scons-out/nacl-x86-64-glibc/staging/dyn_ldr_sandbox_init.nexe"
-		sandbox_init_app = concatenateAndFixSlash(execFolder, "../../../scons-out/nacl-x86-64-glibc/staging/dyn_ldr_sandbox_init.nexe");
-		//dlToOpen is something like: "/home/shr/Code/nacl2/native_client/scons-out/nacl-x86-64-glibc/staging/libtest_dyn_lib.so"
-		dlToOpen = concatenateAndFixSlash(execFolder, "../../../scons-out/nacl-x86-64-glibc/staging/libtest_dyn_lib.so");
+		//libraryPath is something like: "/home/shr/Code/nacl2/native_client/scons-out/nacl_irt-x86-64/staging/irt_core.nexe"
+		libraryPath = concatenateAndFixSlash(execFolder, "../../../scons-out/nacl_irt-x86-64/staging/irt_core.nexe");
+		//libraryToLoad is something like: "/home/shr/Code/nacl2/native_client/scons-out/nacl-x86-64/staging/test_dyn_lib.nexe"
+		libraryToLoad = concatenateAndFixSlash(execFolder, "../../../scons-out/nacl-x86-64/staging/test_dyn_lib.nexe");
 	#else
 		#error Unknown platform!
 	#endif
 
 	printf("libraryPath: %s\n", libraryPath);
-	printf("sandbox_init_app: %s\n", sandbox_init_app);
-	printf("dlToOpen: %s\n", dlToOpen);
+	printf("libraryToLoad: %s\n", libraryToLoad);
 
 	/**************** Actual sandbox with dynamic lib test ****************/
 
-	printf("Starting Dyn loader Test\n");
+	printf("Starting Dyn loader Test.\n");
 
-	if(!initializeDlSandboxCreator(0 /* Should enable detailed logging */))
+	if(!initializeDlSandboxCreator(2 /* Should enable detailed logging */))
 	{
 		printf("Dyn loader Test: initializeDlSandboxCreator returned null\n");
 		return 1;
 	}
 
-	sandbox = createDlSandbox(libraryPath, sandbox_init_app);
+	sandbox = createDlSandbox(libraryPath, libraryToLoad);
 
 	if(sandbox == NULL)
 	{
@@ -356,24 +349,13 @@ int main(int argc, char** argv)
 
 	printf("Sandbox created\n");
 
-	dlHandle = dlopenInSandbox(sandbox, dlToOpen, RTLD_LAZY);
+	simpleAddTestSymResult      = symbolTableLookupInSandbox(sandbox, "simpleAddTest");
+	simpleStrLenTestResult      = symbolTableLookupInSandbox(sandbox, "simpleStrLenTest");
+	simpleCallbackTestResult    = symbolTableLookupInSandbox(sandbox, "simpleCallbackTest");
+	simpleWriteToFileTestResult = symbolTableLookupInSandbox(sandbox, "simpleWriteToFileTest");
+	simpleEchoTestResult        = symbolTableLookupInSandbox(sandbox, "simpleEchoTest");
 
-	if(dlHandle == NULL)
-	{
-		char *err = dlerrorInSandbox(sandbox); 
-		printf("Dyn loader Test: dlopen returned null. Got err msg: %s\n", err);
-		return 1;
-	}
-
-	printf("dlopen successful: %p\n", dlHandle);
-
-	simpleAddTestSymResult      = dlsymInSandbox(sandbox, dlHandle, "simpleAddTest");
-	simpleStrLenTestResult      = dlsymInSandbox(sandbox, dlHandle, "simpleStrLenTest");
-	simpleCallbackTestResult    = dlsymInSandbox(sandbox, dlHandle, "simpleCallbackTest");
-	simpleWriteToFileTestResult = dlsymInSandbox(sandbox, dlHandle, "simpleWriteToFileTest");
-	simpleEchoTestResult        = dlsymInSandbox(sandbox, dlHandle, "simpleEchoTest");
-
-	printf("dlsym successful\n");
+	printf("symbol lookup successful\n");
 
 	if(simpleAddTestSymResult == NULL 
 		|| simpleStrLenTestResult == NULL 
@@ -381,7 +363,7 @@ int main(int argc, char** argv)
 		|| simpleWriteToFileTestResult == NULL
 		|| simpleEchoTestResult == NULL)
 	{
-		printf("Dyn loader Test: dlSym returned null\n");
+		printf("Dyn loader Test: symbol lookup returned null\n");
 		return 1;
 	}
 
@@ -472,8 +454,7 @@ int main(int argc, char** argv)
 
 	free(execFolder);
 	free(libraryPath);
-	free(sandbox_init_app);
-	free(dlToOpen);
+	free(libraryToLoad);
 
 	return 0;
 }

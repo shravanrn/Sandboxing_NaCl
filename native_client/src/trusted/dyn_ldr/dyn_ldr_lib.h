@@ -29,6 +29,7 @@ struct _NaClSandbox
 	struct _DS_Map* threadDataMap;
 	struct AppSharedState* sharedState;
 	struct NaClMutex* threadCreateMutex;
+	int32_t callbackParameterStartOffset;
 };
 
 typedef struct _NaClSandbox NaClSandbox;
@@ -36,15 +37,12 @@ typedef struct _NaClSandbox_Thread NaClSandbox_Thread;
 
 int initializeDlSandboxCreator(int enableLogging);
 int closeSandboxCreator(void);
-NaClSandbox* createDlSandbox   (char* naclGlibcLibraryPathWithTrailingSlash, char* naclInitAppFullPath);
+NaClSandbox* createDlSandbox   (char* naclLibraryPath, char* naclInitAppFullPath);
 
 void* mallocInSandbox(NaClSandbox* sandbox, size_t size);
 void  freeInSandbox  (NaClSandbox* sandbox, void* ptr);
 
-void* dlopenInSandbox (NaClSandbox* sandbox, const char *filename, int flag);
-char* dlerrorInSandbox(NaClSandbox* sandbox);
-void* dlsymInSandbox  (NaClSandbox* sandbox, void *handle, const char *symbol);
-int   dlcloseInSandbox(NaClSandbox* sandbox, void *handle);
+void* symbolTableLookupInSandbox(NaClSandbox* sandbox, const char *symbol);
 
 FILE* fopenInSandbox(NaClSandbox* sandbox, const char * filename, const char * mode);
 int fcloseInSandbox(NaClSandbox* sandbox, FILE * stream);

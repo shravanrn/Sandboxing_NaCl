@@ -1,4 +1,3 @@
-#include <dlfcn.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -54,9 +53,19 @@ void exitFunctionWrapper(void)
 	// Return eax/rax as most api's just want to return raw integer values or pointers
 
 	#if defined(_M_IX86) || defined(__i386__)
-		register nacl_reg_t return_reg asm("eax");
+
+		nacl_reg_t return_reg;
+		asm("movl %%eax, %0;"
+			:"=r"(return_reg)        /* output */
+		);
+
 	#elif defined(_M_X64) || defined(__x86_64__)
-		register nacl_reg_t return_reg asm("rax");		
+
+		nacl_reg_t return_reg;
+		asm("movq %%rax, %0;"
+			:"=r"(return_reg)        /* output */
+		);
+
 	#elif defined(__ARMEL__) || defined(__MIPSEL__)
 		#error Unsupported platform!
 	#else 
@@ -88,6 +97,11 @@ size_t test_localString(char* test)
 	return strlen(test);
 }
 
+void identifyCallbackOffsetHelper(CallbackHelperType callback)
+{
+	callback(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+}
+
 int threadMain(void)
 {
 	MakeNaClSysCall_exit_sandbox(EXIT_FROM_MAIN, 0 /* eax - this is unused and is used only in EXIT_FROM_CALL */);
@@ -111,14 +125,10 @@ int main(int argc, char** argv)
 
 	appSharedState->test_localMathPtr = test_localMath;
 	appSharedState->test_localStringPtr = test_localString;
+	appSharedState->identifyCallbackOffsetHelperPtr = identifyCallbackOffsetHelper;
 
 	appSharedState->mallocPtr = malloc;
 	appSharedState->freePtr = free;
-
-	appSharedState->dlopenPtr = dlopen;
-	appSharedState->dlerrorPtr = dlerror;
-	appSharedState->dlsymPtr = dlsym;
-	appSharedState->dlclosePtr = dlclose;
 
 	appSharedState->fopenPtr = fopen;
 	appSharedState->fclosePtr = fclose;
@@ -126,6 +136,6 @@ int main(int argc, char** argv)
 	appSharedState->checkChar = 1234;
 
 	MakeNaClSysCall_register_shared_state((uintptr_t)appSharedState);
-	MakeNaClSysCall_exit_sandbox(EXIT_FROM_MAIN, 0 /* eax - this is unused and is used only in EXIT_FROM_CALL */);
+	MakeNaClSysCall_exit_sandbox(EXIT_FROM_MAIN, 0 /* eax/rax - this is unused and is used only in EXIT_FROM_CALL */);
 	return 0;
 }

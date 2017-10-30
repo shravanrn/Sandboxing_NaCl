@@ -1066,8 +1066,6 @@ typedef struct {
 
 struct ElfSectionData32
 {
-  Elf32_Shdr *stringTableHeader;
-  Elf32_Shdr *symbolTableHeader;
   uint32_t stringTableSize;
   uint32_t symbolCount;
   char* stringTable;
@@ -1076,8 +1074,6 @@ struct ElfSectionData32
 
 struct ElfSectionData64
 {
-  Elf64_Shdr *stringTableHeader;
-  Elf64_Shdr *symbolTableHeader;
   uint32_t stringTableSize;
   uint32_t symbolCount;
   char* stringTable;
@@ -1115,7 +1111,6 @@ BOOL NaClElfGetSymbolInfo##bits(struct NaClElfImage* image, struct NaClDesc* ndp
     \
     if(sectionHeader->sh_type == SHT_STRTAB)\
     {\
-      out_elfSectionData->stringTableHeader = sectionHeader;\
       out_elfSectionData->stringTableSize = sectionHeader->sh_size;\
       out_elfSectionData->stringTable = malloc(sectionHeader->sh_size);\
 \
@@ -1133,8 +1128,6 @@ BOOL NaClElfGetSymbolInfo##bits(struct NaClElfImage* image, struct NaClDesc* ndp
     }\
     else if(sectionHeader->sh_type == SHT_SYMTAB)\
     {\
-      out_elfSectionData->symbolTableHeader = sectionHeader;\
-\
       if(sectionHeader->sh_entsize != sizeof(Elf##bits##_Sym))\
       {\
         NaClLog(2, "Unexpected symbol table entry size\n");\
@@ -1234,8 +1227,6 @@ GenGetSymbolTableMapping(64)
 #define GenDestructElfSectionData(bits)\
 void DestructElfSectionData##bits(struct ElfSectionData##bits * sectionData)\
 {\
-  free(sectionData->stringTableHeader);\
-  free(sectionData->symbolTableHeader);\
   free(sectionData->stringTable);\
   free(sectionData->symbolTable);\
 }
@@ -1247,7 +1238,7 @@ struct SymbolTableMapping * NaClElfGetSymbolTableMapping(struct NaClElfImage *im
 {
   if (ELFCLASS64 == image->ehdr.e_ident[EI_CLASS]) 
   {
-    struct ElfSectionData64 sectionData;
+    struct ElfSectionData64 sectionData = {0, 0, 0, 0};
     if(NaClElfGetSymbolInfo64(image, ndp, &sectionData))
     {
       struct SymbolTableMapping* symbolTableMapping = GetSymbolTableMapping64(sectionData);
@@ -1257,7 +1248,7 @@ struct SymbolTableMapping * NaClElfGetSymbolTableMapping(struct NaClElfImage *im
   }
   else
   {
-    struct ElfSectionData32 sectionData;
+    struct ElfSectionData32 sectionData = {0, 0, 0, 0};
     if(NaClElfGetSymbolInfo32(image, ndp, &sectionData))
     {
       struct SymbolTableMapping* symbolTableMapping = GetSymbolTableMapping32(sectionData);

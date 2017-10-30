@@ -9,6 +9,7 @@
 #include "native_client/src/trusted/dyn_ldr/datastructures/ds_map.h"
 #include "native_client/src/trusted/dyn_ldr/dyn_ldr_lib.h"
 #include "native_client/src/trusted/dyn_ldr/dyn_ldr_sharedstate.h"
+#include "native_client/src/trusted/service_runtime/elf_symboltable_mapping.h"
 #include "native_client/src/trusted/service_runtime/env_cleanser.h"
 #include "native_client/src/trusted/service_runtime/include/bits/mman.h"
 #include "native_client/src/trusted/service_runtime/include/sys/fcntl.h"
@@ -47,7 +48,6 @@
 #else
   #error Unknown platform!
 #endif
-
 
 
 #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
@@ -142,9 +142,10 @@ int closeSandboxCreator(void)
 unsigned invokeLocalMathTest(NaClSandbox* sandbox, unsigned a, unsigned b, unsigned c);
 size_t invokeLocalStringTest(NaClSandbox* sandbox, char* test);
 NaClSandbox* constructNaClSandbox(struct NaClApp* nap);
+void invokeIdentifyCallbackOffsetHelper(NaClSandbox* sandbox);
 
 //Adapted from ./native_client/src/trusted/service_runtime/sel_main.c NaClSelLdrMain
-NaClSandbox* createDlSandbox(char* naclGlibcLibraryPathWithTrailingSlash, char* naclInitAppFullPath)
+NaClSandbox* createDlSandbox(char* naclLibraryPath, char* naclInitAppFullPath)
 {
   NaClSandbox*            sandbox = NULL;
   struct NaClApp*         nap = NULL;
@@ -152,13 +153,10 @@ NaClSandbox* createDlSandbox(char* naclGlibcLibraryPathWithTrailingSlash, char* 
   // struct NaClEnvCleanser  env_cleanser;
   // char const *const*      envp;
   NaClErrorCode           pq_error;
-  char                    dynamic_loader[1024];
-  int                     app_argc;
-  char**                  app_argv;
-  char*                   app_argv_arr[4];
   unsigned                testResult = 0;
   int                     testResult2 = 0;
   long                    checkChar = 0;
+  struct NaClDesc*        blob_file = NULL;
 
   nap = NaClAppCreate();
   if (nap == NULL) {
@@ -196,23 +194,20 @@ NaClSandbox* createDlSandbox(char* naclGlibcLibraryPathWithTrailingSlash, char* 
   //   nap->attach_debug_exception_handler_func = NaClDebugExceptionHandlerStandaloneAttach;
   // #endif
 
-  NaClAppInitialDescriptorHookup(nap);
 
-  if(strlen(naclGlibcLibraryPathWithTrailingSlash) > ((sizeof(dynamic_loader) / sizeof(char)) - 20))
-  {
-    NaClLog(LOG_ERROR, "Path length in naclGlibcLibraryPathWithTrailingSlash is too long\n");
-    goto error;
+  blob_file = (struct NaClDesc *) NaClDescIoDescOpen(naclLibraryPath, NACL_ABI_O_RDONLY, 0);
+  if (NULL == blob_file) {
+    NaClLog(LOG_FATAL, "Cannot open \"%s\".\n", naclLibraryPath);
   }
 
-  strcpy(dynamic_loader, naclGlibcLibraryPathWithTrailingSlash);
-  strcat(dynamic_loader, "runnable-ld.so");
+  NaClAppInitialDescriptorHookup(nap);
 
   //Normally the symbol table in the file is basically ignored
   // This basically turns on the some code that has been added for the purpose of this library
   // that loads the symbol table in the struct NaClApp
   NaClAppLoadSymbolTableMapping(TRUE);
 
-  pq_error = NaClAppLoadFileFromFilename(nap, dynamic_loader);
+  pq_error = NaClAppLoadFileFromFilename(nap, naclInitAppFullPath);
 
   if (LOAD_OK != pq_error) {
     NaClLog(LOG_ERROR, "Error while loading from naclInitAppFullPath: %s\n", NaClErrorString(pq_error));
@@ -220,6 +215,11 @@ NaClSandbox* createDlSandbox(char* naclGlibcLibraryPathWithTrailingSlash, char* 
   }
 
   // NaClFileNameForValgrind(naclInitAppFullPath);
+  pq_error = NaClMainLoadIrt(nap, blob_file, NULL);
+  if (LOAD_OK != pq_error) {
+    NaClLog(LOG_ERROR, "Error while loading \"%s\": %s\n", naclLibraryPath, NaClErrorString(pq_error));
+    goto error;
+  }
 
   /*
    * Print out a marker for scripts to use to mark the start of app
@@ -235,13 +235,6 @@ NaClSandbox* createDlSandbox(char* naclGlibcLibraryPathWithTrailingSlash, char* 
 
   NaClAppStartModule(nap);
 
-  app_argc = 4;
-  app_argv_arr[0] = "dyn_ldr_sandbox_init";
-  app_argv_arr[1] = "--library-path";
-  app_argv_arr[2] = naclGlibcLibraryPathWithTrailingSlash;
-  app_argv_arr[3] = naclInitAppFullPath;
-  app_argv = app_argv_arr;
-
   //Normally, the NaClCreateMainThread/NaClCreateAdditionalThread invokes the NaCl application, nap
   // in a new thread. This is not necessary here. So, call a function we 
   // have added to the runtime, that ignores the next request to create a
@@ -249,8 +242,8 @@ NaClSandbox* createDlSandbox(char* naclGlibcLibraryPathWithTrailingSlash, char* 
   NaClOverrideNextThreadCreateToRunOnCurrentThread(TRUE, &(nap->mainJumpBuffer));
 
   if (!NaClCreateMainThread(nap,
-                            app_argc,
-                            app_argv,
+                            0, //argc,
+                            NULL, //argv,
                             NaClGetEnviron())) {
     NaClLog(LOG_ERROR, "creating main thread failed\n");
     goto error;
@@ -280,12 +273,9 @@ NaClSandbox* createDlSandbox(char* naclGlibcLibraryPathWithTrailingSlash, char* 
     //Note exitFunctionWrapperPtr and callbackFunctionWrapper are called only from inside the sandbox, so we don't have to unsandbox their locations
     sandbox->sharedState->test_localMathPtr       = (test_localMath_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->test_localMathPtr);
     sandbox->sharedState->test_localStringPtr     = (test_localString_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->test_localStringPtr);
+    sandbox->identifyCallbackOffsetHelperPtr      = (identifyCallbackOffsetHelper_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->identifyCallbackOffsetHelperPtr);
     sandbox->sharedState->mallocPtr               = (malloc_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->mallocPtr);
     sandbox->sharedState->freePtr                 = (free_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->freePtr);
-    sandbox->sharedState->dlopenPtr               = (dlopen_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->dlopenPtr);
-    sandbox->sharedState->dlerrorPtr              = (dlerror_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->dlerrorPtr);
-    sandbox->sharedState->dlsymPtr                = (dlsym_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->dlsymPtr);
-    sandbox->sharedState->dlclosePtr              = (dlclose_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->dlclosePtr);
     sandbox->sharedState->fopenPtr                = (fopen_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->fopenPtr);
     sandbox->sharedState->fclosePtr               = (fclose_type) NaClSandboxCodeAddr(nap, (uintptr_t) sandbox->sharedState->fclosePtr);
   #endif
@@ -306,6 +296,15 @@ NaClSandbox* createDlSandbox(char* naclGlibcLibraryPathWithTrailingSlash, char* 
   if(testResult2 != 5)
   {
     NaClLog(LOG_ERROR, "Sandbox test failed: Expected return of 5. Got %d\n", testResult2);
+    goto error;
+  }
+
+  NaClLog(LOG_INFO, "Acquiring the callback parameter start offset\n");
+  invokeIdentifyCallbackOffsetHelper(sandbox);
+
+  if(sandbox->callbackParameterStartOffset == -1)
+  {
+    NaClLog(LOG_ERROR, "Sandbox failed to acquire the start parameter of offsets\n");
     goto error;
   }
 
@@ -735,7 +734,7 @@ NaClSandbox_Thread* callbackParamsBegin(NaClSandbox* sandbox)
   return threadData;
 }
 
-uintptr_t getCallbackParam(NaClSandbox_Thread* threadData, size_t size)
+SANDBOX_CALLBACK void identifyCallbackParamOffset(uintptr_t sandboxPtr)
 {
   //The set of calls to exit the sandbox look as follows
   //
@@ -743,44 +742,76 @@ uintptr_t getCallbackParam(NaClSandbox_Thread* threadData, size_t size)
   // 2) callbackFunctionWrapperN in dyn_ldr_sandbox_init.c
   // 3) NaClSysCall - NaClSysCallback in nacl_syscall_common.c
 
+  //We don't want to make assumptions about whether the NACL trampoline leaves the stack pointer
+  // i.e. whether the stack pointer is at the top of the stack
+  //So we figure out the offset that points to the first callback parameter
+  // by looking for known data from a test callback
+
+  //Additionally, this would ensure things like stack smash pointers etc. 
+  // just work, without worrying if callback param offsets have account for them
+
+  //It is expected that the top of the NaCl stack would look something like
+  //
+  // callbackFunctionWrapperN Stackframe
+  // functionInLibThatMakesCallback Stackframe
+  // 
+  // i.e.
+  //
+  // (callbackFunctionWrapperN) Return addr
+  // (callbackFunctionWrapperN) Param 1 
+  // (callbackFunctionWrapperN) Padding for alignment
+  // (functionInLibThatMakesCallback) Return addr
+  // (functionInLibThatMakesCallback) Param 1
+  // (functionInLibThatMakesCallback) Param 2
+  // (functionInLibThatMakesCallback) Param 3
+
+  //We know the values to "functionInLibThatMakesCallback" Param 1, Param 2 ...
+  // and we want to locate the address of Param1
+  //The function we are looking for is a function that has 10 uint32 integer parameters going from 1 to 10
+
+  NaClSandbox* sandbox = (NaClSandbox*) sandboxPtr;
+  NaClSandbox_Thread* threadData = callbackParamsBegin(sandbox);
+
   #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
-    //The parameters start at the location of the NaCl sp
-    //
-    //It is expected that the top of the NaCl stack would look like
-    //
-    // callbackFunctionWrapperN Stackframe
-    // functionInLibThatMakesCallback Stackframe
-    // 
-    // i.e.
-    //
-    // (callbackFunctionWrapperN) Return addr <=
-    // (callbackFunctionWrapperN) Param 1 
-    // (callbackFunctionWrapperN) Padding for alignment
-    // (functionInLibThatMakesCallback) Return addr
-    // (functionInLibThatMakesCallback) Param 1
-    // (functionInLibThatMakesCallback) Param 2
-    // (functionInLibThatMakesCallback) Param 3
-    //
-    //
-    //For some reason, at this stage the sp does not point to return address
-    //Instead it points to the first arg
-    //
-    // (callbackFunctionWrapperN) Return addr
-    // (callbackFunctionWrapperN) Param 1 <=
-    // (callbackFunctionWrapperN) Padding for alignment
-    // (functionInLibThatMakesCallback) Return addr
-    // (functionInLibThatMakesCallback) Param 1
-    // (functionInLibThatMakesCallback) Param 2
-    // (functionInLibThatMakesCallback) Param 3
-    //
-    //Since the NaCl Springboard does mess with assembly, it is possible, that it has messed with sp as well
-    //
-    //Through trial and error, the padding used was found to be 32 bytes. This offset was derived by printing the contents of the NaCl stack. This means
-    //(functionInLibThatMakesCallback) Param 1 is located 32 bytes ahead of the sp
-    //
-    #define CallbackParmetersStartOffset 32
+
+    uint32_t paramToLookFor = 1;
+
+  #elif NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64
+
+    //In x64 first 6 parameters are in registers parameter 7 onwards is on the stack
+    uint32_t paramToLookFor = 7;
+
+  #else
+    #error Unsupported architecture
+  #endif
+
+  uintptr_t currPointer = getUnsandboxedAddress(threadData->sandbox, GetStackPointer(threadData->thread->user));
+  
+  for (uint32_t i = 0; i <= 256; i += 4, currPointer += 4)
+  {
+    uint32_t* paramPtr = (uint32_t*) currPointer;
+    if(
+      *(paramPtr) == (paramToLookFor) &&
+      *(paramPtr + 1) == (paramToLookFor + 1) &&
+      *(paramPtr + 2) == (paramToLookFor + 2) &&
+      *(paramPtr + 3) == (paramToLookFor + 3)
+    )
+    {
+      threadData->sandbox->callbackParameterStartOffset = i;
+      return;
+    }
+  }
+  
+  threadData->sandbox->callbackParameterStartOffset = -1;
+  #undef ParamType
+}
+
+uintptr_t getCallbackParam(NaClSandbox_Thread* threadData, size_t size)
+{
+  #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
+
     uintptr_t paramPointer = getUnsandboxedAddress(threadData->sandbox,
-      GetStackPointer(threadData->thread->user) + CallbackParmetersStartOffset + threadData->callbackParamsAlreadyRead);
+      GetStackPointer(threadData->thread->user) + threadData->sandbox->callbackParameterStartOffset + threadData->callbackParamsAlreadyRead);
 
     threadData->callbackParamsAlreadyRead += size;
     return paramPointer;
@@ -809,7 +840,7 @@ uintptr_t getCallbackParam(NaClSandbox_Thread* threadData, size_t size)
 
       regPtr1 = getParamRegister(threadData, threadData->callbackParameterNumber);
       threadData->callbackParameterNumber++;
-      
+
       regPtr2 = getParamRegister(threadData, threadData->callbackParameterNumber);
       threadData->callbackParameterNumber++;
 
@@ -821,9 +852,8 @@ uintptr_t getCallbackParam(NaClSandbox_Thread* threadData, size_t size)
     else
     {
       //See x86 section above for explanation 
-      #define CallbackParmetersStartOffset 32
       uintptr_t paramPointer = getUnsandboxedAddress(threadData->sandbox,
-        GetStackPointer(threadData->thread->user) + CallbackParmetersStartOffset + threadData->callbackParamsAlreadyRead);
+        GetStackPointer(threadData->thread->user) + threadData->sandbox->callbackParameterStartOffset + threadData->callbackParamsAlreadyRead);
 
       threadData->callbackParamsAlreadyRead += size;
       return paramPointer;
@@ -867,6 +897,21 @@ uintptr_t functionCallReturnSandboxPtr(NaClSandbox_Thread* threadData)
   return (uintptr_t) functionCallReturnRawPrimitiveInt(threadData);
 }
 
+void* symbolTableLookupInSandbox(NaClSandbox* sandbox, const char *symbol)
+{
+  //interface 2 has to resolve functions by looking at the symbolTable
+  for(uint32_t i = 0, symbolCount = sandbox->nap->symbolTableMapping->symbolCount; i < symbolCount; i++)
+  {
+    struct SymbolTableMapEntry* entry = &sandbox->nap->symbolTableMapping->symbolMap[i];
+    if(strcmp(entry->name, symbol) == 0)
+    {
+      return (void *) getUnsandboxedAddress(sandbox, (uintptr_t) entry->address);
+    }
+  }
+
+  return NULL;
+}
+
 /********************** Stubs for some basic functions *****************************/
 
 unsigned invokeLocalMathTest(NaClSandbox* sandbox, unsigned a, unsigned b, unsigned c)
@@ -893,6 +938,19 @@ size_t invokeLocalStringTest(NaClSandbox* sandbox, char* test)
   return (size_t)functionCallReturnRawPrimitiveInt(threadData);
 }
 
+void invokeIdentifyCallbackOffsetHelper(NaClSandbox* sandbox)
+{
+  short slotNumber = 0;
+  NaClSandbox_Thread* threadData;
+  uintptr_t callback = registerSandboxCallback(sandbox, slotNumber, (uintptr_t) identifyCallbackParamOffset);
+
+  threadData = preFunctionCall(sandbox, sizeof(callback), 0);
+  PUSH_VAL_TO_STACK(threadData, uintptr_t, callback);
+
+  invokeFunctionCallWithSandboxPtr(threadData, (uintptr_t) sandbox->sharedState->identifyCallbackOffsetHelperPtr);
+  unregisterSandboxCallback(sandbox, slotNumber);
+}
+
 void* mallocInSandbox(NaClSandbox* sandbox, size_t size)
 {
   NaClSandbox_Thread* threadData = preFunctionCall(sandbox, sizeof(size), 0);
@@ -911,50 +969,6 @@ void freeInSandbox(NaClSandbox* sandbox, void* ptr)
   PUSH_PTR_TO_STACK(threadData, void*, ptr);
 
   invokeFunctionCallWithSandboxPtr(threadData, (uintptr_t)sandbox->sharedState->freePtr);
-}
-
-void* dlopenInSandbox(NaClSandbox* sandbox, const char *filename, int flag)
-{
-  NaClSandbox_Thread* threadData = preFunctionCall(sandbox, sizeof(filename) + sizeof(flag), STRING_SIZE(filename));
-
-  PUSH_STRING_TO_STACK(threadData, filename);
-  PUSH_VAL_TO_STACK(threadData, int, flag);
-
-  invokeFunctionCallWithSandboxPtr(threadData, (uintptr_t)sandbox->sharedState->dlopenPtr);
-
-  return (void *) functionCallReturnPtr(threadData);
-}
-
-char* dlerrorInSandbox(NaClSandbox* sandbox)
-{
-  NaClSandbox_Thread* threadData = preFunctionCall(sandbox, 0 /* no args */, 0);
-
-  invokeFunctionCallWithSandboxPtr(threadData, (uintptr_t)sandbox->sharedState->dlerrorPtr);
-
-  return (char *) functionCallReturnPtr(threadData);
-}
-
-void* dlsymInSandbox(NaClSandbox* sandbox, void *handle, const char *symbol)
-{
-  NaClSandbox_Thread* threadData = preFunctionCall(sandbox, sizeof(handle) + sizeof(symbol), STRING_SIZE(symbol));
-
-  PUSH_PTR_TO_STACK(threadData, void *, handle);
-  PUSH_STRING_TO_STACK(threadData, symbol);
-
-  invokeFunctionCallWithSandboxPtr(threadData, (uintptr_t)sandbox->sharedState->dlsymPtr);
-
-  return (void *) functionCallReturnPtr(threadData);
-}
-
-int dlcloseInSandbox(NaClSandbox* sandbox, void *handle)
-{
-  NaClSandbox_Thread* threadData = preFunctionCall(sandbox, sizeof(handle), 0);
-
-  PUSH_PTR_TO_STACK(threadData, void *, handle);
-
-  invokeFunctionCallWithSandboxPtr(threadData, (uintptr_t)sandbox->sharedState->dlclosePtr);
-
-  return (int)functionCallReturnRawPrimitiveInt(threadData);
 }
 
 FILE* fopenInSandbox(NaClSandbox* sandbox, const char * filename, const char * mode)

@@ -322,9 +322,7 @@ nacl_reg_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumb
 
     #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
       VoidPtrFunc func;
-      register nacl_reg_t eax asm("eax");
       nacl_reg_t eaxCopy;
-      uint32_t eaxU;
 
       //We are here in the following situation.
       //The app makes a function call into the sandbox (let's call this S1).
@@ -346,9 +344,12 @@ nacl_reg_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumb
       NaClLog(LOG_INFO, "Making NaClSysCallback: %"PRIu32"\n", callbackSlotNumber);
       func = (VoidPtrFunc) (natp->nap->callbackSlot[callbackSlotNumber]);
       func(natp->nap->custom_app_state);
-      eaxCopy = eax;
-      eaxU = eaxCopy;
-      NaClLog(LOG_INFO, "Returned from NaClSysCallback with eax: %"PRIu32"\n", eaxU);
+
+      asm("movl %%eax, %0;"
+        :"=r"(eaxCopy)        /* output */
+      );
+
+      NaClLog(LOG_INFO, "Returned from NaClSysCallback with eax: %"PRIu32"\n", (uint32_t) eaxCopy);
 
       natp->user.ebx          = saved_ebx;
       natp->user.esi          = saved_esi;
@@ -370,9 +371,7 @@ nacl_reg_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumb
 
     #elif NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64
       VoidPtrFunc func;
-      register nacl_reg_t rax asm("rax");
       nacl_reg_t raxCopy;
-      uint64_t raxU;
 
       nacl_reg_t saved_rbx          = natp->user.rbx;
       nacl_reg_t saved_r12          = natp->user.r12;
@@ -388,9 +387,12 @@ nacl_reg_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumb
       NaClLog(LOG_INFO, "Making NaClSysCallback: %"PRIu32"\n", callbackSlotNumber);
       func = (VoidPtrFunc) (natp->nap->callbackSlot[callbackSlotNumber]);
       func(natp->nap->custom_app_state);
-      raxCopy = rax;
-      raxU = raxCopy;
-      NaClLog(LOG_INFO, "Returned from NaClSysCallback with rax: %"PRIu64"\n", raxU);
+
+      asm("movq %%rax, %0;"
+        :"=r"(raxCopy)        /* output */
+      );
+
+      NaClLog(LOG_INFO, "Returned from NaClSysCallback with rax: %"PRIu64"\n", (uint64_t) raxCopy);
 
       natp->user.rbx          = saved_rbx;
       natp->user.r12          = saved_r12;

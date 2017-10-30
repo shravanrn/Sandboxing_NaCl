@@ -3,20 +3,19 @@ A modification of NaCl to support sandoxing of dynamic libraries from the main a
 
 # Build instructions
 Note build commands should be run in the 'native_client' folder.
-For first build from the native client library run './scons --nacl_glibc'. For incremental builds that skip some tests use './scons MODE=opt-linux,nacl --nacl_glibc --verbose'. The 32-bit Build has been tested on an Ubuntu 17.04 64 bit.
 
 For first build, of the 32 bit native client library run 
 ```
-./scons MODE=opt-linux,nacl --nacl_glibc
+./scons MODE=opt-linux,nacl werror=0
 # Debug build
-# ./scons MODE=dbg-linux,nacl --nacl_glibc
+# ./scons MODE=dbg-linux,nacl werror=0
 ```
 
 For first build, of the 64 bit native client library run
 ```
-./scons MODE=opt-linux,nacl --nacl_glibc platform=x86-64
+./scons MODE=opt-linux,nacl werror=0 platform=x86-64
 # Debug build
-# ./scons MODE=dbg-linux,nacl --nacl_glibc platform=x86-64
+# ./scons MODE=dbg-linux,nacl werror=0 platform=x86-64
 ```
 
 For detailed logs add the '--verbose' flag.
@@ -31,16 +30,16 @@ scons-out/dbg-linux-x86-32/staging/dyn_ldr_test
 To build a version compatible with Firefox (which does not use Position independent executables you can use the following commands)
 
 ```
-./scons -f SConstruct_Firefox --nacl_glibc MODE=opt-linux,nacl
+./scons -f SConstruct_Firefox werror=0 MODE=opt-linux,nacl
 # Debug build
-# ./scons -f SConstruct_Firefox --nacl_glibc MODE=dbg-linux,nacl
+# ./scons -f SConstruct_Firefox werror=0 MODE=dbg-linux,nacl
 ```
 
 A helpful script to put the firefox build in a new folder
 ```
 mv scons-out scons-out-clean
 mv scons-out-firefox scons-out
-./scons -f SConstruct_Firefox --nacl_glibc MODE=opt-linux,nacl
+./scons -f SConstruct_Firefox werror=0 MODE=opt-linux,nacl
 mv scons-out scons-out-firefox
 mv scons-out-clean scons-out
 ```

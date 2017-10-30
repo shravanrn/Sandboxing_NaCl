@@ -53,3 +53,4 @@ testserver.log
 /scons-out-firefox/
 /scons-out-x86/
 /scons-out-64/
+/scons-out (copy)/
