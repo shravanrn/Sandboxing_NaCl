@@ -2,7 +2,6 @@
 
 # DEPS
 /ragel
-/lss
 /NSIS
 /valgrind
 /lcov
