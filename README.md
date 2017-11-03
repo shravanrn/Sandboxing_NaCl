@@ -5,11 +5,25 @@ A modification of NaCl to support sandoxing of dynamic libraries from the main a
 
 The following commands should be run the first time only
 
-First install the depot tools software as per http://commondatastorage.googleapis.com/chrome-infra-docs/flat/depot_tools/docs/html/depot_tools_tutorial.html#_setting_up
+First install the depot tools software as per http://commondatastorage.googleapis.com/chrome-infra-docs/flat/depot_tools/docs/html/depot_tools_tutorial.html#_setting_up or by running the following commands
 
-Run the following commands
 ```
+git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
+export PATH="$(pwd)/depot_tools:$PATH"
+```
+
+Install gyp and some packages
+```
+git clone https://chromium.googlesource.com/external/gyp.git
+cd gyp
+sudo python setup.py install
 # Install some required libs for 32 bit libs
+sudo apt install flex bison git g++-multilib
+```
+
+Run prep script and gclient in the Sandboxing_NaCl directory 
+
+```
 sudo native_client/tools/linux.x86_64.prep.sh
 # Get the default gcc and clang toolchains
 gclient runhooks
@@ -22,7 +36,6 @@ toolchain_build/toolchain_build_pnacl.py --verbose --sync --clobber --install to
 rm -rf toolchain/linux_x86/pnacl_newlib
 ln -s pnacl_newlib_raw toolchain/linux_x86/pnacl_newlib
 ```
-
 
 # Build instructions
 
