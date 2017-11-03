@@ -1,17 +1,41 @@
 # Sandboxing_NaCl
 A modification of NaCl to support sandoxing of dynamic libraries from the main app
 
+# First time setup instructions
+
+The following commands should be run the first time only
+
+First install the depot tools software as per http://commondatastorage.googleapis.com/chrome-infra-docs/flat/depot_tools/docs/html/depot_tools_tutorial.html#_setting_up
+
+Run the following commands
+```
+# Install some required libs for 32 bit libs
+sudo native_client/tools/linux.x86_64.prep.sh
+# Get the default gcc and clang toolchains
+gclient runhooks
+```
+
+Get the clang sources
+```
+../tools/clang/scripts/update.py
+toolchain_build/toolchain_build_pnacl.py --verbose --sync --clobber --install toolchain/linux_x86/pnacl_newlib_raw
+rm -rf toolchain/linux_x86/pnacl_newlib
+ln -s pnacl_newlib_raw toolchain/linux_x86/pnacl_newlib
+```
+
+
 # Build instructions
+
 Note build commands should be run in the 'native_client' folder.
 
-For first build, of the 32 bit native client library run 
+For build of the 32 bit native client library run 
 ```
 ./scons MODE=opt-linux,nacl werror=0
 # Debug build
 # ./scons MODE=dbg-linux,nacl werror=0
 ```
 
-For first build, of the 64 bit native client library run
+For build of the 64 bit native client library run
 ```
 ./scons MODE=opt-linux,nacl werror=0 platform=x86-64
 # Debug build
