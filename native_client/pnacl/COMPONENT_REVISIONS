@@ -11,11 +11,11 @@ binutils=03d37f8de86d6f876979760502021c003523bdef
 #
 # Three lines avoid merge conflicts.
 #
-clang=e34aaa1fd835c13131bf82b16b768253e14e9247
+clang=3351906655cd4f5c751360043aa9c62ccdd394d8
 #
 # Three lines avoid merge conflicts.
 #
-llvm=63a5544b9bf92b8ed6af03eae595947de1761fef
+llvm=b641e6dc843fb78c8f5e07f86309b9222bc692e6
 #
 # Three lines avoid merge conflicts.
 #

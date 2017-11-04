@@ -557,6 +557,13 @@ def GetGitSyncCmdsCallback(revisions):
     git_url = GIT_BASE_URL + GIT_REPOS[component]
     git_push_url = GIT_PUSH_URL + GIT_REPOS[component]
 
+    if component == 'clang':
+      git_url = 'https://github.com/shravanrn/nacl-clang'
+      git_push_url = 'https://github.com/shravanrn/nacl-clang'
+    elif component == 'llvm':
+      git_url = 'https://github.com/shravanrn/nacl-llvm'
+      git_push_url = 'https://github.com/shravanrn/nacl-llvm'
+
     return (command.SyncGitRepoCmds(git_url, '%(output)s', revisions[component],
                                     git_cache='%(git_cache_dir)s',
                                     push_url=git_push_url,

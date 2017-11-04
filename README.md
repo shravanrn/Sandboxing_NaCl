@@ -29,13 +29,25 @@ sudo native_client/tools/linux.x86_64.prep.sh
 gclient runhooks
 ```
 
-Get the clang sources
+Get the nacl clang sources. Note we use a modified clang and llvm compared to NativeClient (located https://github.com/shravanrn/nacl-clang and https://github.com/shravanrn/nacl-llvm). The below commands will automatically pull from the correct repos
+
 ```
+#First build the unmodified libraries
+cd native_client/tools
+make sync
+make clean build-with-newlib -j16
+make clean build-with-glibc -j16
+cd ..
+
+#Next build the modified compiler
 ../tools/clang/scripts/update.py
 toolchain_build/toolchain_build_pnacl.py --verbose --sync --clobber --install toolchain/linux_x86/pnacl_newlib_raw
+
+#Install the modified compiler
 rm -rf toolchain/linux_x86/pnacl_newlib
 ln -s pnacl_newlib_raw toolchain/linux_x86/pnacl_newlib
 ```
+
 
 # Build instructions
 
