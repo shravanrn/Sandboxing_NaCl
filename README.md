@@ -16,6 +16,7 @@ Install gyp and some packages
 ```
 git clone https://chromium.googlesource.com/external/gyp.git
 cd gyp
+sudo apt install python-setuptools
 sudo python setup.py install
 # Install some required libs for 32 bit libs
 sudo apt install flex bison git g++-multilib
