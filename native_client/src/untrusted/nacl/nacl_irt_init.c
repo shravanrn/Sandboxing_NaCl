@@ -20,7 +20,8 @@ static void grok_auxv(const Elf32_auxv_t *auxv) {
   const Elf32_auxv_t *av;
   for (av = auxv; av->a_type != AT_NULL; ++av) {
     if (av->a_type == AT_SYSINFO) {
-      __nacl_irt_query = (TYPE_nacl_irt_query) av->a_un.a_val;
+      uintptr_t val = av->a_un.a_val;
+      __nacl_irt_query = (TYPE_nacl_irt_query) val;
     }
   }
 }

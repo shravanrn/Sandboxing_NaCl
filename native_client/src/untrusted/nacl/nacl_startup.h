@@ -39,7 +39,8 @@ typedef void (*nacl_startup_fini_func_t)(void);
  */
 static inline __attribute__((unused))
 nacl_startup_fini_func_t nacl_startup_fini(const uint32_t info[]) {
-  return (void (*)(void)) info[NACL_STARTUP_FINI];
+  uintptr_t val = info[NACL_STARTUP_FINI];
+  return (void (*)(void)) val;
 }
 
 /*

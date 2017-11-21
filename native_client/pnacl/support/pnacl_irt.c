@@ -98,7 +98,8 @@ void __pnacl_init_irt(uint32_t *startup_info) {
 
   for (; av->a_type != AT_NULL; ++av) {
     if (av->a_type == AT_SYSINFO) {
-      TYPE_nacl_irt_query irt_query = (TYPE_nacl_irt_query) av->a_un.a_val;
+      uintptr_t val = av->a_un.a_val;
+      TYPE_nacl_irt_query irt_query = (TYPE_nacl_irt_query) val;
       struct nacl_irt_tls irt_tls;
       if (irt_query(NACL_IRT_TLS_v0_1, &irt_tls, sizeof(irt_tls))
           == sizeof(irt_tls)) {

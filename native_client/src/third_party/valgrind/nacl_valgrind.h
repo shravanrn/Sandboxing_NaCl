@@ -295,7 +295,7 @@ typedef
 #undef VALGRIND_SANDBOX_PTR
 /* return r15+lower_32_bits(arg) */
 static uint64_t VALGRIND_SANDBOX_PTR(size_t arg) {
-  volatile size_t a = arg;  /* 32 bit */
+  volatile uint32_t a = (uint32_t) arg;  /* 32 bit */
   volatile uint64_t b;      /* 64 bit */
   __asm__ volatile (
        "mov %1, %%eax\n\t"

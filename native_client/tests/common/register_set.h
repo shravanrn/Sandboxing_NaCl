@@ -50,8 +50,12 @@
 #elif NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64
 
 # define ASM_WITH_REGS(regs, asm_code) \
+	{ \
+	uint32_t ptr32 = *((uint32_t*) regs); \
     __asm__( \
         "naclrestbp %0, %%r15\n" \
+		: : "r"(ptr32) : "memory"); \
+    __asm__( \
         "movq 0x00(%%rbp), %%rax\n" \
         "movq 0x08(%%rbp), %%rbx\n" \
         "movq 0x10(%%rbp), %%rcx\n" \
@@ -70,7 +74,8 @@
         "naclrestbp 0x30(%%rbp), %%r15\n" \
         RESET_X86_FLAGS \
         asm_code \
-        : : "r"(regs) : "memory")
+        : : "r"(regs) : "memory"); \
+    }
 
 #elif NACL_ARCH(NACL_BUILD_ARCH) == NACL_arm
 

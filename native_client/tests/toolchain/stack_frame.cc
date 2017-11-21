@@ -77,6 +77,7 @@ void recurse(int n, unsigned char* old_cfa) {
   int i;
   int array[16];
   unsigned char* cfa = (unsigned char*) __builtin_dwarf_cfa();
+  uintptr_t cfaval = (uintptr_t) cfa;
   int* start = &array[0];
   int* end = &array[16];
   int frame_size = PointerDelta(old_cfa, cfa);
@@ -93,7 +94,7 @@ void recurse(int n, unsigned char* old_cfa) {
 
   // TODO(sehr): change those to 16
   ASSERT(frame_size % 8 == 0, "ERRRO: bad frame size");
-  ASSERT((int) cfa % 8 == 0, "ERRRO: bad frame pointer");
+  ASSERT(cfaval % 8 == 0, "ERRRO: bad frame pointer");
 
   if (n == NUM_ITERS) {
     // main()'s stackframe may be non-standard due to the startup code

@@ -66,7 +66,8 @@ typedef struct nc_thread_cleanup_handler {
 static __thread nc_thread_cleanup_handler *__nc_cleanup_handlers = NULL;
 
 static inline char *align(uint32_t offset, uint32_t alignment) {
-  return (char *) ((offset + alignment - 1) & ~(alignment - 1));
+  uintptr_t val = ((offset + alignment - 1) & ~(alignment - 1));
+  return (char *) val;
 }
 
 /* Thread management global variables. */
