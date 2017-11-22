@@ -14,12 +14,13 @@ export PATH="$(pwd)/depot_tools:$PATH"
 
 Install gyp and some packages
 ```
+sudo apt install python-setuptools
 git clone https://chromium.googlesource.com/external/gyp.git
 cd gyp
 sudo apt install python-setuptools
 sudo python setup.py install
-# Install some required libs for 32 bit libs
-sudo apt install flex bison git g++-multilib
+# Install some required libs
+sudo apt install flex bison git g++-multilib gcc-arm-linux-gnueabihf
 ```
 
 Run prep script and gclient in the Sandboxing_NaCl directory 
