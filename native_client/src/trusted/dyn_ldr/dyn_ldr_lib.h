@@ -68,17 +68,8 @@ NaClSandbox_Thread* preFunctionCall(NaClSandbox* sandbox, size_t paramsSize, siz
 void invokeFunctionCall(NaClSandbox_Thread* threadData, void* functionPtr);
 void invokeFunctionCallWithSandboxPtr(NaClSandbox_Thread* threadData, uintptr_t functionPtrInSandbox);
 
-#if defined(_M_IX86) || defined(__i386__)
-	uintptr_t getUnsandboxedAddress(NaClSandbox* sandbox, uintptr_t uaddr);
-	uintptr_t getSandboxedAddress(NaClSandbox* sandbox, uintptr_t uaddr);
-#elif defined(_M_X64) || defined(__x86_64__) 
-	#define getUnsandboxedAddress(a, b) (b)
-	#define getSandboxedAddress(a, b) (b)
-#elif defined(__ARMEL__) || defined(__MIPSEL__)
-	#error Unsupported platform!
-#else
-	#error Unknown platform!
-#endif
+uintptr_t getUnsandboxedAddress(NaClSandbox* sandbox, uintptr_t uaddr);
+uintptr_t getSandboxedAddress(NaClSandbox* sandbox, uintptr_t uaddr);
 
 int isAddressInSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr);
 int isAddressInNonSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr);
@@ -98,6 +89,8 @@ int isAddressInNonSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr);
 		threadData->stack_ptr_forParameters = ADJUST_STACK_PTR(threadData->stack_ptr_forParameters, sizeof(type)); \
 	} while (0)
 
+	#define PUSH_RET_TO_STACK(threadData, type, value) PUSH_VAL_TO_STACK(threadData, type, value)
+
 #elif defined(_M_X64) || defined(__x86_64__) 
 
 	uint64_t* getParamRegister(NaClSandbox_Thread* threadData, unsigned parameterNumber);
@@ -108,6 +101,11 @@ int isAddressInNonSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr);
 		threadData->registerParameterNumber++; \
 	}
 
+	#define PUSH_VAL_TO_STACK_SKIP_REGS(threadData, type, value) do { \
+		*(type *) (threadData->stack_ptr_forParameters) = (type) value; \
+		threadData->stack_ptr_forParameters = ADJUST_STACK_PTR(threadData->stack_ptr_forParameters, sizeof(type)); \
+	} while (0)
+
 	#define PUSH_VAL_TO_STACK(threadData, type, value) do { \
 		if(threadData->registerParameterNumber < 6 && sizeof(value) <= 64) {		\
 			PUSH_64BIT_VAL_TO_REG(threadData, (uint64_t) (value)); \
@@ -117,10 +115,11 @@ int isAddressInNonSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr);
 			PUSH_64BIT_VAL_TO_REG(threadData, valCasted[0]); \
 			PUSH_64BIT_VAL_TO_REG(threadData, valCasted[1]); \
 		} else { \
-			*(type *) (threadData->stack_ptr_forParameters) = (type) value; \
-			threadData->stack_ptr_forParameters = ADJUST_STACK_PTR(threadData->stack_ptr_forParameters, sizeof(type)); \
+			PUSH_VAL_TO_STACK_SKIP_REGS(threadData, type, value); \
 		} \
 	} while (0)
+
+	#define PUSH_RET_TO_STACK(threadData, type, value) PUSH_VAL_TO_STACK_SKIP_REGS(threadData, type, value)
 
 #elif defined(__ARMEL__) || defined(__MIPSEL__)
 	#error Unsupported platform!

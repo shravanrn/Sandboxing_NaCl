@@ -16,8 +16,8 @@ static int __libnacl_irt_mprotect(void *addr, size_t len, int prot) {
  * Scan the auxv for AT_SYSINFO, which is the pointer to the IRT query function.
  * Stash that for later use.
  */
-static void grok_auxv(const Elf32_auxv_t *auxv) {
-  const Elf32_auxv_t *av;
+static void grok_auxv(const Elf32_auxv_t_corr *auxv) {
+  const Elf32_auxv_t_corr *av;
   for (av = auxv; av->a_type != AT_NULL; ++av) {
     if (av->a_type == AT_SYSINFO) {
       uintptr_t val = av->a_un.a_val;
@@ -34,7 +34,7 @@ static void grok_auxv(const Elf32_auxv_t *auxv) {
  * Initialize all our IRT function tables using the query function.
  * The query function's address is passed via AT_SYSINFO in auxv.
  */
-void __libnacl_irt_init(Elf32_auxv_t *auxv) {
+void __libnacl_irt_init(Elf32_auxv_t_corr *auxv) {
   grok_auxv(auxv);
 
   /*

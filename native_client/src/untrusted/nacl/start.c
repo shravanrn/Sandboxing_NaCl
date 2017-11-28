@@ -28,12 +28,12 @@ void *__nacl_initial_thread_stack_end;
  * This is the true entry point for untrusted code.
  * See nacl_startup.h for the layout at the argument pointer.
  */
-void _start(uint32_t *info) {
+void _start(pointerType *info) {
   void (*fini)(void) = nacl_startup_fini(info);
   int argc = nacl_startup_argc(info);
   char **argv = nacl_startup_argv(info);
   char **envp = nacl_startup_envp(info);
-  Elf32_auxv_t *auxv = nacl_startup_auxv(info);
+  Elf32_auxv_t_corr *auxv = nacl_startup_auxv(info);
 
   environ = envp;
 

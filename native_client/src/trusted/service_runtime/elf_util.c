@@ -1236,7 +1236,7 @@ GenDestructElfSectionData(64)
 
 struct SymbolTableMapping * NaClElfGetSymbolTableMapping(struct NaClElfImage *image, struct NaClDesc *ndp) 
 {
-  if (ELFCLASS64 == image->ehdr.e_ident[EI_CLASS]) 
+  #if NACL_BUILD_SUBARCH == 64
   {
     struct ElfSectionData64 sectionData = {0, 0, 0, 0};
     if(NaClElfGetSymbolInfo64(image, ndp, &sectionData))
@@ -1246,7 +1246,7 @@ struct SymbolTableMapping * NaClElfGetSymbolTableMapping(struct NaClElfImage *im
       return symbolTableMapping;
     } 
   }
-  else
+  #else
   {
     struct ElfSectionData32 sectionData = {0, 0, 0, 0};
     if(NaClElfGetSymbolInfo32(image, ndp, &sectionData))
@@ -1256,6 +1256,7 @@ struct SymbolTableMapping * NaClElfGetSymbolTableMapping(struct NaClElfImage *im
       return symbolTableMapping;
     }
   }
+  #endif
 
   return NULL;
 }

@@ -21,7 +21,7 @@ uintptr_t g_dynamic_text_start;
 
 void __libc_init_array(void);
 
-void nacl_irt_init(uint32_t *info) {
+void nacl_irt_init(pointerType *info) {
   void (*fini)(void) = nacl_startup_fini(info);
   (void) fini;  /* Suppress unused variable warning in Release builds. */
   char **envp = nacl_startup_envp(info);
@@ -44,12 +44,12 @@ void nacl_irt_init(uint32_t *info) {
   NaClLogModuleInit();  /* Enable NaClLog'ing used by CHECK(). */
 }
 
-void nacl_irt_enter_user_code(uint32_t *info,
+void nacl_irt_enter_user_code(pointerType *info,
                               nacl_irt_query_func_t query_func) {
-  Elf32_auxv_t *auxv = nacl_startup_auxv(info);
-  Elf32_auxv_t *entry = NULL;
-  Elf32_auxv_t *base = NULL;
-  for (Elf32_auxv_t *av = auxv; av->a_type != AT_NULL; ++av) {
+  Elf32_auxv_t_corr *auxv = nacl_startup_auxv(info);
+  Elf32_auxv_t_corr *entry = NULL;
+  Elf32_auxv_t_corr *base = NULL;
+  for (Elf32_auxv_t_corr *av = auxv; av->a_type != AT_NULL; ++av) {
     switch (av->a_type) {
       case AT_ENTRY:
         entry = av;
@@ -68,7 +68,8 @@ void nacl_irt_enter_user_code(uint32_t *info,
     write(2, fatal_msg, sizeof(fatal_msg) - 1);
     _exit(-1);
   }
-  void (*user_start)(uint32_t *) = (void (*)(uint32_t *)) entry->a_un.a_val;
+  uintptr_t userStartVal = entry->a_un.a_val;
+  void (*user_start)(pointerType *) = (void (*)(pointerType *)) userStartVal;
 
   if (base != NULL) {
     /*
@@ -112,7 +113,7 @@ void nacl_irt_enter_user_code(uint32_t *info,
 }
 
 /* This is the true entry point for untrusted code. */
-void _start(uint32_t *info) {
+void _start(pointerType *info) {
   nacl_irt_start(info);
 }
 

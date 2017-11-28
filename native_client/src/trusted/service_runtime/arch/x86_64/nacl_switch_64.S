@@ -25,7 +25,7 @@
 
         .text
 
-.macro switcher arg1, arg2
+.macro switcher arg1, arg2, arg3
 DEFINE_GLOBAL_HIDDEN_FUNCTION(\arg1):
 #if NACL_WINDOWS
         /* On Windows, 1st param is in %rcx. */
@@ -54,6 +54,21 @@ DEFINE_GLOBAL_HIDDEN_FUNCTION(\arg1):
         movq    NACL_THREAD_CONTEXT_OFFSET_RSP(%r11), %rsp
         movq    NACL_THREAD_CONTEXT_OFFSET_SYSRET(%r11), %rax
 
+.if \arg3
+        /*
+         * For sandboxing we need to copy over all parameter registers as well
+         * These are RDI, RSI, RDX, RCX, R8, R9, R10
+         * For now we dont copy the floating point registers
+         * We only copy if the 2nd parameter to this function is not 0
+         */
+        movq    NACL_THREAD_CONTEXT_OFFSET_RDI(%r11), %rdi
+        movq    NACL_THREAD_CONTEXT_OFFSET_RSI(%r11), %rsi
+        movq    NACL_THREAD_CONTEXT_OFFSET_RDX(%r11), %rdx
+        movq    NACL_THREAD_CONTEXT_OFFSET_RCX(%r11), %rcx
+        movq    NACL_THREAD_CONTEXT_OFFSET_R8(%r11), %r8
+        movq    NACL_THREAD_CONTEXT_OFFSET_R9(%r11), %r9
+        movq    NACL_THREAD_CONTEXT_OFFSET_R10(%r11), %r10
+.else
         /*
          * %rdi is the first argument in the user calling convention.
          * When starting the initial thread, we are passing the address
@@ -78,6 +93,7 @@ DEFINE_GLOBAL_HIDDEN_FUNCTION(\arg1):
         movq    %rdx, %r8
         movq    %rdx, %r9
         movq    %rdx, %r10
+.endif
 
         /*
          * Clear the x87, MMX, and SSE state.
@@ -114,8 +130,10 @@ DEFINE_GLOBAL_HIDDEN_FUNCTION(\arg1):
         jmp     *%r11
 .endm
 
-        switcher NaClSwitchSSE, 0
-        switcher NaClSwitchAVX, 1
+        switcher NaClSwitchSSE, 0, 0
+        switcher NaClSwitchAVX, 1, 0
+        switcher NaClSwitchSSECopyParams, 0, 1
+        switcher NaClSwitchAVXCopyParams, 1, 1
 
 
         NACL_RODATA

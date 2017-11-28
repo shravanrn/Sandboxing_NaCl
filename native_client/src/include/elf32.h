@@ -118,6 +118,21 @@ typedef struct {
 } Elf32_auxv_t;
 
 
+#if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64
+  #define pointerType uint64_t
+#else
+  #define pointerType uint32_t
+#endif
+
+typedef struct {
+  pointerType a_type;            /* Entry type */
+  union {
+      pointerType a_val;         /* Integer value */
+    } a_un;
+} Elf32_auxv_t_corr;
+
+#undef pointerType
+
 EXTERN_C_END
 
 #endif  /* NATIVE_CLIENT_SRC_INCLUDE_ELF32_H_ */

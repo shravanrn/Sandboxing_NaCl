@@ -24,6 +24,10 @@ struct NaClSwitchRemainingRegsState;
 
 void NaClInitSwitchToApp(struct NaClApp *nap);
 
+#if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64
+	void NaClSwitchToFunctionCallMode(void);
+#endif
+
 #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86
 extern NORETURN_PTR void (*NaClSwitch)(struct NaClThreadContext *context);
 extern NORETURN void NaClSwitchAVX(struct NaClThreadContext *context);

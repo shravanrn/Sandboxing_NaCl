@@ -8,6 +8,7 @@
 #define NATIVE_CLIENT_SRC_PUBLIC_IRT_CORE_H_ 1
 
 #include "native_client/src/include/nacl_base.h"
+#include "native_client/src/include/build_config.h"
 
 EXTERN_C_BEGIN
 
@@ -23,6 +24,12 @@ EXTERN_C_BEGIN
 typedef size_t (*nacl_irt_query_func_t)(const char *interface_ident,
                                         void *table, size_t tablesize);
 
+#if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64
+  #define pointerType uint64_t
+#else
+  #define pointerType uint32_t
+#endif
+
 /*
  * nacl_irt_start() is the entry point that the embedder should
  * define.  This is similar to _start(), except that _start() is
@@ -33,7 +40,7 @@ typedef size_t (*nacl_irt_query_func_t)(const char *interface_ident,
  *
  * See nacl_startup.h for the layout of the |info| pointer.
  */
-void nacl_irt_start(uint32_t *info);
+void nacl_irt_start(pointerType *info);
 
 /*
  * nacl_irt_init() initializes libc and Thread Local Storage (TLS
@@ -44,14 +51,16 @@ void nacl_irt_start(uint32_t *info);
  * initialization the IRT needs to do before nacl_irt_init(), or for
  * very minimal IRTs that do not need to initialize libc.
  */
-void nacl_irt_init(uint32_t *info);
+void nacl_irt_init(pointerType *info);
 
 /*
  * nacl_irt_enter_user_code() jumps to the entry point of the user
  * nexe, passing |query_func| to it via an AT_SYSINFO entry in the
  * auxiliary vector.  This function does not return.
  */
-void nacl_irt_enter_user_code(uint32_t *info, nacl_irt_query_func_t query_func);
+void nacl_irt_enter_user_code(pointerType *info, nacl_irt_query_func_t query_func);
+
+#undef pointerType
 
 /* Function type for user code's initial entry point. */
 typedef void (*nacl_entry_func_t)(uint32_t *args);

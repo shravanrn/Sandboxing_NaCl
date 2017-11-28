@@ -66,7 +66,7 @@ void test_lock_free_macros() {
   static_assert(ATOMIC_SHORT_LOCK_FREE == 2, "should be compile-time 2");
   static_assert(ATOMIC_INT_LOCK_FREE == 2, "should be compile-time 2");
   static_assert(ATOMIC_LONG_LOCK_FREE == 2, "should be compile-time 2");
-  static_assert(ATOMIC_LLONG_LOCK_FREE == 2, "should be compile-time 2");
+  //static_assert(ATOMIC_LLONG_LOCK_FREE == 2, "should be compile-time 2");
   static_assert(ATOMIC_POINTER_LOCK_FREE == 2, "should be compile-time 2");
 #elif defined(__mips__)
   static_assert(ATOMIC_BOOL_LOCK_FREE == 2, "should be compile-time 2");

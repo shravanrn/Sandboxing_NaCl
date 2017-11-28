@@ -311,10 +311,10 @@ nacl_reg_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumb
 
   if(callbackSlotNumber < CALLBACK_SLOTS_AVAILABLE && natp->nap->callbackSlot[callbackSlotNumber] != 0)
   {
-    typedef void (*VoidPtrFunc)(uintptr_t);
+    typedef nacl_reg_t (*RegPtrFunc)(uintptr_t);
 
     #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
-      VoidPtrFunc func;
+      RegPtrFunc func;
       nacl_reg_t eaxCopy;
 
       //We are here in the following situation.
@@ -335,12 +335,8 @@ nacl_reg_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumb
       nacl_reg_t saved_sysret       = natp->user.sysret;
 
       NaClLog(LOG_INFO, "Making NaClSysCallback: %"PRIu32"\n", callbackSlotNumber);
-      func = (VoidPtrFunc) (natp->nap->callbackSlot[callbackSlotNumber]);
-      func(natp->nap->custom_app_state);
-
-      asm("movl %%eax, %0;"
-        :"=r"(eaxCopy)        /* output */
-      );
+      func = (RegPtrFunc) (natp->nap->callbackSlot[callbackSlotNumber]);
+      eaxCopy = func(natp->nap->custom_app_state);
 
       NaClLog(LOG_INFO, "Returned from NaClSysCallback with eax: %"PRIu32"\n", (uint32_t) eaxCopy);
 
@@ -363,7 +359,7 @@ nacl_reg_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumb
       return eaxCopy;
 
     #elif NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64
-      VoidPtrFunc func;
+      RegPtrFunc func;
       nacl_reg_t raxCopy;
 
       nacl_reg_t saved_rbx          = natp->user.rbx;
@@ -378,12 +374,8 @@ nacl_reg_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumb
       nacl_reg_t saved_sysret       = natp->user.sysret;
 
       NaClLog(LOG_INFO, "Making NaClSysCallback: %"PRIu32"\n", callbackSlotNumber);
-      func = (VoidPtrFunc) (natp->nap->callbackSlot[callbackSlotNumber]);
-      func(natp->nap->custom_app_state);
-
-      asm("movq %%rax, %0;"
-        :"=r"(raxCopy)        /* output */
-      );
+      func = (RegPtrFunc) (natp->nap->callbackSlot[callbackSlotNumber]);
+      raxCopy = func(natp->nap->custom_app_state);
 
       NaClLog(LOG_INFO, "Returned from NaClSysCallback with rax: %"PRIu64"\n", (uint64_t) raxCopy);
 

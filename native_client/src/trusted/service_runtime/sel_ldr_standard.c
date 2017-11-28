@@ -548,7 +548,14 @@ int NaClCreateMainThread(struct NaClApp     *nap,
   int                   auxv_entries;
   size_t                ptr_tbl_size;
   int                   i;
-  uint32_t              *p;
+
+  #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64
+    #define pointerType uint64_t
+  #else
+    #define pointerType uint32_t
+  #endif
+
+  pointerType           *p;
   char                  *strp;
   size_t                *argv_len;
   size_t                *envv_len;
@@ -624,7 +631,7 @@ int NaClCreateMainThread(struct NaClApp     *nap,
   }
   ptr_tbl_size = (((NACL_STACK_GETS_ARG ? 1 : 0) +
                    (3 + argc + 1 + envc + 1 + auxv_entries * 2)) *
-                  sizeof(uint32_t));
+                  sizeof(pointerType));
 
   if (SIZE_T_MAX - size < ptr_tbl_size) {
     NaClLog(LOG_WARNING,
@@ -657,7 +664,7 @@ int NaClCreateMainThread(struct NaClApp     *nap,
   VCHECK(0 == (stack_ptr & NACL_STACK_ALIGN_MASK),
          ("stack_ptr not aligned: %016"NACL_PRIxPTR"\n", stack_ptr));
 
-  p = (uint32_t *) stack_ptr;
+  p = (pointerType *) stack_ptr;
   strp = (char *) stack_ptr + ptr_tbl_size;
 
   /*
@@ -666,7 +673,7 @@ int NaClCreateMainThread(struct NaClApp     *nap,
    * in a register and that's set in NaClStartThreadInApp.
    */
   if (NACL_STACK_GETS_ARG) {
-    uint32_t *argloc = p++;
+    pointerType *argloc = p++;
     *argloc = (uint32_t) NaClSysToUser(nap, (uintptr_t) p);
   }
 

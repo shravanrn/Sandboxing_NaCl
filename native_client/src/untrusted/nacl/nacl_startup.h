@@ -34,11 +34,17 @@ enum NaClStartupInfoIndex {
 
 typedef void (*nacl_startup_fini_func_t)(void);
 
+#if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64
+  #define pointerType uint64_t
+#else
+  #define pointerType uint32_t
+#endif
+
 /*
  * Return the dynamic linker finalizer function.
  */
 static inline __attribute__((unused))
-nacl_startup_fini_func_t nacl_startup_fini(const uint32_t info[]) {
+nacl_startup_fini_func_t nacl_startup_fini(const pointerType info[]) {
   uintptr_t val = info[NACL_STARTUP_FINI];
   return (void (*)(void)) val;
 }
@@ -47,7 +53,7 @@ nacl_startup_fini_func_t nacl_startup_fini(const uint32_t info[]) {
  * Return the count of argument strings.
  */
 static inline __attribute__((unused))
-int nacl_startup_argc(const uint32_t info[]) {
+int nacl_startup_argc(const pointerType info[]) {
   return info[NACL_STARTUP_ARGC];
 }
 
@@ -55,7 +61,7 @@ int nacl_startup_argc(const uint32_t info[]) {
  * Return the vector of argument strings.
  */
 static inline __attribute__((unused))
-char **nacl_startup_argv(const uint32_t info[]) {
+char **nacl_startup_argv(const pointerType info[]) {
   return (char **) &info[NACL_STARTUP_ARGV];
 }
 
@@ -63,7 +69,7 @@ char **nacl_startup_argv(const uint32_t info[]) {
  * Return the count of environment strings.
  */
 static inline __attribute__((unused))
-int nacl_startup_envc(const uint32_t info[]) {
+int nacl_startup_envc(const pointerType info[]) {
   return info[NACL_STARTUP_ENVC];
 }
 
@@ -71,7 +77,7 @@ int nacl_startup_envc(const uint32_t info[]) {
  * Return the vector of environment strings.
  */
 static inline __attribute__((unused))
-char **nacl_startup_envp(const uint32_t info[]) {
+char **nacl_startup_envp(const pointerType info[]) {
   return &nacl_startup_argv(info)[nacl_startup_argc(info) + 1];
 }
 
@@ -79,15 +85,15 @@ char **nacl_startup_envp(const uint32_t info[]) {
  * Return the vector of auxiliary data items.
  */
 static inline __attribute__((unused))
-Elf32_auxv_t *nacl_startup_auxv(const uint32_t info[]) {
+Elf32_auxv_t_corr *nacl_startup_auxv(const pointerType info[]) {
   char **envend = &nacl_startup_envp(info)[nacl_startup_envc(info) + 1];
-  return (Elf32_auxv_t *) envend;
+  return (Elf32_auxv_t_corr *) envend;
 }
 
 /*
  * The main entry point.
  */
-extern void _start(uint32_t info[]);
+extern void _start(pointerType info[]);
 
 #ifdef __cplusplus
 }

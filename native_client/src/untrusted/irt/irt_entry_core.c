@@ -41,7 +41,13 @@ static size_t irt_query(const char *interface_ident,
                              irt_interfaces, sizeof(irt_interfaces));
 }
 
-void nacl_irt_start(uint32_t *info) {
+#if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64
+  #define pointerType uint64_t
+#else
+  #define pointerType uint32_t
+#endif
+
+void nacl_irt_start(pointerType *info) {
   nacl_irt_init(info);
   nacl_irt_enter_user_code(info, irt_query);
 }

@@ -33,7 +33,7 @@ extern int __libnacl_irt_query(const char *interface,
                                void *table, size_t table_size);
 extern void __libnacl_mandatory_irt_query(const char *interface_ident,
                                           void *table, size_t table_size);
-extern void __libnacl_irt_init(Elf32_auxv_t *auxv);
+extern void __libnacl_irt_init(Elf32_auxv_t_corr *auxv);
 
 extern void __libnacl_irt_clock_init(void);
 extern void __libnacl_irt_dev_fdio_init(void);
