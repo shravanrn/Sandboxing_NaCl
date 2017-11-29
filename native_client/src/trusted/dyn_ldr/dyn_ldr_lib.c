@@ -8,6 +8,7 @@
 #include "native_client/src/trusted/dyn_ldr/datastructures/ds_stack.h"
 #include "native_client/src/trusted/dyn_ldr/datastructures/ds_map.h"
 #include "native_client/src/trusted/dyn_ldr/dyn_ldr_lib.h"
+#include "native_client/src/trusted/dyn_ldr/dyn_ldr_test_structs.h"
 #include "native_client/src/trusted/service_runtime/elf_symboltable_mapping.h"
 #include "native_client/src/trusted/service_runtime/env_cleanser.h"
 #include "native_client/src/trusted/service_runtime/include/bits/mman.h"
@@ -144,6 +145,15 @@ unsigned invokeLocalMathTest(NaClSandbox* sandbox, unsigned a, unsigned b, unsig
 size_t invokeLocalStringTest(NaClSandbox* sandbox, char* test);
 NaClSandbox* constructNaClSandbox(struct NaClApp* nap);
 void invokeIdentifyCallbackOffsetHelper(NaClSandbox* sandbox);
+int invokeCheckStructSizesTest
+(
+  NaClSandbox* sandbox,
+  int size_DoubleAlign,
+  int size_PointerSize,
+  int size_IntSize,
+  int size_LongSize,
+  int size_LongLongSize
+);
 
 //Adapted from ./native_client/src/trusted/service_runtime/sel_main.c NaClSelLdrMain
 NaClSandbox* createDlSandbox(char* naclLibraryPath, char* naclInitAppFullPath)
@@ -156,6 +166,7 @@ NaClSandbox* createDlSandbox(char* naclLibraryPath, char* naclInitAppFullPath)
   NaClErrorCode           pq_error;
   unsigned                testResult = 0;
   int                     testResult2 = 0;
+  int                     testResult3 = 0;
   struct NaClDesc*        blob_file = NULL;
 
   nap = NaClAppCreate();
@@ -322,6 +333,20 @@ NaClSandbox* createDlSandbox(char* naclLibraryPath, char* naclInitAppFullPath)
   {
     NaClLog(LOG_ERROR, "Sandbox test failed: Expected return of 5. Got %d\n", testResult2);
     goto error;
+  }
+
+  testResult3 = invokeCheckStructSizesTest(sandbox, 
+    sizeof(struct TestStructDoubleAlign),
+    sizeof(struct TestStructPointerSize),
+    sizeof(struct TestStructIntSize),
+    sizeof(struct TestStructLongSize),
+    sizeof(struct TestStructLongLongSize)
+  );
+
+  if(!testResult3)
+  {
+    NaClLog(LOG_ERROR, "Sandbox test failed: Sizes of datastructures inside and outside the sandbox do not agree\n");
+    goto error; 
   }
 
   NaClLog(LOG_INFO, "Acquiring the callback parameter start offset\n");
@@ -984,6 +1009,34 @@ size_t invokeLocalStringTest(NaClSandbox* sandbox, char* test)
   invokeFunctionCall(threadData, test_localStringPtr);
 
   return (size_t)functionCallReturnRawPrimitiveInt(threadData);
+}
+
+int invokeCheckStructSizesTest
+(
+  NaClSandbox* sandbox,
+  int size_DoubleAlign,
+  int size_PointerSize,
+  int size_IntSize,
+  int size_LongSize,
+  int size_LongLongSize
+)
+{
+  NaClSandbox_Thread* threadData;
+  void* test_checkStructSizes = (void*) symbolTableLookupInSandbox(sandbox, "test_checkStructSizes");
+
+  if(test_checkStructSizes == NULL) return 0;
+
+  threadData = preFunctionCall(sandbox, sizeof(size_DoubleAlign) + sizeof(size_PointerSize) + sizeof(size_IntSize) + sizeof(size_LongSize) + sizeof(size_LongLongSize), 0);
+
+  PUSH_VAL_TO_STACK(threadData, int, size_DoubleAlign);
+  PUSH_VAL_TO_STACK(threadData, int, size_PointerSize);
+  PUSH_VAL_TO_STACK(threadData, int, size_IntSize);
+  PUSH_VAL_TO_STACK(threadData, int, size_LongSize);
+  PUSH_VAL_TO_STACK(threadData, int, size_LongLongSize);
+
+  invokeFunctionCall(threadData, test_checkStructSizes);
+
+  return (int)functionCallReturnRawPrimitiveInt(threadData);
 }
 
 void invokeIdentifyCallbackOffsetHelper(NaClSandbox* sandbox)

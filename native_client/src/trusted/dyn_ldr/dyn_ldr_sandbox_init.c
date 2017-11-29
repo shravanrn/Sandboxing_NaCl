@@ -5,6 +5,8 @@
 #include "native_client/src/trusted/service_runtime/nacl_config.h"
 #include "native_client/src/trusted/service_runtime/include/bits/nacl_syscalls.h"
 #include "native_client/src/trusted/service_runtime/sel_rt.h"
+#include "native_client/src/trusted/dyn_ldr/dyn_ldr_test_structs.h"
+
 #define EXIT_FROM_MAIN 0
 #define EXIT_FROM_CALL 1
 
@@ -88,6 +90,24 @@ unsigned test_localMath(unsigned a, unsigned  b, unsigned c)
 size_t test_localString(char* test)
 {
 	return strlen(test);
+}
+
+int test_checkStructSizes
+(
+	int size_DoubleAlign,
+	int size_PointerSize,
+	int size_IntSize,
+	int size_LongSize,
+	int size_LongLongSize
+)
+{
+	int isEqual = 
+		size_DoubleAlign == sizeof(struct TestStructDoubleAlign) &&
+		size_PointerSize == sizeof(struct TestStructPointerSize) &&
+		size_IntSize == sizeof(struct TestStructIntSize) &&
+		size_LongSize == sizeof(struct TestStructLongSize) &&
+		size_LongLongSize == sizeof(struct TestStructLongLongSize);
+	return isEqual;
 }
 
 typedef void (*IdentifyCallbackHelperType) (uint32_t, uint32_t, uint32_t,
