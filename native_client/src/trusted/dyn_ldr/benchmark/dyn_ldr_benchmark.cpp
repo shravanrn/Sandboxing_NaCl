@@ -97,10 +97,10 @@ int main(int argc, char** argv)
 	printf("Sandbox created\n");
 
 	unsigned ret1;
-	long long timeSpentInFunc;
+	uint64_t timeSpentInFunc;
 
 	unsigned ret2;
-	long long timeSpentInSandbox;
+	uint64_t timeSpentInSandbox;
 
 	srand(time(NULL));
 	unsigned val0_1;

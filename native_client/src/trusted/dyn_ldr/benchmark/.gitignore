@@ -1,2 +1,4 @@
 /dyn_ldr_benchmark
 /dyn_ldr_benchmark.o
+/dyn_ldr_benchmark_32
+/dyn_ldr_benchmark_64

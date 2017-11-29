@@ -95,11 +95,15 @@ mv scons-out scons-out-firefox
 mv scons-out-clean scons-out
 ```
 
-Perf benchmark is built and run separately
-To build the perf benchmark run
+Perf benchmark that measures just the switching cost (jump into the sandbox and jump out) is built and run separately
+```
+#To build the perf benchmark run
 native_client/src/trusted/dyn_ldr/benchmark/buildBenchmark
-To run use
-native_client/src/trusted/dyn_ldr/benchmark/dyn_ldr_benchmark
+#To run the 32 bit version use
+native_client/src/trusted/dyn_ldr/benchmark/dyn_ldr_benchmark_32
+#To run the 64 bit version use
+native_client/src/trusted/dyn_ldr/benchmark/dyn_ldr_benchmark_64
+```
 
 To build the customized NACL compiler tools use. You will most likely see errors during this process. See below on how to resolve this
 ```
