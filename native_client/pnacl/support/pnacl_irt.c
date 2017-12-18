@@ -94,7 +94,7 @@ void *__nacl_read_tp(void) {
 
 void __pnacl_init_irt(uint32_t *startup_info) {
 #if defined(NEED_NACL_READ_TP)
-  Elf32_auxv_t *av = nacl_startup_auxv(startup_info);
+  Elf32_auxv_t_corr *av = nacl_startup_auxv((pointerType *)startup_info);
 
   for (; av->a_type != AT_NULL; ++av) {
     if (av->a_type == AT_SYSINFO) {

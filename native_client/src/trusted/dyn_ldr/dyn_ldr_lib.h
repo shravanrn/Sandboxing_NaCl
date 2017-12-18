@@ -110,7 +110,7 @@ int isAddressInNonSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr);
 		if(threadData->registerParameterNumber < 6 && sizeof(value) <= 64) {		\
 			PUSH_64BIT_VAL_TO_REG(threadData, (uint64_t) (value)); \
 		} else if(threadData->registerParameterNumber < 5 && sizeof(value) <= 128) {		\
-			const type tempVar = (type) value; \
+			const type tempVar = (const type) value; \
 			uint64_t* valCasted = (uint64_t *) &tempVar; \
 			PUSH_64BIT_VAL_TO_REG(threadData, valCasted[0]); \
 			PUSH_64BIT_VAL_TO_REG(threadData, valCasted[1]); \

@@ -52,16 +52,19 @@
 #endif
 
 
-// #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
-  uintptr_t getUnsandboxedAddress(NaClSandbox* sandbox, uintptr_t uaddr){
-    if (uaddr == 0) { return 0;}
-    return NaClUserToSys(sandbox->nap, uaddr);
-  }
-  uintptr_t getSandboxedAddress(NaClSandbox* sandbox, uintptr_t uaddr){
-    if (uaddr == 0) { return 0;}
-    return NaClSysToUser(sandbox->nap, uaddr);
-  }
-// #endif
+uintptr_t getUnsandboxedAddress(NaClSandbox* sandbox, uintptr_t uaddr){
+  if (uaddr == 0) { return 0;}
+  return NaClUserToSys(sandbox->nap, uaddr
+    #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64
+      & 0xFFFFFFFF
+    #endif
+  );
+}
+uintptr_t getSandboxedAddress(NaClSandbox* sandbox, uintptr_t uaddr){
+  if (uaddr == 0) { return 0;}
+  return NaClSysToUser(sandbox->nap, uaddr);
+}
+
 
 int isAddressInSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr){
   return uaddr == 0 || NaClIsUserAddr(sandbox->nap, uaddr);

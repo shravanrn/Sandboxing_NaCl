@@ -3,8 +3,10 @@ cd "$(dirname "$0")"
 currDir=$(dirname "$0")
 sandboxDir=$(realpath "$currDir/../../../../../")
 
-g++ -c -O0 -m32 -mno-align-double -I"$sandboxDir" -o dyn_ldr_benchmark.o dyn_ldr_benchmark.cpp
-g++ -m32 -mno-align-double -o dyn_ldr_benchmark_32 -Wl,-rpath="$sandboxDir/native_client/scons-out/opt-linux-x86-32/lib" -L"$sandboxDir/native_client/scons-out/opt-linux-x86-32/lib" dyn_ldr_benchmark.o -ldyn_ldr -lsel -lnacl_error_code -lenv_cleanser -lnrd_xfer -lnacl_perf_counter -lnacl_base -limc -lnacl_fault_inject -lnacl_interval -lplatform_qual_lib -lvalidators -ldfa_validate_caller_x86_32 -lcpu_features -lvalidation_cache -lplatform -lgio -lnccopy_x86_32 -lrt -lpthread
+clang++ -std=c++11 -fPIC -c -O0 -m32 -I"$sandboxDir" -o dyn_ldr_benchmark.o dyn_ldr_benchmark.cpp
 
-g++ -c -O0 -m64 -mno-align-double -I"$sandboxDir" -o dyn_ldr_benchmark.o dyn_ldr_benchmark.cpp
-g++ -m64 -mno-align-double -o dyn_ldr_benchmark_64 -Wl,-rpath="$sandboxDir/native_client/scons-out/opt-linux-x86-64/lib" -L"$sandboxDir/native_client/scons-out/opt-linux-x86-64/lib" dyn_ldr_benchmark.o -ldyn_ldr -lsel -lnacl_error_code -lenv_cleanser -lnrd_xfer -lnacl_perf_counter -lnacl_base -limc -lnacl_fault_inject -lnacl_interval -lplatform_qual_lib -lvalidators -ldfa_validate_caller_x86_64 -lcpu_features -lvalidation_cache -lplatform -lgio -lnccopy_x86_64 -lrt -lpthread
+clang++ -std=c++11 -fPIC -O0 -o dyn_ldr_benchmark_32 -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack -m32 -Wl,-rpath="$sandboxDir/native_client/scons-out/opt-linux-x86-32/lib" dyn_ldr_benchmark.o -L"$sandboxDir/native_client/scons-out/opt-linux-x86-32/lib" -ldyn_ldr -lsel -lnacl_error_code -lenv_cleanser -lnrd_xfer -lnacl_perf_counter -lnacl_base -limc -lnacl_fault_inject -lnacl_interval -lplatform_qual_lib -lvalidators -ldfa_validate_caller_x86_32 -lcpu_features -lvalidation_cache -lplatform -lgio -lnccopy_x86_32 -lrt -lpthread
+
+clang++ -std=c++11 -fPIC -c -O0 -m64 -I"$sandboxDir" -o dyn_ldr_benchmark.o dyn_ldr_benchmark.cpp
+
+clang++ -std=c++11 -fPIC -O0 -o dyn_ldr_benchmark_64 -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack -m64 -Wl,-rpath="$sandboxDir/native_client/scons-out/opt-linux-x86-64/lib" dyn_ldr_benchmark.o -L"$sandboxDir/native_client/scons-out/opt-linux-x86-64/lib" -ldyn_ldr -lsel -lnacl_error_code -lenv_cleanser -lnrd_xfer -lnacl_perf_counter -lnacl_base -limc -lnacl_fault_inject -lnacl_interval -lplatform_qual_lib -lvalidators -ldfa_validate_caller_x86_64 -lcpu_features -lvalidation_cache -lplatform -lgio -lnccopy_x86_64 -lrt -lpthread
