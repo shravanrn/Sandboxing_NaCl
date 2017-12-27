@@ -620,7 +620,7 @@ NaClSandbox_Thread* preFunctionCall(NaClSandbox* sandbox, size_t paramsSize, siz
     //  anything on the stack.
     #define STACK_JUST_IN_CASE_BUFFER_SPACE 128
     //make space for the return address
-    paramsSize = ROUND_UP_TO_POW2(paramsSize + sizeof(uintptr_t) + STACK_JUST_IN_CASE_BUFFER_SPACE, STACKALIGNMENT);
+    paramsSize = ROUND_UP_TO_POW2(paramsSize + STACK_JUST_IN_CASE_BUFFER_SPACE, STACKALIGNMENT) + sizeof(uintptr_t);
 
     /* make space for arrays, args and the return address. */
     threadData->stack_ptr_forParameters = threadData->stack_ptr_arrayLocation - paramsSize;
