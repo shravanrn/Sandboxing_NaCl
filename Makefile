@@ -8,15 +8,13 @@ CPU = 0
 .DEFAULT_GOAL: buildopt64
 
 init_if_necessary:
-	[[ -d native_client/toolchain/linux_x86/pnacl_newlib_raw ]] || $(MAKE) init
+	if [ ! -d native_client/toolchain/linux_x86/pnacl_newlib_raw ]; then $(MAKE) init; fi
 
 init:
-	sudo apt install flex bison git g++-multilib gcc-5-arm-linux-gnueabihf gcc-arm-linux-gnueabihf
+	sudo apt install flex bison git gcc-7-arm-linux-gnueabihf gcc-arm-linux-gnueabihf
 	sudo native_client/tools/linux.x86_64.prep.sh
 	gclient runhooks
-	#First build the unmodified libraries
-	$(MAKE) -C native_client/tools sync clean build-with-newlib build-with-glibc
-	#Next build the modified compiler
+	#Build the modified compiler
 	tools/clang/scripts/update.py
 	native_client/toolchain_build/toolchain_build_pnacl.py --verbose --sync --clobber --install native_client/toolchain/linux_x86/pnacl_newlib_raw
 	#Install the modified compiler
@@ -26,7 +24,7 @@ init:
 buildopt32 : init_if_necessary
 	cd native_client && ./scons MODE=opt-linux,nacl werror=0 $(SCONS_FLAGS)
 	mv ./native_client/scons-out ./native_client/scons-out-clean
-	mv ./native_client/scons-out-firefox ./native_client/scons-out
+	if [ -d ./native_client/scons-out-firefox ]; then mv ./native_client/scons-out-firefox ./native_client/scons-out; fi
 	cd native_client && ./scons -f SConstruct_Firefox werror=0 MODE=opt-linux,nacl $(SCONS_FLAGS)
 	mv ./native_client/scons-out ./native_client/scons-out-firefox
 	mv ./native_client/scons-out-clean ./native_client/scons-out
@@ -34,7 +32,7 @@ buildopt32 : init_if_necessary
 buildopt64 : init_if_necessary
 	cd native_client && ./scons MODE=opt-linux,nacl werror=0 platform=x86-64 $(SCONS_FLAGS)
 	mv ./native_client/scons-out ./native_client/scons-out-clean
-	mv ./native_client/scons-out-firefox ./native_client/scons-out
+	if [ -d ./native_client/scons-out-firefox ]; then mv ./native_client/scons-out-firefox ./native_client/scons-out; fi
 	cd native_client && ./scons -f SConstruct_Firefox werror=0 MODE=opt-linux,nacl platform=x86-64 $(SCONS_FLAGS)
 	mv ./native_client/scons-out ./native_client/scons-out-firefox
 	mv ./native_client/scons-out-clean ./native_client/scons-out
