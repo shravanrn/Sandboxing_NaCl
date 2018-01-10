@@ -5,7 +5,7 @@ CPU = 0
 
 .PHONY: buildopt32 buildopt64 runopt32 runopt64 builddebug32 builddebug64 rundebug32 rundebug64 buildperftest32 buildperftest64 runperftest32 runperftest64 clean init init_if_necessary
 
-.DEFAULT_GOAL: buildopt64
+.DEFAULT_GOAL = buildopt64
 
 init_if_necessary:
 	if [ ! -d native_client/toolchain/linux_x86/pnacl_newlib_raw ]; then $(MAKE) init; fi
