@@ -74,3 +74,5 @@ clean :
 	cd native_client && ./scons -c MODE=opt-linux,nacl platform=x86-64 $(SCONS_FLAGS)
 	cd native_client && ./scons -c MODE=dbg-linux,nacl $(SCONS_FLAGS)
 	cd native_client && ./scons -c MODE=dbg-linux,nacl platform=x86-64 $(SCONS_FLAGS)
+	rm -rf ./native_client/scons-out
+	rm -rf ./native_client/scons-out-firefox
