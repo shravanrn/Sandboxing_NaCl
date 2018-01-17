@@ -11,8 +11,7 @@ init_if_necessary:
 	if [ ! -d native_client/toolchain/linux_x86/pnacl_newlib_raw ]; then $(MAKE) init; fi
 
 init:
-	sudo apt install flex bison git gcc-7-arm-linux-gnueabihf gcc-arm-linux-gnueabihf
-	sudo native_client/tools/linux.x86_64.prep.sh
+	sudo apt install flex bison git g++-multilib libc6-dev-i386
 	gclient runhooks
 	#Build the modified compiler
 	tools/clang/scripts/update.py
