@@ -21,6 +21,8 @@ init:
 	rm -rf native_client/toolchain/linux_x86/pnacl_newlib
 	ln -s pnacl_newlib_raw native_client/toolchain/linux_x86/pnacl_newlib
 
+.NOTPARALLEL: buildopt32 buildopt64 builddebug32 builddebug64
+
 buildopt32 : init_if_necessary
 	cd native_client && ./scons MODE=opt-linux,nacl werror=0 $(SCONS_FLAGS)
 	mv ./native_client/scons-out ./native_client/scons-out-clean
