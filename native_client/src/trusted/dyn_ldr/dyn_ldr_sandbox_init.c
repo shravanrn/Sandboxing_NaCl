@@ -10,12 +10,16 @@
 #define EXIT_FROM_MAIN 0
 #define EXIT_FROM_CALL 1
 
-typedef int32_t (*IntU32RegType)(uint32_t, nacl_reg_t);
+typedef int32_t (*SandboxExitType)(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
+
 typedef int32_t (*IntU32Type)(uint32_t);
 
-void MakeNaClSysCall_exit_sandbox(uint32_t exitLocation, nacl_reg_t eax)
+void MakeNaClSysCall_exit_sandbox(uint32_t exitLocation, 
+  uint32_t register_ret_bottom, uint32_t register_ret_top, 
+  uint32_t register_float_ret_bottom, uint32_t register_float_ret_top
+)
 {
-	((IntU32RegType)NACL_SYSCALL_ADDR(NACL_sys_exit_sandbox))(exitLocation, eax);
+	((SandboxExitType)NACL_SYSCALL_ADDR(NACL_sys_exit_sandbox))(exitLocation, register_ret_bottom, register_ret_top, register_float_ret_bottom, register_float_ret_top);
 }
 
 //Specifically not making this a new function as this may add a new stack frame
@@ -49,16 +53,21 @@ void exitFunctionWrapper(void)
 
 	#if defined(_M_IX86) || defined(__i386__)
 
-		nacl_reg_t return_reg;
-		asm("movl %%eax, %0;"
-			:"=r"(return_reg)        /* output */
+		uint64_t return_reg;
+		uint64_t float_return_reg;
+		asm("movl %%eax, %0;\n"
+			"fstl %1;"
+			:"=r"(return_reg), "=g"(float_return_reg)        /* output */
 		);
+
 
 	#elif defined(_M_X64) || defined(__x86_64__)
 
-		nacl_reg_t return_reg;
-		asm("movq %%rax, %0;"
-			:"=r"(return_reg)        /* output */
+		uint64_t return_reg;
+		uint64_t float_return_reg;
+		asm("movq %%rax, %0;\n"
+			"movq %%xmm0, %1;"
+			:"=r"(return_reg), "=r"(float_return_reg)        /* output */
 		);
 
 	#elif defined(__ARMEL__) || defined(__MIPSEL__)
@@ -67,8 +76,12 @@ void exitFunctionWrapper(void)
 		#error Unknown platform!
 	#endif
 
-	nacl_reg_t register_return_reg = return_reg;
-	MakeNaClSysCall_exit_sandbox(EXIT_FROM_CALL, register_return_reg);
+	uint32_t return_reg_bottom = return_reg;
+	uint32_t return_reg_top = return_reg >> 32;
+	uint32_t float_return_reg_bottom = float_return_reg;
+	uint32_t float_return_reg_top = float_return_reg >> 32;
+
+	MakeNaClSysCall_exit_sandbox(EXIT_FROM_CALL, return_reg_bottom, return_reg_top, float_return_reg_bottom, float_return_reg_top);
 }
 
 void callbackFunctionWrapper0(void) { MakeNaClSysCall_callback(0); }
@@ -120,7 +133,8 @@ void identifyCallbackOffsetHelper(IdentifyCallbackHelperType callback)
 
 int threadMain(void)
 {
-	MakeNaClSysCall_exit_sandbox(EXIT_FROM_MAIN, 0 /* eax - this is unused and is used only in EXIT_FROM_CALL */);
+	MakeNaClSysCall_exit_sandbox(EXIT_FROM_MAIN, 
+		0, 0, 0, 0 /* return values not used here */);
 	return 0;
 }
 
@@ -132,6 +146,7 @@ void* fcloseCopy = (void *) fclose;
 
 int main(int argc, char** argv)
 {
-	MakeNaClSysCall_exit_sandbox(EXIT_FROM_MAIN, 0 /* eax/rax - this is unused and is used only in EXIT_FROM_CALL */);
+	MakeNaClSysCall_exit_sandbox(EXIT_FROM_MAIN, 
+		0, 0, 0, 0 /* return values not used here */);
 	return 0;
 }

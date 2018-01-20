@@ -77,6 +77,23 @@ struct NaClThreadContext {
   /*          0xb0 */
   uint32_t    tls_value2;
   /*          0xb4 */
+  uint64_t    xmm0;
+  /*          0xb8 */
+  uint64_t    xmm1;
+  /*          0xc0 */
+  uint64_t    xmm2;
+  /*          0xc8 */
+  uint64_t    xmm3;
+  /*          0xd0 */
+  uint64_t    xmm4;
+  /*          0xd8 */
+  uint64_t    xmm5;
+  /*          0xe0 */
+  uint64_t    xmm6;
+  /*          0xe8 */
+  uint64_t    xmm7;
+  /*          0xf0 */
+
 };
 
 static INLINE uintptr_t NaClGetThreadCtxSp(struct NaClThreadContext *th_ctx) {
@@ -112,6 +129,14 @@ static INLINE uintptr_t NaClGetThreadCtxSp(struct NaClThreadContext *th_ctx) {
 #define NACL_THREAD_CONTEXT_OFFSET_TRUSTED_STACK_PTR 0xa8
 #define NACL_THREAD_CONTEXT_OFFSET_TLS_VALUE1    0xb0
 #define NACL_THREAD_CONTEXT_OFFSET_TLS_VALUE2    0xb4
+#define NACL_THREAD_CONTEXT_OFFSET_XMM0          0xb8
+#define NACL_THREAD_CONTEXT_OFFSET_XMM1          0xc0
+#define NACL_THREAD_CONTEXT_OFFSET_XMM2          0xc8
+#define NACL_THREAD_CONTEXT_OFFSET_XMM3          0xd0
+#define NACL_THREAD_CONTEXT_OFFSET_XMM4          0xd8
+#define NACL_THREAD_CONTEXT_OFFSET_XMM5          0xe0
+#define NACL_THREAD_CONTEXT_OFFSET_XMM6          0xe8
+#define NACL_THREAD_CONTEXT_OFFSET_XMM7          0xf0
 
 #if !defined(__ASSEMBLER__)
 
@@ -156,6 +181,14 @@ static INLINE void NaClThreadContextOffsetCheck(void) {
                    trusted_stack_ptr);
   NACL_CHECK_FIELD(NACL_THREAD_CONTEXT_OFFSET_TLS_VALUE1, tls_value1);
   NACL_CHECK_FIELD(NACL_THREAD_CONTEXT_OFFSET_TLS_VALUE2, tls_value2);
+  NACL_CHECK_FIELD(NACL_THREAD_CONTEXT_OFFSET_XMM0, xmm0);
+  NACL_CHECK_FIELD(NACL_THREAD_CONTEXT_OFFSET_XMM1, xmm1);
+  NACL_CHECK_FIELD(NACL_THREAD_CONTEXT_OFFSET_XMM2, xmm2);
+  NACL_CHECK_FIELD(NACL_THREAD_CONTEXT_OFFSET_XMM3, xmm3);
+  NACL_CHECK_FIELD(NACL_THREAD_CONTEXT_OFFSET_XMM4, xmm4);
+  NACL_CHECK_FIELD(NACL_THREAD_CONTEXT_OFFSET_XMM5, xmm5);
+  NACL_CHECK_FIELD(NACL_THREAD_CONTEXT_OFFSET_XMM6, xmm6);
+  NACL_CHECK_FIELD(NACL_THREAD_CONTEXT_OFFSET_XMM7, xmm7);
   CHECK(offset == sizeof(struct NaClThreadContext));
 
 #undef NACL_CHECK_FIELD

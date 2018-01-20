@@ -177,6 +177,10 @@ struct NaClAppThread {
    * and the NaCl runtime, but not the NaCl app.
    */
   uintptr_t custom_app_state;
+  /* A variable that stores the contents of the eax (rax in 64 bit) register in NaCl as the 
+   * NaCl app switches to trusted code via the NaClExitSandbox syscall
+  */
+  uint64_t                register_xmm0;
 };
 
 /* 

@@ -43,3 +43,16 @@ char* simpleEchoTest(char * str)
 	fflush(stdout);
 	return str;
 }
+
+double simpleDoubleAddTest(double a, double b)
+{
+	printf("simpleDoubleAddTest\n");
+	return a + b;
+}
+
+unsigned long simpleLongAddTest(unsigned long a, unsigned long b)
+{
+	printf("simpleLongAddTest\n");
+	fflush(stdout);
+	return a + b;
+}

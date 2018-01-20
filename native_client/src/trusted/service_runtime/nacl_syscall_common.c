@@ -278,7 +278,10 @@ int32_t NaClSysSecondTlsSet(struct NaClAppThread *natp,
 }
 
 //NACL_sys_exit_sandbox
-int32_t NaClSysExitSandbox(struct NaClAppThread *natp, uint32_t exitLocation, nacl_reg_t register_eax) {
+int32_t NaClSysExitSandbox(struct NaClAppThread *natp, uint32_t exitLocation, 
+  uint32_t register_ret_bottom, uint32_t register_ret_top, 
+  uint32_t register_float_ret_bottom, uint32_t register_float_ret_top) {
+
   jmp_buf* jump_buf_loc;
 
   NaClLog(LOG_INFO, "Entered NaClSysExitSandbox: %"PRIu32"\n", exitLocation);
@@ -289,8 +292,22 @@ int32_t NaClSysExitSandbox(struct NaClAppThread *natp, uint32_t exitLocation, na
   }
   else if(exitLocation == 1)
   {
-    natp->register_eax = register_eax;
-    jump_buf_loc = Stack_GetTopPtrForPop(natp->jumpBufferStack);
+    #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
+      natp->register_eax = register_ret_bottom;
+    #elif NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64
+      uint64_t register_ret_bottom_wide = register_ret_bottom;
+      uint64_t register_ret_top_wide = register_ret_top;
+      natp->register_eax = (register_ret_top_wide << 32) | register_ret_bottom_wide;
+    #else
+      #error "Unsupported platform"
+    #endif
+
+    {
+      uint64_t register_float_ret_top_wide = register_float_ret_top;
+      uint64_t register_float_ret_bottom_wide = register_float_ret_bottom;
+      natp->register_xmm0 = (register_float_ret_top_wide << 32) | register_float_ret_bottom_wide;
+      jump_buf_loc = Stack_GetTopPtrForPop(natp->jumpBufferStack);
+    }
   }
   else
   {

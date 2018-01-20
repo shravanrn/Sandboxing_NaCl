@@ -2,6 +2,7 @@
 #include <dlfcn.h>
 #include <string.h>
 #include <stdlib.h>
+#include <limits.h>
 #include "native_client/src/trusted/dyn_ldr/dyn_ldr_lib.h"
 
 #if defined(_WIN32)
@@ -222,6 +223,34 @@ int invokeSimpleEchoTestPassed(NaClSandbox* sandbox, void* simpleEchoTestPtr, ch
 	return ret;
 }
 
+//////////////////////////////////////////////////////////////////
+
+double invokeSimpleDoubleAddTest(NaClSandbox* sandbox, void* simpleDoubleAddTestPtr, double a, double b)
+{
+	NaClSandbox_Thread* threadData = preFunctionCall(sandbox, sizeof(a) + sizeof(b), 0 /* size of any arrays being pushed on the stack */);
+
+	PUSH_FLOAT_TO_STACK(threadData, double, a);
+	PUSH_FLOAT_TO_STACK(threadData, double, b);
+
+	invokeFunctionCall(threadData, simpleDoubleAddTestPtr);
+
+	return (double)functionCallReturnDouble(threadData);
+}
+
+//////////////////////////////////////////////////////////////////
+
+unsigned long invokeSimpleLongAddTest(NaClSandbox* sandbox, void* simpleLongAddTestPtr, unsigned long a, unsigned long b)
+{
+	NaClSandbox_Thread* threadData = preFunctionCall(sandbox, sizeof(a) + sizeof(b), 0 /* size of any arrays being pushed on the stack */);
+
+	PUSH_VAL_TO_STACK(threadData, unsigned long, a);
+	PUSH_VAL_TO_STACK(threadData, unsigned long, b);
+
+	invokeFunctionCall(threadData, simpleLongAddTestPtr);
+
+	return (unsigned long)functionCallReturnRawPrimitiveInt(threadData);
+}
+
 /**************** Main function ****************/
 
 char* getExecFolder(char* executablePath);
@@ -233,6 +262,8 @@ void* simpleStrLenTestResult;
 void* simpleCallbackTestResult;
 void* simpleWriteToFileTestResult;
 void* simpleEchoTestResult;
+void* simpleDoubleAddTestResult;
+void* simpleLongAddTestResult;
 uintptr_t registeredCallback;
 
 void* runTests(void* testResultPtr)
@@ -278,6 +309,20 @@ void* runTests(void* testResultPtr)
 	if(!invokeSimpleEchoTestPassed(sandbox, simpleEchoTestResult, "Hello"))
 	{
 		printf("Dyn loader Test 6: Failed\n");
+		*testResult = 0;
+		return NULL;	
+	}
+
+	if(invokeSimpleDoubleAddTest(sandbox, simpleDoubleAddTestResult, 1.0, 2.0) != 3.0)
+	{
+		printf("Dyn loader Test 7: Failed\n");
+		*testResult = 0;
+		return NULL;
+	}
+
+	if(invokeSimpleLongAddTest(sandbox, simpleLongAddTestResult, ULONG_MAX - 1, 1) != ULONG_MAX)
+	{
+		printf("Dyn loader Test 8: Failed\n");
 		*testResult = 0;
 		return NULL;	
 	}
@@ -347,6 +392,8 @@ int main(int argc, char** argv)
 	simpleCallbackTestResult    = symbolTableLookupInSandbox(sandbox, "simpleCallbackTest");
 	simpleWriteToFileTestResult = symbolTableLookupInSandbox(sandbox, "simpleWriteToFileTest");
 	simpleEchoTestResult        = symbolTableLookupInSandbox(sandbox, "simpleEchoTest");
+	simpleDoubleAddTestResult   = symbolTableLookupInSandbox(sandbox, "simpleDoubleAddTest");
+	simpleLongAddTestResult     = symbolTableLookupInSandbox(sandbox, "simpleLongAddTest");
 
 	printf("symbol lookup successful\n");
 
@@ -354,7 +401,9 @@ int main(int argc, char** argv)
 		|| simpleStrLenTestResult == NULL 
 		|| simpleCallbackTestResult == NULL
 		|| simpleWriteToFileTestResult == NULL
-		|| simpleEchoTestResult == NULL)
+		|| simpleEchoTestResult == NULL
+		|| simpleDoubleAddTestResult == NULL
+		|| simpleLongAddTestResult == NULL)
 	{
 		printf("Dyn loader Test: symbol lookup returned null\n");
 		return 1;

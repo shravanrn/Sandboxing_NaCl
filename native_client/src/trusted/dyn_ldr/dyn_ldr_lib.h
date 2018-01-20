@@ -19,7 +19,11 @@ struct _NaClSandbox_Thread
 		//On 64 bit systems, different parameters go into different locations
 		//After param 6, we put it onto the stack, so we stop counting after this
 		unsigned registerParameterNumber;
+		//Indicates how many callback parameters have been extracted
 		unsigned callbackParameterNumber;
+		//On 64 bit systems, different parameters go into different locations
+		//After param 8, we put it onto the stack, so we stop counting after this
+		unsigned floatRegisterParameterNumber;
 	#endif
 };
 
@@ -89,6 +93,8 @@ int isAddressInNonSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr);
 		threadData->stack_ptr_forParameters = ADJUST_STACK_PTR(threadData->stack_ptr_forParameters, sizeof(type)); \
 	} while (0)
 
+	#define PUSH_FLOAT_TO_STACK(threadData, type, value) PUSH_VAL_TO_STACK(threadData, type, value)
+
 	#define PUSH_RET_TO_STACK(threadData, type, value) PUSH_VAL_TO_STACK(threadData, type, value)
 
 #elif defined(_M_X64) || defined(__x86_64__) 
@@ -99,6 +105,14 @@ int isAddressInNonSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr);
 		uint64_t* regPtr = getParamRegister(threadData, threadData->registerParameterNumber); \
 		*regPtr = value; \
 		threadData->registerParameterNumber++; \
+	}
+
+	uint64_t* getFloatParamRegister(NaClSandbox_Thread* threadData, unsigned parameterNumber);
+
+	 #define PUSH_FLOAT_VAL_TO_REG(threadData, type, value) { \
+		type * regPtr = (type *) getFloatParamRegister(threadData, threadData->floatRegisterParameterNumber); \
+		*regPtr = value; \
+		threadData->floatRegisterParameterNumber++; \
 	}
 
 	#define PUSH_VAL_TO_STACK_SKIP_REGS(threadData, type, value) do { \
@@ -114,6 +128,14 @@ int isAddressInNonSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr);
 			uint64_t* valCasted = (uint64_t *) &tempVar; \
 			PUSH_64BIT_VAL_TO_REG(threadData, valCasted[0]); \
 			PUSH_64BIT_VAL_TO_REG(threadData, valCasted[1]); \
+		} else { \
+			PUSH_VAL_TO_STACK_SKIP_REGS(threadData, type, value); \
+		} \
+	} while (0)
+
+	#define PUSH_FLOAT_TO_STACK(threadData, type, value) do { \
+		if(threadData->floatRegisterParameterNumber < 8) {		\
+			PUSH_FLOAT_VAL_TO_REG(threadData, type, (value)); \
 		} else { \
 			PUSH_VAL_TO_STACK_SKIP_REGS(threadData, type, value); \
 		} \
@@ -158,7 +180,9 @@ uintptr_t getCallbackParam(NaClSandbox_Thread* threadData, size_t size);
 #define COMPLETELY_UNTRUSTED_CALLBACK_PTR_PARAM(threadData, type) ((type) getUnsandboxedAddress(threadData->sandbox, COMPLETELY_UNTRUSTED_CALLBACK_STACK_PARAM(threadData, uintptr_t)))
 #define CALLBACK_RETURN_PTR(threadData, type, value) ((type) getSandboxedAddress(threadData->sandbox, value))
 
-unsigned functionCallReturnRawPrimitiveInt(NaClSandbox_Thread* threadData);
+long functionCallReturnRawPrimitiveInt(NaClSandbox_Thread* threadData);
+float functionCallReturnFloat(NaClSandbox_Thread* threadData);
+double functionCallReturnDouble(NaClSandbox_Thread* threadData);
 uintptr_t functionCallReturnPtr(NaClSandbox_Thread* threadData);
 uintptr_t functionCallReturnSandboxPtr(NaClSandbox_Thread* threadData);
 

@@ -413,6 +413,7 @@ NaClSandbox_Thread* constructNaClSandboxThread(NaClSandbox* sandbox)
   #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64
     threadData->registerParameterNumber = 0;
     threadData->callbackParameterNumber = 0;
+    threadData->floatRegisterParameterNumber = 0;
   #endif
 
   return threadData;
@@ -668,6 +669,44 @@ NaClSandbox_Thread* preFunctionCall(NaClSandbox* sandbox, size_t paramsSize, siz
     return NULL;
   }
 
+  uint64_t* getFloatParamRegister(NaClSandbox_Thread* threadData, unsigned parameterNumber)
+  {
+    if(parameterNumber == 0)
+    {
+      return &threadData->thread->user.xmm0;
+    }
+    else if(parameterNumber == 1)
+    {
+      return &threadData->thread->user.xmm1;
+    }
+    else if(parameterNumber == 2)
+    {
+      return &threadData->thread->user.xmm2;
+    }
+    else if(parameterNumber == 3)
+    {
+      return &threadData->thread->user.xmm3;
+    }
+    else if(parameterNumber == 4)
+    {
+      return &threadData->thread->user.xmm4;
+    }
+    else if(parameterNumber == 5)
+    {
+      return &threadData->thread->user.xmm5;
+    }
+    else if(parameterNumber == 6)
+    {
+      return &threadData->thread->user.xmm6;
+    }
+    else if(parameterNumber == 7)
+    {
+      return &threadData->thread->user.xmm7;
+    }
+
+    return NULL;
+  }
+
 #endif
 
 void invokeFunctionCallWithSandboxPtr(NaClSandbox_Thread* threadData, uintptr_t functionPtrInSandbox)
@@ -885,13 +924,13 @@ uintptr_t getCallbackParam(NaClSandbox_Thread* threadData, size_t size)
   #elif NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64
     //Similar to x86 version except the first 6 parameters are in registers
     //Parameter 7 onwards is on the stack
-    if(threadData->registerParameterNumber < 6 && size <= 64) 
+    if(threadData->callbackParameterNumber < 6 && size <= 64) 
     {
       uint64_t* regPtr = getParamRegister(threadData, threadData->callbackParameterNumber);
       threadData->callbackParameterNumber++;
       return (uintptr_t) regPtr;
     }
-    else if(threadData->registerParameterNumber < 5 && size <= 128) 
+    else if(threadData->callbackParameterNumber < 5 && size <= 128) 
     {
       //This is a wierd case where the struct is split across the registers, but we need send back a pointer to the object
       //We can't just return a pointer to the NACL's copy of the registers like the previous case
@@ -929,19 +968,43 @@ uintptr_t getCallbackParam(NaClSandbox_Thread* threadData, size_t size)
   #endif
 }
 
-unsigned functionCallReturnRawPrimitiveInt(NaClSandbox_Thread* threadData)
+long functionCallReturnRawPrimitiveInt(NaClSandbox_Thread* threadData)
 {
-  unsigned ret;
+  long ret;
 
   #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 //32 and 64 bit
     //Note for 64 bit this is actuall the rax register
-    ret = (unsigned) threadData->thread->register_eax;
-    NaClLog(LOG_INFO, "Return int %u\n", ret);
+    ret = (long) threadData->thread->register_eax;
+    NaClLog(LOG_INFO, "Return int %lu\n", ret);
   #else
     #error Unsupported architecture
   #endif
 
   return ret;
+}
+
+float functionCallReturnFloat(NaClSandbox_Thread* threadData)
+{
+  #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 //32 and 64 bit
+    //Note for 64 bit this is actuall the rax register
+    float ret = *((float *) (&(threadData->thread->register_xmm0)));
+    NaClLog(LOG_INFO, "Return float %f\n", ret);
+    return ret;
+  #else
+    #error Unsupported architecture
+  #endif
+}
+
+double functionCallReturnDouble(NaClSandbox_Thread* threadData)
+{
+  #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 //32 and 64 bit
+    //Note for 64 bit this is actuall the rax register
+    double ret = *((double *) (&(threadData->thread->register_xmm0)));
+    NaClLog(LOG_INFO, "Return double %f\n", ret);
+    return ret;
+  #else
+    #error Unsupported architecture
+  #endif
 }
 
 uintptr_t functionCallReturnPtr(NaClSandbox_Thread* threadData)
