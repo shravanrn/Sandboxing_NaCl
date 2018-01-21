@@ -799,17 +799,24 @@ unsigned getTotalNumberOfCallbackSlots(void)
 
 uintptr_t registerSandboxCallback(NaClSandbox* sandbox, unsigned slotNumber, uintptr_t callback)
 {
-  unsigned callbackSlots = (unsigned) CALLBACK_SLOTS_AVAILABLE;
-
-  if(slotNumber >= callbackSlots)
+  if(callback == 0)
   {
-    NaClLog(LOG_ERROR, "Only %u slots exists i.e. slots 0 to %u. slotNumber %u does not exist \n", 
-      callbackSlots, callbackSlots - 1, slotNumber);
     return 0;
   }
+  else
+  {
+    unsigned callbackSlots = (unsigned) CALLBACK_SLOTS_AVAILABLE;
 
-  sandbox->nap->callbackSlot[slotNumber] = callback;
-  return (uintptr_t) sandbox->callbackFunctionWrapper[slotNumber];
+    if(slotNumber >= callbackSlots)
+    {
+      NaClLog(LOG_ERROR, "Only %u slots exists i.e. slots 0 to %u. slotNumber %u does not exist \n", 
+        callbackSlots, callbackSlots - 1, slotNumber);
+      return 0;
+    }
+
+    sandbox->nap->callbackSlot[slotNumber] = callback;
+    return (uintptr_t) sandbox->callbackFunctionWrapper[slotNumber];
+  }
 }
 
 int unregisterSandboxCallback(NaClSandbox* sandbox, unsigned slotNumber)

@@ -40,9 +40,19 @@ buildopt64 : init_if_necessary
 
 builddebug32 : init_if_necessary
 	cd native_client && ./scons MODE=dbg-linux,nacl werror=0 $(SCONS_FLAGS)
+	mv ./native_client/scons-out ./native_client/scons-out-clean
+	if [ -d ./native_client/scons-out-firefox ]; then mv ./native_client/scons-out-firefox ./native_client/scons-out; fi
+	cd native_client && ./scons -f SConstruct_Firefox werror=0 MODE=dbg-linux,nacl $(SCONS_FLAGS)
+	mv ./native_client/scons-out ./native_client/scons-out-firefox
+	mv ./native_client/scons-out-clean ./native_client/scons-out
 
 builddebug64 : init_if_necessary
 	cd native_client && ./scons MODE=dbg-linux,nacl werror=0 platform=x86-64 $(SCONS_FLAGS)
+	mv ./native_client/scons-out ./native_client/scons-out-clean
+	if [ -d ./native_client/scons-out-firefox ]; then mv ./native_client/scons-out-firefox ./native_client/scons-out; fi
+	cd native_client && ./scons -f SConstruct_Firefox werror=0 MODE=dbg-linux,nacl platform=x86-64 $(SCONS_FLAGS)
+	mv ./native_client/scons-out ./native_client/scons-out-firefox
+	mv ./native_client/scons-out-clean ./native_client/scons-out
 
 runopt32 : buildopt32
 	./native_client/scons-out/opt-linux-x86-32/staging/dyn_ldr_test
