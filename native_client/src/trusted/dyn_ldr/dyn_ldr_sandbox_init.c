@@ -12,7 +12,7 @@
 
 typedef int32_t (*SandboxExitType)(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
 
-typedef int32_t (*IntU32Type)(uint32_t);
+typedef int32_t (*SandboxCallbackType)(uint32_t, nacl_reg_t*);
 
 void MakeNaClSysCall_exit_sandbox(uint32_t exitLocation, 
   uint32_t register_ret_bottom, uint32_t register_ret_top, 
@@ -23,7 +23,7 @@ void MakeNaClSysCall_exit_sandbox(uint32_t exitLocation,
 }
 
 //Specifically not making this a new function as this may add a new stack frame
-#define MakeNaClSysCall_callback(slotNumber) ((IntU32Type)NACL_SYSCALL_ADDR(NACL_sys_callback))(slotNumber)
+#define MakeNaClSysCall_callback(slotNumber, parameterRegisters) ((SandboxCallbackType)NACL_SYSCALL_ADDR(NACL_sys_callback))(slotNumber, parameterRegisters)
 
 void exitFunctionWrapper(void)
 {
@@ -84,14 +84,41 @@ void exitFunctionWrapper(void)
 	MakeNaClSysCall_exit_sandbox(EXIT_FROM_CALL, return_reg_bottom, return_reg_top, float_return_reg_bottom, float_return_reg_top);
 }
 
-void callbackFunctionWrapper0(void) { MakeNaClSysCall_callback(0); }
-void callbackFunctionWrapper1(void) { MakeNaClSysCall_callback(1); }
-void callbackFunctionWrapper2(void) { MakeNaClSysCall_callback(2); }
-void callbackFunctionWrapper3(void) { MakeNaClSysCall_callback(3); }
-void callbackFunctionWrapper4(void) { MakeNaClSysCall_callback(4); }
-void callbackFunctionWrapper5(void) { MakeNaClSysCall_callback(5); }
-void callbackFunctionWrapper6(void) { MakeNaClSysCall_callback(6); }
-void callbackFunctionWrapper7(void) { MakeNaClSysCall_callback(7); }
+#if defined(_M_IX86) || defined(__i386__)
+	//for 32 bit the parameters are on the stack
+	#define generateCallbackFunc(num) void callbackFunctionWrapper###num(void) { MakeNaClSysCall_callback(num, 0); }
+#elif defined(_M_X64) || defined(__x86_64__)
+	//for 64 bit the parameters are in registers, which will get overwritten, so we need to save it
+	//nacl does not allow 64 bit parameters to trusted code calls, so we just save the values in an array and pass it out as a 64 bit pointer
+	#define generateCallbackFunc(num) \
+	void callbackFunctionWrapper##num(void) \
+	{ \
+			nacl_reg_t parameterRegisters[6];\
+			asm("movq %%rdi, %0;\n"\
+				"movq %%rsi, %1;\n"\
+				"movq %%rdx, %2;\n"\
+				"movq %%rcx, %3;\n"\
+				"movq %%r8,  %4;\n"\
+				"movq %%r9,  %5;\n"\
+				:"=r"(parameterRegisters[0]), "=r"(parameterRegisters[1]),"=r"(parameterRegisters[2]), "=r"(parameterRegisters[3]),"=r"(parameterRegisters[4]), "=r"(parameterRegisters[5])        /* output */\
+			);\
+			MakeNaClSysCall_callback(num, parameterRegisters);\
+	}
+
+#elif defined(__ARMEL__) || defined(__MIPSEL__)
+	#error Unsupported platform!
+#else
+	#error Unknown platform!
+#endif
+
+generateCallbackFunc(0)
+generateCallbackFunc(1) 
+generateCallbackFunc(2) 
+generateCallbackFunc(3) 
+generateCallbackFunc(4) 
+generateCallbackFunc(5) 
+generateCallbackFunc(6) 
+generateCallbackFunc(7) 
 
 unsigned test_localMath(unsigned a, unsigned  b, unsigned c)
 {

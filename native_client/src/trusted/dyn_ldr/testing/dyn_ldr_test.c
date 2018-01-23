@@ -292,7 +292,7 @@ void* runTests(void* testResultPtr)
 		return NULL;
 	}
 
-	if(invokeSimpleCallbackTest(sandbox, simpleCallbackTestResult, 4, "Hello", registeredCallback) != 9)
+	if(invokeSimpleCallbackTest(sandbox, simpleCallbackTestResult, 4, "Hello", registeredCallback) != 10)
 	{
 		printf("Dyn loader Test 4: Failed\n");
 		*testResult = 0;
@@ -371,7 +371,7 @@ int main(int argc, char** argv)
 
 	printf("Starting Dyn loader Test.\n");
 
-	if(!initializeDlSandboxCreator(1 /* Should enable detailed logging */))
+	if(!initializeDlSandboxCreator(2 /* Should enable detailed logging */))
 	{
 		printf("Dyn loader Test: initializeDlSandboxCreator returned null\n");
 		return 1;

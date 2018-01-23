@@ -99,7 +99,7 @@ int32_t NaClSysRegisterSharedState(struct NaClAppThread *natp, uintptr_t sharedS
 int32_t NaClSysExitSandbox(struct NaClAppThread *natp, uint32_t exitLocation, 
   uint32_t register_ret_bottom, uint32_t register_ret_top, 
   uint32_t register_float_ret_bottom, uint32_t register_float_ret_top);
-nacl_reg_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumber);
+nacl_reg_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumber, nacl_reg_t* parameterRegisters);
 
 int32_t NaClSysSecondTlsGet(struct NaClAppThread *natp);
 

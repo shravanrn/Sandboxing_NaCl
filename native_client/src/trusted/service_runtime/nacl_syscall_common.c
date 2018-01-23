@@ -320,7 +320,7 @@ int32_t NaClSysExitSandbox(struct NaClAppThread *natp, uint32_t exitLocation,
 }
 
 //NACL_sys_callback
-nacl_reg_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumber) {
+nacl_reg_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumber, nacl_reg_t* parameterRegisters) {
   
   NaClLog(LOG_INFO, "Entered NaClSysCallback: %"PRIu32"\n", callbackSlotNumber);
 
@@ -389,6 +389,15 @@ nacl_reg_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumb
       nacl_reg_t saved_rsp          = natp->user.rsp;
       nacl_reg_t saved_new_prog_ctr = natp->user.new_prog_ctr;
       nacl_reg_t saved_sysret       = natp->user.sysret;
+
+      //restore the callback parameters
+      nacl_reg_t* parameterRegistersSys = (nacl_reg_t*) NaClUserToSysAddr(natp->nap, (uintptr_t) parameterRegisters);
+      natp->user.rdi = parameterRegistersSys[0];
+      natp->user.rsi = parameterRegistersSys[1];
+      natp->user.rdx = parameterRegistersSys[2];
+      natp->user.rcx = parameterRegistersSys[3];
+      natp->user.r8  = parameterRegistersSys[4];
+      natp->user.r9  = parameterRegistersSys[5];
 
       NaClLog(LOG_INFO, "Making NaClSysCallback: %"PRIu32"\n", callbackSlotNumber);
       func = (RegPtrFunc) (natp->nap->callbackSlot[callbackSlotNumber]);
