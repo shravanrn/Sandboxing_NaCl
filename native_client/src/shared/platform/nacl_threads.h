@@ -70,6 +70,7 @@ void NaClThreadJoin(struct NaClThread *ntp);
 void NaClThreadExit(void);
 
 uint32_t NaClThreadId(void);
+struct NaClThread NaClThreadIdCorrected(void);
 
 /* NaClThreadYield() makes the calling thread yield the processor. */
 void NaClThreadYield(void);

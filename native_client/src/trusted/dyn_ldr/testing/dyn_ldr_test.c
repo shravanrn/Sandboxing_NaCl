@@ -5,13 +5,8 @@
 #include <limits.h>
 #include "native_client/src/trusted/dyn_ldr/dyn_ldr_lib.h"
 
-#if defined(_WIN32)
-	char SEPARATOR = '\\';
-	#include <process.h>
-#else
-	char SEPARATOR = '/';
-	#include <pthread.h>
-#endif
+char SEPARATOR = '/';
+#include <pthread.h>
 
 /**************** Dynamic Library function stubs ****************/
 //Some functions that help invoke the functions in dynamic library generated from test_dyn_lib.c
@@ -256,71 +251,82 @@ unsigned long invokeSimpleLongAddTest(NaClSandbox* sandbox, void* simpleLongAddT
 char* getExecFolder(char* executablePath);
 char* concatenateAndFixSlash(char* string1, char* string2);
 
-NaClSandbox* sandbox;
-void* simpleAddTestSymResult;
-void* simpleStrLenTestResult;
-void* simpleCallbackTestResult;
-void* simpleWriteToFileTestResult;
-void* simpleEchoTestResult;
-void* simpleDoubleAddTestResult;
-void* simpleLongAddTestResult;
-uintptr_t registeredCallback;
-
-void* runTests(void* testResultPtr)
+struct runTestParams
 {
-	int* testResult = (int *)testResultPtr;
+	NaClSandbox* sandbox;
+	int testResult;
+	void* simpleAddTestSymResult;
+	void* simpleStrLenTestResult;
+	void* simpleCallbackTestResult;
+	void* simpleWriteToFileTestResult;
+	void* simpleEchoTestResult;
+	void* simpleDoubleAddTestResult;
+	void* simpleLongAddTestResult;
+	uintptr_t registeredCallback;
+
+	//for multi threaded test only
+	pthread_t newThread;
+};
+
+
+void* runTests(void* runTestParamsPtr)
+{
+	struct runTestParams* testParams = runTestParamsPtr;
+	NaClSandbox* sandbox = testParams->sandbox;
+
+	int* testResult = &(testParams->testResult);
 	*testResult = -1;
 
-	if(invokeSimpleAddTest(sandbox, simpleAddTestSymResult, 2, 3) != 5)
+	if(invokeSimpleAddTest(sandbox, testParams->simpleAddTestSymResult, 2, 3) != 5)
 	{
 		printf("Dyn loader Test 1: Failed\n");
 		*testResult = 0;
 		return NULL;
 	}
 
-	if(invokeSimpleStrLenTestWithStackString(sandbox, simpleStrLenTestResult, "Hello") != 5)
+	if(invokeSimpleStrLenTestWithStackString(sandbox, testParams->simpleStrLenTestResult, "Hello") != 5)
 	{
 		printf("Dyn loader Test 2: Failed\n");
 		*testResult = 0;
 		return NULL;
 	}
 
-	if(invokeSimpleStrLenTestWithStackString(sandbox, simpleStrLenTestResult, "Hello") != 5)
+	if(invokeSimpleStrLenTestWithStackString(sandbox, testParams->simpleStrLenTestResult, "Hello") != 5)
 	{
 		printf("Dyn loader Test 3: Failed\n");
 		*testResult = 0;
 		return NULL;
 	}
 
-	if(invokeSimpleCallbackTest(sandbox, simpleCallbackTestResult, 4, "Hello", registeredCallback) != 10)
+	if(invokeSimpleCallbackTest(sandbox, testParams->simpleCallbackTestResult, 4, "Hello", testParams->registeredCallback) != 10)
 	{
 		printf("Dyn loader Test 4: Failed\n");
 		*testResult = 0;
 		return NULL;
 	}
 
-	if(!fileTestPassed(sandbox, simpleWriteToFileTestResult))
+	if(!fileTestPassed(sandbox, testParams->simpleWriteToFileTestResult))
 	{
 		printf("Dyn loader Test 5: Failed\n");
 		*testResult = 0;
 		return NULL;	
 	}
 
-	if(!invokeSimpleEchoTestPassed(sandbox, simpleEchoTestResult, "Hello"))
+	if(!invokeSimpleEchoTestPassed(sandbox, testParams->simpleEchoTestResult, "Hello"))
 	{
 		printf("Dyn loader Test 6: Failed\n");
 		*testResult = 0;
 		return NULL;	
 	}
 
-	if(invokeSimpleDoubleAddTest(sandbox, simpleDoubleAddTestResult, 1.0, 2.0) != 3.0)
+	if(invokeSimpleDoubleAddTest(sandbox, testParams->simpleDoubleAddTestResult, 1.0, 2.0) != 3.0)
 	{
 		printf("Dyn loader Test 7: Failed\n");
 		*testResult = 0;
 		return NULL;
 	}
 
-	if(invokeSimpleLongAddTest(sandbox, simpleLongAddTestResult, ULONG_MAX - 1, 1) != ULONG_MAX)
+	if(invokeSimpleLongAddTest(sandbox, testParams->simpleLongAddTestResult, ULONG_MAX - 1, 1) != ULONG_MAX)
 	{
 		printf("Dyn loader Test 8: Failed\n");
 		*testResult = 0;
@@ -331,15 +337,63 @@ void* runTests(void* testResultPtr)
 	return NULL;
 }
 
+#define ThreadsToTest 4
+
+void runSingleThreadedTest(struct runTestParams testParams)
+{
+	runTests((void *) &testParams);
+	if(testParams.testResult != 1)
+	{
+		printf("Main thread tests failed\n");
+		exit(1);
+	}
+
+	printf("Main thread tests successful\n");
+}
+
+void runMultiThreadedTest(struct runTestParams * testParams, unsigned threadCount)
+{
+	for(unsigned i = 0; i < threadCount; i++)
+	{
+		if(pthread_create(&(testParams[i].newThread), NULL /* use default thread attributes */, runTests, (void *) &(testParams[i]) /* parameter */))
+		{
+			printf("Error creating thread %d\n", i);
+			exit(1);
+		}
+	}
+}
+
+void checkMultiThreadedTest(struct runTestParams * testParams, unsigned threadCount)
+{
+	for(unsigned i = 0; i < threadCount; i++)
+	{
+		if(pthread_join(testParams[i].newThread, NULL))
+		{
+			printf("Error joining thread %d\n", i);
+			exit(1);
+		}
+	}
+
+	for(unsigned i = 0; i < threadCount; i++)
+	{
+		if(testParams[i].testResult != 1)
+		{
+			printf("Secondary thread tests %d failed\n", i);
+			exit(1);
+		}
+
+		printf("Secondary thread tests %d successful\n", i);
+	}
+}
+
 int main(int argc, char** argv)
 {
-	#define ThreadsToTest 4
-
 	/**************** Some calculations of relative paths ****************/
 	char* execFolder;
 	char* libraryPath;
 	char* libraryToLoad;
 	short slotNumber = 0;
+	struct runTestParams sandboxParams[2];
 
 	if(argc < 1)
 	{
@@ -377,127 +431,89 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	sandbox = createDlSandbox(libraryPath, libraryToLoad);
-
-	if(sandbox == NULL)
+	for(int i = 0; i < 2; i++)
 	{
-		printf("Dyn loader Test: createDlSandbox returned null\n");
-		return 1;
-	}
+		sandboxParams[i].sandbox = createDlSandbox(libraryPath, libraryToLoad);
 
-	printf("Sandbox created\n");
-
-	simpleAddTestSymResult      = symbolTableLookupInSandbox(sandbox, "simpleAddTest");
-	simpleStrLenTestResult      = symbolTableLookupInSandbox(sandbox, "simpleStrLenTest");
-	simpleCallbackTestResult    = symbolTableLookupInSandbox(sandbox, "simpleCallbackTest");
-	simpleWriteToFileTestResult = symbolTableLookupInSandbox(sandbox, "simpleWriteToFileTest");
-	simpleEchoTestResult        = symbolTableLookupInSandbox(sandbox, "simpleEchoTest");
-	simpleDoubleAddTestResult   = symbolTableLookupInSandbox(sandbox, "simpleDoubleAddTest");
-	simpleLongAddTestResult     = symbolTableLookupInSandbox(sandbox, "simpleLongAddTest");
-
-	printf("symbol lookup successful\n");
-
-	if(simpleAddTestSymResult == NULL 
-		|| simpleStrLenTestResult == NULL 
-		|| simpleCallbackTestResult == NULL
-		|| simpleWriteToFileTestResult == NULL
-		|| simpleEchoTestResult == NULL
-		|| simpleDoubleAddTestResult == NULL
-		|| simpleLongAddTestResult == NULL)
-	{
-		printf("Dyn loader Test: symbol lookup returned null\n");
-		return 1;
-	}
-
-	/**************** Invoking functions in sandbox ****************/
-
-	//Note will return NULL if given a slot number greater than getTotalNumberOfCallbackSlots(), a valid ptr if it succeeds
-	registeredCallback = registerSandboxCallback(sandbox, slotNumber, (uintptr_t) invokeSimpleCallbackTest_callbackStub);
-
-	{
-		int mainThreadTestResult;
-
-		runTests((void *) &mainThreadTestResult);
-		if(mainThreadTestResult != 1)
+		if(sandboxParams[i].sandbox == NULL)
 		{
-			printf("Main thread tests failed\n");
+			printf("Dyn loader Test: createDlSandbox returned null: %d\n", i);
 			return 1;
 		}
 
-		printf("Main thread tests successful\n");
+		printf("Sandbox created: %d\n", i);
+
+		sandboxParams[i].simpleAddTestSymResult      = symbolTableLookupInSandbox(sandboxParams[i].sandbox, "simpleAddTest");
+		sandboxParams[i].simpleStrLenTestResult      = symbolTableLookupInSandbox(sandboxParams[i].sandbox, "simpleStrLenTest");
+		sandboxParams[i].simpleCallbackTestResult    = symbolTableLookupInSandbox(sandboxParams[i].sandbox, "simpleCallbackTest");
+		sandboxParams[i].simpleWriteToFileTestResult = symbolTableLookupInSandbox(sandboxParams[i].sandbox, "simpleWriteToFileTest");
+		sandboxParams[i].simpleEchoTestResult        = symbolTableLookupInSandbox(sandboxParams[i].sandbox, "simpleEchoTest");
+		sandboxParams[i].simpleDoubleAddTestResult   = symbolTableLookupInSandbox(sandboxParams[i].sandbox, "simpleDoubleAddTest");
+		sandboxParams[i].simpleLongAddTestResult     = symbolTableLookupInSandbox(sandboxParams[i].sandbox, "simpleLongAddTest");
+
+		printf("symbol lookup successful: %d\n", i);
+
+		if(sandboxParams[i].simpleAddTestSymResult == NULL 
+			|| sandboxParams[i].simpleStrLenTestResult == NULL 
+			|| sandboxParams[i].simpleCallbackTestResult == NULL
+			|| sandboxParams[i].simpleWriteToFileTestResult == NULL
+			|| sandboxParams[i].simpleEchoTestResult == NULL
+			|| sandboxParams[i].simpleDoubleAddTestResult == NULL
+			|| sandboxParams[i].simpleLongAddTestResult == NULL)
+		{
+			printf("Dyn loader Test: symbol lookup returned null: %d\n", i);
+			return 1;
+		}
+
+		/**************** Invoking functions in sandbox ****************/
+
+		//Note will return NULL if given a slot number greater than getTotalNumberOfCallbackSlots(), a valid ptr if it succeeds
+		sandboxParams[i].registeredCallback = registerSandboxCallback(sandboxParams[i].sandbox, slotNumber, (uintptr_t) invokeSimpleCallbackTest_callbackStub);
 	}
 
+	for(int i = 0; i < 2; i++)
 	{
-		int threadTestResults[ThreadsToTest];
+		runSingleThreadedTest(sandboxParams[i]);
+	}
 
-		#if defined(_WIN32)
-		{ 
-			unsigned threadID;
-			HANDLE newThreads[ThreadsToTest];
+	for(int i = 0; i < 2; i++)
+	{
+		struct runTestParams threadParams[ThreadsToTest];
 
-			for(unsigned i = 0; i < ThreadsToTest; i++)
-			{
-				newThreads[i] = (HANDLE) _beginthreadex(NULL /* security */, 0 /* use default stack size */, runTests, (void *) &(threadTestResults[i]) /* parameter */, 0/* initflag */, &threadID);
-				if(!newThreads[i])
-				{
-					printf("Error creating thread %d\n", i);
-					return 1;
-				}
-			}
-
-			for(unsigned i = 0; i < ThreadsToTest; i++)
-			{
-				DWORD result = WaitForSingleObject(newThreads[i], INFINITE);
-				if (result != WAIT_OBJECT_0) 
-				{
-					printf("Error joining thread %d\n", i);
-					return 1;
-				}
-
-				CloseHandle(newThreads[i]);
-			}
-		}
-		#else
+		for(int j = 0; j < ThreadsToTest; j++)
 		{
-			pthread_t newThreads[ThreadsToTest];
-
-			for(unsigned i = 0; i < ThreadsToTest; i++)
-			{
-				if(pthread_create(&newThreads[i], NULL /* use default thread attributes */, runTests, (void *) &(threadTestResults[i]) /* parameter */))
-				{
-					printf("Error creating thread %d\n", i);
-					return 1;
-				}
-			}
-
-			for(unsigned i = 0; i < ThreadsToTest; i++)
-			{
-				if(pthread_join(newThreads[i], NULL))
-				{
-					printf("Error joining thread %d\n", i);
-					return 1;
-				}
-			}
+			threadParams[j] = sandboxParams[i];
 		}
-		#endif
 
-		for(unsigned i = 0; i < ThreadsToTest; i++)
+		runMultiThreadedTest(threadParams, ThreadsToTest);
+		checkMultiThreadedTest(threadParams, ThreadsToTest);
+	}
+
+	//interleaved sandbox thread
+	{
+		struct runTestParams threadParams1[ThreadsToTest];
+		struct runTestParams threadParams2[ThreadsToTest];
+
+		for(int j = 0; j < ThreadsToTest; j++)
 		{
-			if(threadTestResults[i] != 1)
-			{
-				printf("Secondary thread tests %d failed\n", i);
-				return 1;
-			}
-
-			printf("Secondary thread tests %d successful\n", i);
+			threadParams1[j] = sandboxParams[0];
+			threadParams2[j] = sandboxParams[1];
 		}
+
+		runMultiThreadedTest(threadParams1, ThreadsToTest);
+		runMultiThreadedTest(threadParams2, ThreadsToTest);
+		checkMultiThreadedTest(threadParams1, ThreadsToTest);
+		checkMultiThreadedTest(threadParams2, ThreadsToTest);
 	}
 
 	//Best to unregister after it is done
 	//In an adversarial setting, the sandboxed app may decide to invoke the callback
 	//arbitrarily in the future, which may allow it to destabilize the hosting app
 	//Note will return 0 if given a slot number greater than getTotalNumberOfCallbackSlots(), 1 if it succeeds
-	unregisterSandboxCallback(sandbox, slotNumber);
+	for(int i = 0; i < 2; i++)
+	{
+		unregisterSandboxCallback(sandboxParams[i].sandbox, slotNumber);
+	}
 
 	printf("Dyn loader Test Succeeded\n");
 

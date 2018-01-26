@@ -96,6 +96,12 @@ uint32_t NaClThreadId(void) {
   return GetCurrentThreadId();
 }
 
+struct NaClThread NaClThreadIdCorrected(void) {
+  struct NaClThread ret;
+  ret.tid = GetCurrentThreadId();
+  return ret;
+}
+
 void NaClThreadYield(void) {
   SwitchToThread();
 }

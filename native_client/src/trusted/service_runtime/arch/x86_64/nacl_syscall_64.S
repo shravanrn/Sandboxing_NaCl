@@ -44,8 +44,15 @@
          * Linux uses TLS.
          * We use "@GOTTPOFF" rather than "@TPOFF" in order to be PIC-friendly.
          */
-        movq    nacl_current_thread@GOTTPOFF(%rip), %rax
-        movq    %fs:(%rax), %rdx
+        movq    sandboxLocalStorage@GOTTPOFF(%rip), %rax
+.L3\@:
+        movq %fs:8(%rax), %rdx 
+        cmpq %r15, %fs:8(%rax)
+        je .L5\@
+        addq $16, %rax
+        jmp .L3\@
+.L5\@:
+        movq %fs:(%rax), %rdx
 #elif NACL_OSX
         /*
          * This assumes a particular implementation of OS X's

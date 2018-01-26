@@ -51,7 +51,13 @@ void WINAPI NaClAppThreadLauncher(void *state) {
   thread_idx = NaClGetThreadIdx(natp);
   CHECK(0 < thread_idx);
   CHECK(thread_idx < NACL_THREAD_MAX);
-  NaClTlsSetCurrentThread(natp);
+
+  #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64 && NACL_LINUX
+    NaClTlsSetCurrentThreadExtended(natp);
+  #else
+    NaClTlsSetCurrentThread(natp);
+  #endif
+
   nacl_user[thread_idx] = &natp->user;
 #if NACL_WINDOWS
   nacl_thread_ids[thread_idx] = GetCurrentThreadId();
@@ -144,7 +150,11 @@ void NaClAppThreadTeardown(struct NaClAppThread *natp) {
    * teardown, the signal handler does not dereference a dangling
    * NaClAppThread pointer.
    */
-  NaClTlsSetCurrentThread(NULL);
+  #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64 && NACL_LINUX
+    NaClTlsSetCurrentThreadExtended(NULL);
+  #else
+    NaClTlsSetCurrentThread(NULL);
+  #endif
 
   NaClLog(3, " removing thread from thread table\n");
   /* Deallocate the ID natp->thread_num. */
@@ -271,6 +281,7 @@ int NaClAppThreadSpawn(struct NaClApp *nap,
   else
   {
     int setjmpRet = 0;
+    natp->host_thread = NaClThreadIdCorrected();
 
     if(g_NaClOverrideNextThreadCreateToRunOnCurrentThread_jmp != NULL)
     {

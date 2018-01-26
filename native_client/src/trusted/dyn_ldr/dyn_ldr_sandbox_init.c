@@ -86,7 +86,7 @@ void exitFunctionWrapper(void)
 
 #if defined(_M_IX86) || defined(__i386__)
 	//for 32 bit the parameters are on the stack
-	#define generateCallbackFunc(num) void callbackFunctionWrapper###num(void) { MakeNaClSysCall_callback(num, 0); }
+	#define generateCallbackFunc(num) void callbackFunctionWrapper##num(void) { MakeNaClSysCall_callback(num, 0); }
 #elif defined(_M_X64) || defined(__x86_64__)
 	//for 64 bit the parameters are in registers, which will get overwritten, so we need to save it
 	//nacl does not allow 64 bit parameters to trusted code calls, so we just save the values in an array and pass it out as a 64 bit pointer

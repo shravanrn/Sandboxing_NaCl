@@ -19,7 +19,11 @@ static int32_t TestSyscall(struct NaClAppThread *natp) {
   g_nacl_syscall_thread_capture_fault_addr =
       (uintptr_t) &NaClSyscallThreadCaptureFault;
 
-  NaClTlsSetCurrentThread(NULL);
+  #if NACL_LINUX
+  	NaClTlsSetCurrentThreadExtended(NULL);
+  #else
+  	NaClTlsSetCurrentThread(NULL);
+  #endif
 
   return 0;
 }

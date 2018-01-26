@@ -576,6 +576,9 @@ NaClSandbox_Thread* getThreadData(NaClSandbox* sandbox)
     NaClXMutexUnlock(sandbox->threadCreateMutex);
   }
 
+  #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64 && NACL_LINUX
+    NaClTlsSetCurrentThreadExtended(threadData->thread);
+  #endif
   return threadData;
 }
 

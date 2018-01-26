@@ -17,3 +17,9 @@
 uint32_t NaClThreadId(void) {
   return (uintptr_t) pthread_self();
 }
+
+struct NaClThread NaClThreadIdCorrected(void) {
+  struct NaClThread ret;
+  ret.tid = pthread_self();
+  return ret;
+}
