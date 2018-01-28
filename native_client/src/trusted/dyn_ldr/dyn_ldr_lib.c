@@ -115,6 +115,8 @@ int initializeDlSandboxCreator(int enableLogging)
     NaClLogSetVerbosity(LOG_FATAL);
   }
 
+  NaClSetUseExtendedTls(TRUE);
+
   // pq_error = NaClRunSelQualificationTests();
   // if (LOAD_OK != pq_error) {
   //   NaClLog(LOG_ERROR, "Error while running platform checks: %s\n", NaClErrorString(pq_error));

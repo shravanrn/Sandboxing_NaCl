@@ -288,16 +288,22 @@ void NaClTlsFini(void) {
       return;
     }
 
-    for (unsigned short i = 0; i < currentEntry; ++i)
+    if(natp && natp->nap)
     {
-      if(sandboxLocalStorage[i].sandboxBase == natp->nap->mem_start)
+      for (unsigned short i = 0; i < currentEntry; ++i)
       {
-        return;
+        if(sandboxLocalStorage[i].sandboxBase == natp->nap->mem_start)
+        {
+          return;
+        }
       }
     }
 
     sandboxLocalStorage[currentEntry].nacl_current_thread = &natp->user;
-    sandboxLocalStorage[currentEntry].sandboxBase = natp->nap->mem_start;
+    if(natp && natp->nap)
+    {
+      sandboxLocalStorage[currentEntry].sandboxBase = natp->nap->mem_start;
+    }
     currentEntry++;
   }
 
@@ -315,31 +321,41 @@ void NaClTlsFini(void) {
     return NULL;
   }
 
-#else
+  long NaClUseExtendedTls = 0;
 
-  /* May be NULL if the current thread does not host a NaClAppThread. */
-  THREAD struct NaClThreadContext *nacl_current_thread;
-
-  /*
-   * On x86-64, we must avoid using segment registers since Windows
-   * Vista 64, Windows 7 64, etc do not permit user code to create LDT
-   * entries.  The sandboxing scheme reserves %r15 for the base of the
-   * NaCl app's 4G address space, but does not reserve any additional
-   * registers for thread identity.  This reduces additional register
-   * pressure, but implies that we have to figure out the thread
-   * identity in some other way -- we use TLS (or TSD, see below) to do
-   * so, and on context switch we must access the TLS variable in order
-   * to determine where to save the user register context.
-   */
-  void NaClTlsSetCurrentThread(struct NaClAppThread *natp) {
-    nacl_current_thread = &natp->user;
+  void NaClSetUseExtendedTls(long val)
+  {
+    NaClUseExtendedTls = val;
   }
 
-  struct NaClAppThread *NaClTlsGetCurrentThread(void) {
-    return NaClAppThreadFromThreadContext(nacl_current_thread);
+  long NaClGetUseExtendedTls(void)
+  {
+    return NaClUseExtendedTls;
   }
 
 #endif
+
+/* May be NULL if the current thread does not host a NaClAppThread. */
+THREAD struct NaClThreadContext *nacl_current_thread;
+
+/*
+ * On x86-64, we must avoid using segment registers since Windows
+ * Vista 64, Windows 7 64, etc do not permit user code to create LDT
+ * entries.  The sandboxing scheme reserves %r15 for the base of the
+ * NaCl app's 4G address space, but does not reserve any additional
+ * registers for thread identity.  This reduces additional register
+ * pressure, but implies that we have to figure out the thread
+ * identity in some other way -- we use TLS (or TSD, see below) to do
+ * so, and on context switch we must access the TLS variable in order
+ * to determine where to save the user register context.
+ */
+void NaClTlsSetCurrentThread(struct NaClAppThread *natp) {
+  nacl_current_thread = &natp->user;
+}
+
+struct NaClAppThread *NaClTlsGetCurrentThread(void) {
+  return NaClAppThreadFromThreadContext(nacl_current_thread);
+}
 
 
 #else

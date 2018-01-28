@@ -92,10 +92,18 @@ void NaClAppThreadSetSuspendState(struct NaClAppThread *natp,
 
 static void HandleSuspendSignal(struct NaClSignalContext *regs) {
 
+  struct NaClAppThread *natp;
   #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64 && NACL_LINUX
-    struct NaClAppThread *natp = NaClTlsGetCurrentThreadExtended(regs->r15);
+    if(NaClGetUseExtendedTls())
+    {
+      natp = NaClTlsGetCurrentThreadExtended(regs->r15);
+    }
+    else
+    {
+      natp = NaClTlsGetCurrentThread();
+    }
   #else
-    struct NaClAppThread *natp = NaClTlsGetCurrentThread();
+    natp = NaClTlsGetCurrentThread();
   #endif
 
   struct NaClSignalContext *suspended_registers =

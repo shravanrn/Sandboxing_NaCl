@@ -53,7 +53,14 @@ void WINAPI NaClAppThreadLauncher(void *state) {
   CHECK(thread_idx < NACL_THREAD_MAX);
 
   #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64 && NACL_LINUX
-    NaClTlsSetCurrentThreadExtended(natp);
+    if(NaClGetUseExtendedTls())
+    {
+      NaClTlsSetCurrentThreadExtended(natp);
+    }
+    else
+    {
+      NaClTlsSetCurrentThread(natp);
+    }
   #else
     NaClTlsSetCurrentThread(natp);
   #endif
@@ -151,7 +158,14 @@ void NaClAppThreadTeardown(struct NaClAppThread *natp) {
    * NaClAppThread pointer.
    */
   #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64 && NACL_LINUX
-    NaClTlsSetCurrentThreadExtended(NULL);
+    if(NaClGetUseExtendedTls())
+    {
+      NaClTlsSetCurrentThreadExtended(NULL);
+    }
+    else
+    {
+      NaClTlsSetCurrentThread(NULL);  
+    }
   #else
     NaClTlsSetCurrentThread(NULL);
   #endif

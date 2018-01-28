@@ -51,20 +51,21 @@ void NaClTlsFree(struct NaClAppThread *natp);
 
 
 #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64 && NACL_LINUX
+	void NaClSetUseExtendedTls(long val);
+	long NaClGetUseExtendedTls(void);
 	void NaClTlsSetCurrentThreadExtended(struct NaClAppThread *natp);
 	struct NaClAppThread *NaClTlsGetCurrentThreadExtended(uint64_t r15Value);
-#else
-	/*
-	 * Called in thread bootup code, to set TLS/TSD when the thread ID is not
-	 * saved in a reserved register (e.g., %gs in NaCl x86-32).
-	 */
-	void NaClTlsSetCurrentThread(struct NaClAppThread *natp);
-
-	/*
-	 * Get the current thread as set by NaClTlsSetCurrentThread().
-	 */
-	struct NaClAppThread *NaClTlsGetCurrentThread(void);	
 #endif
+/*
+ * Called in thread bootup code, to set TLS/TSD when the thread ID is not
+ * saved in a reserved register (e.g., %gs in NaCl x86-32).
+ */
+void NaClTlsSetCurrentThread(struct NaClAppThread *natp);
+
+/*
+ * Get the current thread as set by NaClTlsSetCurrentThread().
+ */
+struct NaClAppThread *NaClTlsGetCurrentThread(void);	
 
 void NaClTlsSetTlsValue1(struct NaClAppThread *natp, uint32_t value);
 void NaClTlsSetTlsValue2(struct NaClAppThread *natp, uint32_t value);
