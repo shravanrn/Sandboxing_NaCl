@@ -14,3 +14,10 @@ env.ComponentProgram(
     'dyn_ldr_test', 
     ['testing/dyn_ldr_test.c'],
     EXTRA_LIBS=['dyn_ldr','sel'])
+
+cpp_env = env.Clone(CXXFLAGS="-std=c++11")
+
+cpp_env.ComponentProgram(
+    'dyn_ldr_test_api', 
+    ['testing/dyn_ldr_test_api.cpp'],
+    EXTRA_LIBS=['dyn_ldr','sel'])
