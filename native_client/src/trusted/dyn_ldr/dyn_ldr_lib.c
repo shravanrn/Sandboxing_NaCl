@@ -161,7 +161,7 @@ int invokeCheckStructSizesTest
 );
 
 //Adapted from ./native_client/src/trusted/service_runtime/sel_main.c NaClSelLdrMain
-NaClSandbox* createDlSandbox(char* naclLibraryPath, char* naclInitAppFullPath)
+NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAppFullPath)
 {
   NaClSandbox*            sandbox = NULL;
   struct NaClApp*         nap = NULL;
@@ -837,6 +837,20 @@ int unregisterSandboxCallback(NaClSandbox* sandbox, unsigned slotNumber)
 
   sandbox->nap->callbackSlot[slotNumber] = 0;
   return TRUE;
+}
+
+int getFreeSandboxCallbackSlot(NaClSandbox* sandbox, unsigned* slot)
+{
+  for(unsigned i = 0; i < (unsigned) CALLBACK_SLOTS_AVAILABLE; i++)
+  {
+    if(sandbox->nap->callbackSlot[i] == 0)
+    {
+      *slot = i;
+      return 1;
+    }
+  }
+
+  return 0;
 }
 
 NaClSandbox_Thread* callbackParamsBegin(NaClSandbox* sandbox)

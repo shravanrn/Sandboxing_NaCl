@@ -11,7 +11,7 @@ int simpleAddTest(int a, int b)
 	return a + b;
 }
 
-size_t simpleStrLenTest(char* str)
+size_t simpleStrLenTest(const char* str)
 {
 	printf("simpleStrLenTest\n");
 	fflush(stdout);

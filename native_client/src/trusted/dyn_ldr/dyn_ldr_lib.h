@@ -58,7 +58,7 @@ typedef struct _NaClSandbox_Thread NaClSandbox_Thread;
 
 int initializeDlSandboxCreator(int enableLogging);
 int closeSandboxCreator(void);
-NaClSandbox* createDlSandbox   (char* naclLibraryPath, char* naclInitAppFullPath);
+NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAppFullPath);
 
 void* mallocInSandbox(NaClSandbox* sandbox, size_t size);
 void  freeInSandbox  (NaClSandbox* sandbox, void* ptr);
@@ -172,6 +172,7 @@ int isAddressInNonSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr);
 unsigned getTotalNumberOfCallbackSlots(void);
 uintptr_t registerSandboxCallback(NaClSandbox* sandbox, unsigned slotNumber, uintptr_t callback);
 int unregisterSandboxCallback(NaClSandbox* sandbox, unsigned slotNumber);
+int getFreeSandboxCallbackSlot(NaClSandbox* sandbox, unsigned* slot);
 NaClSandbox_Thread* callbackParamsBegin(NaClSandbox* sandbox);
 uintptr_t getCallbackParam(NaClSandbox_Thread* threadData, size_t size);
 

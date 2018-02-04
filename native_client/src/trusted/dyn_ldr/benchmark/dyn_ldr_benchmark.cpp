@@ -78,7 +78,7 @@ int main(int argc, char** argv)
 
 	printf("Starting Dyn loader Benchmark\n");
 
-	if(!initializeDlSandboxCreator(2 /* Should enable detailed logging */))
+	if(!initializeDlSandboxCreator(0 /* Should enable detailed logging */))
 	{
 		printf("Dyn loader Benchmark: initializeDlSandboxCreator returned null\n");
 		return 1;

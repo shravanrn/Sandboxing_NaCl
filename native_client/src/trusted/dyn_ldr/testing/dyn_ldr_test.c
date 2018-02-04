@@ -138,7 +138,7 @@ int invokeSimpleCallbackTest(NaClSandbox* sandbox, void* simpleCallbackTestPtr, 
 
 //////////////////////////////////////////////////////////////////
 
-int invokeSimpleWriteToFileTest(NaClSandbox* sandbox, void* simpleWriteToFileTest, FILE* file, char* str)
+int invokeSimpleWriteToFileTest(NaClSandbox* sandbox, void* simpleWriteToFileTest, FILE* file, const char* str)
 {
 	NaClSandbox_Thread* threadData = preFunctionCall(sandbox, sizeof(FILE*) + sizeof(str), STRING_SIZE(str));
 
@@ -249,7 +249,7 @@ unsigned long invokeSimpleLongAddTest(NaClSandbox* sandbox, void* simpleLongAddT
 /**************** Main function ****************/
 
 char* getExecFolder(char* executablePath);
-char* concatenateAndFixSlash(char* string1, char* string2);
+char* concatenateAndFixSlash(const char* string1, const char* string2);
 
 struct runTestParams
 {
@@ -271,7 +271,7 @@ struct runTestParams
 
 void* runTests(void* runTestParamsPtr)
 {
-	struct runTestParams* testParams = runTestParamsPtr;
+	struct runTestParams* testParams = (struct runTestParams*)runTestParamsPtr;
 	NaClSandbox* sandbox = testParams->sandbox;
 
 	int* testResult = &(testParams->testResult);
@@ -291,7 +291,7 @@ void* runTests(void* runTestParamsPtr)
 		return NULL;
 	}
 
-	if(invokeSimpleStrLenTestWithStackString(sandbox, testParams->simpleStrLenTestResult, "Hello") != 5)
+	if(invokeSimpleStrLenTestWithHeapString(sandbox, testParams->simpleStrLenTestResult, "Hello") != 5)
 	{
 		printf("Dyn loader Test 3: Failed\n");
 		*testResult = 0;
@@ -583,7 +583,7 @@ char* getExecFolder(char* executablePath)
 	return execFolder;
 }
 
-char* concatenateAndFixSlash(char* string1, char* string2)
+char* concatenateAndFixSlash(const char* string1, const char* string2)
 {
 	char* ret;
 
