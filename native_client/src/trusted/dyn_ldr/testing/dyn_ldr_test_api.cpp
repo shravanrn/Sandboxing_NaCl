@@ -85,12 +85,13 @@ int invokeSimpleCallbackTest_callback(unsigned a, char* b)
 	return a + strlen(b);
 }
 
-SANDBOX_CALLBACK unsigned invokeSimpleCallbackTest_callbackStub(uintptr_t sandboxPtr)
+SANDBOX_CALLBACK unsigned invokeSimpleCallbackTest_callbackStub(uintptr_t sandboxPtr, void* state)
 {
 	int a;
 	char* b;
 	NaClSandbox* sandbox = (NaClSandbox*) sandboxPtr;
 	NaClSandbox_Thread* threadData = callbackParamsBegin(sandbox);
+	UNUSED(state);
 
 	a = COMPLETELY_UNTRUSTED_CALLBACK_STACK_PARAM(threadData, int);
 	b = COMPLETELY_UNTRUSTED_CALLBACK_PTR_PARAM(threadData, char*);
@@ -264,7 +265,7 @@ struct runTestParams
 	void* simpleEchoTestResult;
 	void* simpleDoubleAddTestResult;
 	void* simpleLongAddTestResult;
-	uintptr_t registeredCallback;
+	std::shared_ptr<sandbox_callback_helper<int(unsigned int, char*)>> registeredCallback;
 
 	//for multi threaded test only
 	pthread_t newThread;
@@ -470,7 +471,8 @@ int main(int argc, char** argv)
 		/**************** Invoking functions in sandbox ****************/
 
 		//Note will return NULL if given a slot number greater than getTotalNumberOfCallbackSlots(), a valid ptr if it succeeds
-		sandboxParams[i].registeredCallback = registerSandboxCallback(sandboxParams[i].sandbox, slotNumber, (uintptr_t) invokeSimpleCallbackTest_callbackStub);
+		auto regCallback = sandbox_callback(sandboxParams[i].sandbox, invokeSimpleCallbackTest_callback);
+		sandboxParams[i].registeredCallback = regCallback;
 	}
 
 	for(int i = 0; i < 2; i++)

@@ -93,6 +93,49 @@ inline std::shared_ptr<sandbox_heaparr_helper<const char>> sandbox_heaparr(NaClS
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+//https://stackoverflow.com/questions/10766112/c11-i-can-go-from-multiple-args-to-tuple-but-can-i-go-from-tuple-to-multiple
+template <typename F, typename Tuple, bool Done, int Total, int... N>
+struct call_impl
+{
+    static void call(F f, Tuple && t)
+    {
+        call_impl<F, Tuple, Total == 1 + sizeof...(N), Total, N..., sizeof...(N)>::call(f, std::forward<Tuple>(t));
+    }
+};
+
+template <typename F, typename Tuple, int Total, int... N>
+struct call_impl<F, Tuple, true, Total, N...>
+{
+    static void call(F f, Tuple && t)
+    {
+        f(std::get<N>(std::forward<Tuple>(t))...);
+    }
+};
+
+template <typename F, typename Tuple>
+inline void call_func(F f, Tuple && t)
+{
+    typedef typename std::decay<Tuple>::type ttype;
+    call_impl<F, Tuple, 0 == std::tuple_size<ttype>::value, std::tuple_size<ttype>::value>::call(f, std::forward<Tuple>(t));
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+template<typename TArg>
+inline TArg sandbox_get_callback_param(NaClSandbox_Thread* threadData)
+{
+	return 0;
+}
+
+template<typename... TArgs, std::tuple<TArgs...>>
+inline std::tuple<TArgs...> sandbox_get_callback_params(NaClSandbox_Thread* threadData)
+{
+	return std::make_tuple(sandbox_get_callback_param<TArgs>(threadData)...);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+template<typename TFunc>
 class sandbox_callback_helper
 {
 public:
@@ -109,24 +152,36 @@ public:
 	}
 };
 
+template<typename TFunc>
+SANDBOX_CALLBACK return_argument<TFunc> sandbox_callback_receiver(uintptr_t sandboxPtr, void* state)
+{
+	NaClSandbox* sandbox = (NaClSandbox*) sandboxPtr;
+	NaClSandbox_Thread* threadData = callbackParamsBegin(sandbox);
+
+	TFunc* fnPtr = (TFunc*)(uintptr_t) state;
+	fn_parameters<TFunc> params = sandbox_get_callback_params<std::declval<fn_parameters<TFunc>>()>(threadData);
+	return call_func(fnPtr, params);
+}
+
 template <typename T>
-inline typename std::enable_if<std::is_function<T>::value,
-std::shared_ptr<sandbox_callback_helper>>::type sandbox_callback(NaClSandbox* sandbox, T fnPtr)
+__attribute__ ((noinline)) typename std::enable_if<std::is_function<T>::value,
+std::shared_ptr<sandbox_callback_helper<T>>>::type sandbox_callback(NaClSandbox* sandbox, T* fnPtr)
 {
 	unsigned callbackSlotNum;
-	auto ret = std::make_shared<sandbox_callback_helper>();
+	auto ret = std::make_shared<sandbox_callback_helper<T>>();
 	ret->sandbox = sandbox;
 
-	if(!getFreeSandboxCallbackSlot(sandbox, callbackSlotNum))
+	if(!getFreeSandboxCallbackSlot(sandbox, &callbackSlotNum))
 	{
 		sandbox_error("No free callback slots left in sandbox");
 	}
 
 	ret->callbackSlotNum = callbackSlotNum;
 
-	//... Need to figure out callback stuff
+	uintptr_t callbackReceiver = (uintptr_t) sandbox_callback_receiver<T>;
+	void* callbackState = (void*)(uintptr_t)fnPtr;
 
-	if(!registerSandboxCallback(sandbox, callbackSlotNum, (uintptr_t)fnPtr))
+	if(!registerSandboxCallback(sandbox, callbackSlotNum, callbackReceiver, callbackState))
 	{
 		sandbox_error("Register sandbox failed");
 	}
@@ -141,6 +196,9 @@ T* sandbox_removeWrapper_helper(sandbox_stackarr_helper<T>);
 
 template<typename T>
 T* sandbox_removeWrapper_helper(std::shared_ptr<sandbox_heaparr_helper<T>>);
+
+template<typename T>
+T sandbox_removeWrapper_helper(std::shared_ptr<sandbox_callback_helper<T>>);
 
 template<typename T>
 T sandbox_removeWrapper_helper(T);
