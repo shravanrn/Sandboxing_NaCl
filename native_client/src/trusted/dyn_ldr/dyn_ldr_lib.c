@@ -802,7 +802,7 @@ unsigned getTotalNumberOfCallbackSlots(void)
   return (unsigned) CALLBACK_SLOTS_AVAILABLE;
 }
 
-uintptr_t registerSandboxCallback(NaClSandbox* sandbox, unsigned slotNumber, uintptr_t callback)
+uintptr_t registerSandboxCallback(NaClSandbox* sandbox, unsigned slotNumber, uintptr_t callback, void* state)
 {
   if(callback == 0)
   {
@@ -820,6 +820,7 @@ uintptr_t registerSandboxCallback(NaClSandbox* sandbox, unsigned slotNumber, uin
     }
 
     sandbox->nap->callbackSlot[slotNumber] = callback;
+    sandbox->nap->callbackSlotState[slotNumber] = state;
     return (uintptr_t) sandbox->callbackFunctionWrapper[slotNumber];
   }
 }
@@ -1141,7 +1142,7 @@ void invokeIdentifyCallbackOffsetHelper(NaClSandbox* sandbox)
 
   if(identifyCallbackOffsetHelperPtr == NULL) { sandbox->callbackParameterStartOffset = -1; return; }
 
-  callback = registerSandboxCallback(sandbox, slotNumber, (uintptr_t) identifyCallbackParamOffset);
+  callback = registerSandboxCallback(sandbox, slotNumber, (uintptr_t) identifyCallbackParamOffset, NULL /* state */);
 
   threadData = preFunctionCall(sandbox, sizeof(callback), 0);
   PUSH_VAL_TO_STACK(threadData, uintptr_t, callback);

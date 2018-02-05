@@ -408,6 +408,7 @@ struct NaClApp {
   /* Creating a pointer slot that can used for callbacks from the 
    * sandboxes app to jump to the outer loader */
   uintptr_t callbackSlot[8];
+  void* callbackSlotState[8];
 
   /* A variable that is used by dyn_ldr to store the jump buffer,
    * used to jump back to the trusted code after running the main function of 

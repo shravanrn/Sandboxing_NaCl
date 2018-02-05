@@ -170,7 +170,7 @@ int isAddressInNonSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr);
 #define STRING_SIZE(val) ROUND_UP_TO_POW2(strlen(val) + 1, STACKALIGNMENT)
 
 unsigned getTotalNumberOfCallbackSlots(void);
-uintptr_t registerSandboxCallback(NaClSandbox* sandbox, unsigned slotNumber, uintptr_t callback);
+uintptr_t registerSandboxCallback(NaClSandbox* sandbox, unsigned slotNumber, uintptr_t callback, void* state);
 int unregisterSandboxCallback(NaClSandbox* sandbox, unsigned slotNumber);
 int getFreeSandboxCallbackSlot(NaClSandbox* sandbox, unsigned* slot);
 NaClSandbox_Thread* callbackParamsBegin(NaClSandbox* sandbox);
