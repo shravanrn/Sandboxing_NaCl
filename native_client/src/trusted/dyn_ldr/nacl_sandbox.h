@@ -60,7 +60,9 @@ public:
 template <typename T>
 inline sandbox_stackarr_helper<T> sandbox_stackarr(T* p_arr, size_t size) 
 { 
-	sandbox_stackarr_helper<T> ret { p_arr, size}; 
+	sandbox_stackarr_helper<T> ret;
+	ret.arr = p_arr;
+	ret.size = size; 
 	return ret; 
 }
 
@@ -85,16 +87,33 @@ public:
 	}
 };
 
-//template <typename T>
-inline std::shared_ptr<sandbox_heaparr_helper<const char>> sandbox_heaparr(NaClSandbox* sandbox, const char* str)
+template <typename T>
+inline sandbox_heaparr_helper<T>* sandbox_heaparr(NaClSandbox* sandbox, T* arg, size_t size)
 {
-	char* strInSandbox = (char *) mallocInSandbox(sandbox, strlen(str) + 1);
-	strcpy(strInSandbox, str);
+	T* argInSandbox = (T *) mallocInSandbox(sandbox, size);
+	memcpy((void*) argInSandbox, (void*) arg, size);
 
-	auto ret = std::make_shared<sandbox_heaparr_helper<const char>>();
+	auto ret = new sandbox_heaparr_helper<T>();
 	ret->sandbox = sandbox;
-	ret->arr = strInSandbox;
+	ret->arr = argInSandbox;
 	return ret; 
+}
+
+inline sandbox_heaparr_helper<const char>* sandbox_heaparr(NaClSandbox* sandbox, const char* str)
+{
+	return sandbox_heaparr(sandbox, str, strlen(str) + 1);
+}
+
+template <typename T>
+inline std::shared_ptr<sandbox_heaparr_helper<T>> sandbox_heaparr_sharedptr(NaClSandbox* sandbox, T* str, size_t size)
+{
+	return std::shared_ptr<sandbox_heaparr_helper<T>> (sandbox_heaparr(sandbox, str, size));
+}
+
+
+inline std::shared_ptr<sandbox_heaparr_helper<const char>> sandbox_heaparr_sharedptr(NaClSandbox* sandbox, const char* str)
+{
+	return sandbox_heaparr_sharedptr(sandbox, str, strlen(str) + 1);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -225,30 +244,36 @@ SANDBOX_CALLBACK return_argument<TFunc> sandbox_callback_receiver(uintptr_t sand
 
 template <typename T>
 __attribute__ ((noinline)) typename std::enable_if<std::is_function<T>::value,
-std::shared_ptr<sandbox_callback_helper<T>>>::type sandbox_callback(NaClSandbox* sandbox, T* fnPtr)
+sandbox_callback_helper<T>*>::type sandbox_callback(NaClSandbox* sandbox, T* fnPtr)
 {
 	unsigned callbackSlotNum;
-	auto ret = std::make_shared<sandbox_callback_helper<T>>();
-	ret->sandbox = sandbox;
 
 	if(!getFreeSandboxCallbackSlot(sandbox, &callbackSlotNum))
 	{
 		sandbox_error("No free callback slots left in sandbox");
 	}
 
-	ret->callbackSlotNum = callbackSlotNum;
-
 	uintptr_t callbackReceiver = (uintptr_t) sandbox_callback_receiver<T>;
 	void* callbackState = (void*)(uintptr_t)fnPtr;
 
-	ret->callbackRegisteredAddress = registerSandboxCallbackWithState(sandbox, callbackSlotNum, callbackReceiver, callbackState);
+	auto callbackRegisteredAddress = registerSandboxCallbackWithState(sandbox, callbackSlotNum, callbackReceiver, callbackState);
 
-	if(!ret->callbackRegisteredAddress)
+	if(!callbackRegisteredAddress)
 	{
 		sandbox_error("Register sandbox failed");
 	}
 
+	auto ret = new sandbox_callback_helper<T>();
+	ret->sandbox = sandbox;
+	ret->callbackSlotNum = callbackSlotNum;
+	ret->callbackRegisteredAddress = callbackRegisteredAddress;
 	return ret; 
+}
+
+template <typename T>
+std::shared_ptr<sandbox_callback_helper<T>> sandbox_callback_sharedptr(NaClSandbox* sandbox, T* fnPtr)
+{
+	return std::shared_ptr<sandbox_callback_helper<T>> (sandbox_callback(sandbox, fnPtr));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -257,8 +282,12 @@ template<typename T>
 T* sandbox_removeWrapper_helper(sandbox_stackarr_helper<T>);
 
 template<typename T>
+T* sandbox_removeWrapper_helper(sandbox_heaparr_helper<T>);
+template<typename T>
 T* sandbox_removeWrapper_helper(std::shared_ptr<sandbox_heaparr_helper<T>>);
 
+template<typename T>
+T* sandbox_removeWrapper_helper(sandbox_callback_helper<T>);
 template<typename T>
 T* sandbox_removeWrapper_helper(std::shared_ptr<sandbox_callback_helper<T>>);
 

@@ -123,7 +123,7 @@ void* runTests(void* runTestParamsPtr)
 		return NULL;
 	}
 
-	if(sandbox_invoke(sandbox, simpleStrLenTest, testParams->simpleStrLenTestResult, sandbox_heaparr(sandbox, "Hello")) != 5)
+	if(sandbox_invoke(sandbox, simpleStrLenTest, testParams->simpleStrLenTestResult, sandbox_heaparr_sharedptr(sandbox, "Hello")) != 5)
 	{
 		printf("Dyn loader Test 3: Failed\n");
 		*testResult = 0;
@@ -299,7 +299,7 @@ int main(int argc, char** argv)
 		/**************** Invoking functions in sandbox ****************/
 
 		//Note will return NULL if given a slot number greater than getTotalNumberOfCallbackSlots(), a valid ptr if it succeeds
-		sandboxParams[i].registeredCallback = sandbox_callback(sandboxParams[i].sandbox, invokeSimpleCallbackTest_callback);
+		sandboxParams[i].registeredCallback = sandbox_callback_sharedptr(sandboxParams[i].sandbox, invokeSimpleCallbackTest_callback);
 	}
 
 	for(int i = 0; i < 2; i++)
