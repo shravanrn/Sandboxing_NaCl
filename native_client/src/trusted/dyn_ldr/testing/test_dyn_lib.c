@@ -30,7 +30,7 @@ int simpleCallbackTest(unsigned a, const char* b, CallbackType callback)
 	return ret;
 }
 
-int simpleWriteToFileTest(FILE* file, char* str)
+int simpleWriteToFileTest(FILE* file, const char* str)
 {
 	printf("simpleWriteToFileTest\n");
 	fflush(stdout);

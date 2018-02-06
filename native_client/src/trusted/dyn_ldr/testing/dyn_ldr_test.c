@@ -175,7 +175,7 @@ int fileTestPassed(NaClSandbox* sandbox, void* simpleWriteToFileTest)
 
 //////////////////////////////////////////////////////////////////
 
-int invokeSimpleEchoTestPassed(NaClSandbox* sandbox, void* simpleEchoTestPtr, char* str)
+int invokeSimpleEchoTestPassed(NaClSandbox* sandbox, void* simpleEchoTestPtr, const char* str)
 {
 	char* strInSandbox;
 	char* retStr;
