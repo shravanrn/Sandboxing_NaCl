@@ -80,7 +80,7 @@ int strLenWithin(char* a, unsigned lenLimit)
 	return 0;
 }
 
-int invokeSimpleCallbackTest_callback(unsigned a, char* b)
+int invokeSimpleCallbackTest_callback(unsigned a, const char* b)
 {
 	return a + strlen(b);
 }
@@ -265,7 +265,7 @@ struct runTestParams
 	void* simpleEchoTestResult;
 	void* simpleDoubleAddTestResult;
 	void* simpleLongAddTestResult;
-	std::shared_ptr<sandbox_callback_helper<int(unsigned int, char*)>> registeredCallback;
+	std::shared_ptr<sandbox_callback_helper<int(unsigned int, const char*)>> registeredCallback;
 
 	//for multi threaded test only
 	pthread_t newThread;
@@ -301,12 +301,12 @@ void* runTests(void* runTestParamsPtr)
 		return NULL;
 	}
 
-	// if(sandbox_invoke(sandbox, simpleCallbackTest, testParams->simpleCallbackTestResult, 4, "Hello", testParams->registeredCallback) != 10)
-	// {
-	// 	printf("Dyn loader Test 4: Failed\n");
-	// 	*testResult = 0;
-	// 	return NULL;
-	// }
+	if(sandbox_invoke(sandbox, simpleCallbackTest, testParams->simpleCallbackTestResult, (unsigned) 4, sandbox_stackarr("Hello"), testParams->registeredCallback) != 10)
+	{
+		printf("Dyn loader Test 4: Failed\n");
+		*testResult = 0;
+		return NULL;
+	}
 
 	// if(!fileTestPassed(sandbox, testParams->simpleWriteToFileTestResult))
 	// {
@@ -471,8 +471,7 @@ int main(int argc, char** argv)
 		/**************** Invoking functions in sandbox ****************/
 
 		//Note will return NULL if given a slot number greater than getTotalNumberOfCallbackSlots(), a valid ptr if it succeeds
-		auto regCallback = sandbox_callback(sandboxParams[i].sandbox, invokeSimpleCallbackTest_callback);
-		sandboxParams[i].registeredCallback = regCallback;
+		sandboxParams[i].registeredCallback = sandbox_callback(sandboxParams[i].sandbox, invokeSimpleCallbackTest_callback);
 	}
 
 	for(int i = 0; i < 2; i++)

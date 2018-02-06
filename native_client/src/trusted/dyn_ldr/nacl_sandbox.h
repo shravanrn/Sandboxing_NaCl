@@ -54,13 +54,19 @@ class sandbox_stackarr_helper
 {
 public:
 	T* arr;
+	size_t size;
 };
 
 template <typename T>
-inline sandbox_stackarr_helper<T> sandbox_stackarr(T* p_arr) 
+inline sandbox_stackarr_helper<T> sandbox_stackarr(T* p_arr, size_t size) 
 { 
-	sandbox_stackarr_helper<T> ret { p_arr }; 
+	sandbox_stackarr_helper<T> ret { p_arr, size}; 
 	return ret; 
+}
+
+inline sandbox_stackarr_helper<const char> sandbox_stackarr(const char* p_arr) 
+{ 
+	return sandbox_stackarr(p_arr, strlen(p_arr) + 1); 
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -97,40 +103,91 @@ inline std::shared_ptr<sandbox_heaparr_helper<const char>> sandbox_heaparr(NaClS
 template <typename F, typename Tuple, bool Done, int Total, int... N>
 struct call_impl
 {
-    static void call(F f, Tuple && t)
-    {
-        call_impl<F, Tuple, Total == 1 + sizeof...(N), Total, N..., sizeof...(N)>::call(f, std::forward<Tuple>(t));
-    }
+	static inline return_argument<F> call(F f, Tuple && t)
+	{
+		return call_impl<F, Tuple, Total == 1 + sizeof...(N), Total, N..., sizeof...(N)>::call(f, std::forward<Tuple>(t));
+	}
 };
 
 template <typename F, typename Tuple, int Total, int... N>
 struct call_impl<F, Tuple, true, Total, N...>
 {
-    static void call(F f, Tuple && t)
-    {
-        f(std::get<N>(std::forward<Tuple>(t))...);
-    }
+	static inline return_argument<F> call(F f, Tuple && t)
+	{
+		return f(std::get<N>(std::forward<Tuple>(t))...);
+	}
 };
 
 template <typename F, typename Tuple>
-inline void call_func(F f, Tuple && t)
+inline return_argument<F> call_func(F f, Tuple && t)
 {
-    typedef typename std::decay<Tuple>::type ttype;
-    call_impl<F, Tuple, 0 == std::tuple_size<ttype>::value, std::tuple_size<ttype>::value>::call(f, std::forward<Tuple>(t));
+	typedef typename std::decay<Tuple>::type ttype;
+	return call_impl<F, Tuple, 0 == std::tuple_size<ttype>::value, std::tuple_size<ttype>::value>::call(f, std::forward<Tuple>(t));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<typename TArg>
-inline TArg sandbox_get_callback_param(NaClSandbox_Thread* threadData)
+inline typename std::enable_if<std::is_pointer<TArg>::value,
+TArg>::type sandbox_get_callback_param(NaClSandbox_Thread* threadData)
 {
-	return 0;
+	printf("callback pointer arg\n");
+	return COMPLETELY_UNTRUSTED_CALLBACK_PTR_PARAM(threadData, TArg);
 }
 
-template<typename... TArgs, std::tuple<TArgs...>>
-inline std::tuple<TArgs...> sandbox_get_callback_params(NaClSandbox_Thread* threadData)
+template<typename TArg>
+inline typename std::enable_if<!std::is_pointer<TArg>::value,
+TArg>::type sandbox_get_callback_param(NaClSandbox_Thread* threadData)
 {
-	return std::make_tuple(sandbox_get_callback_param<TArgs>(threadData)...);
+	printf("callback value arg\n");
+	return COMPLETELY_UNTRUSTED_CALLBACK_STACK_PARAM(threadData, TArg);
+}
+
+template<typename... TArgs>
+inline std::tuple<TArgs...> sandbox_get_callback_params_helper(NaClSandbox_Thread* threadData)
+{
+	//Note - we can't use make tuple here as this would(may?) iterate through the parameter right to left
+	//So we use an initializer list which guarantees order of eval as left to right
+	return std::tuple<TArgs...> {sandbox_get_callback_param<TArgs>(threadData)...};
+}
+
+template<typename Ret, typename... Rest>
+inline std::tuple<Rest...> sandbox_get_callback_params(Ret(*f) (Rest...), NaClSandbox_Thread* threadData)
+{
+	UNUSED(f);
+	return sandbox_get_callback_params_helper<Rest...>(threadData);
+}
+
+template<typename Ret, typename F, typename... Rest>
+inline std::tuple<Rest...> sandbox_get_callback_params(Ret(F::*f) (Rest...), NaClSandbox_Thread* threadData)
+{
+	UNUSED(f);
+	return sandbox_get_callback_params_helper<Rest...>(threadData);
+}
+
+template<typename Ret, typename F, typename... Rest>
+inline std::tuple<Rest...> sandbox_get_callback_params(Ret(F::*f) (Rest...) const, NaClSandbox_Thread* threadData)
+{
+	UNUSED(f);
+	return sandbox_get_callback_params_helper<Rest...>(threadData);
+}
+
+template <typename F>
+decltype(sandbox_get_callback_params(&F::operator())) sandbox_get_callback_params(F);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+template <typename T>
+inline T sandbox_callback_return(NaClSandbox_Thread* threadData, T arg)
+{
+	UNUSED(threadData);
+	return arg;
+}
+
+template <typename T>
+inline T* sandbox_callback_return(NaClSandbox_Thread* threadData, T* arg)
+{
+	return CALLBACK_RETURN_PTR(threadData, T*, arg);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -141,6 +198,7 @@ class sandbox_callback_helper
 public:
 	NaClSandbox* sandbox;
 	short callbackSlotNum;
+	uintptr_t callbackRegisteredAddress;
 
 	~sandbox_callback_helper()
 	{
@@ -159,8 +217,10 @@ SANDBOX_CALLBACK return_argument<TFunc> sandbox_callback_receiver(uintptr_t sand
 	NaClSandbox_Thread* threadData = callbackParamsBegin(sandbox);
 
 	TFunc* fnPtr = (TFunc*)(uintptr_t) state;
-	fn_parameters<TFunc> params = sandbox_get_callback_params<std::declval<fn_parameters<TFunc>>()>(threadData);
-	return call_func(fnPtr, params);
+	fn_parameters<TFunc> params = sandbox_get_callback_params(fnPtr, threadData);
+	printf("Calling callback function\n");
+	auto ret = call_func(fnPtr, params);
+	return sandbox_callback_return(threadData, ret);
 }
 
 template <typename T>
@@ -181,7 +241,9 @@ std::shared_ptr<sandbox_callback_helper<T>>>::type sandbox_callback(NaClSandbox*
 	uintptr_t callbackReceiver = (uintptr_t) sandbox_callback_receiver<T>;
 	void* callbackState = (void*)(uintptr_t)fnPtr;
 
-	if(!registerSandboxCallback(sandbox, callbackSlotNum, callbackReceiver, callbackState))
+	ret->callbackRegisteredAddress = registerSandboxCallback(sandbox, callbackSlotNum, callbackReceiver, callbackState);
+
+	if(!ret->callbackRegisteredAddress)
 	{
 		sandbox_error("Register sandbox failed");
 	}
@@ -198,7 +260,7 @@ template<typename T>
 T* sandbox_removeWrapper_helper(std::shared_ptr<sandbox_heaparr_helper<T>>);
 
 template<typename T>
-T sandbox_removeWrapper_helper(std::shared_ptr<sandbox_callback_helper<T>>);
+T* sandbox_removeWrapper_helper(std::shared_ptr<sandbox_callback_helper<T>>);
 
 template<typename T>
 T sandbox_removeWrapper_helper(T);
@@ -219,6 +281,34 @@ template <typename T, typename ... Targs>
 inline size_t sandbox_NaClAddParams(T arg, Targs... rem)
 {
 	return sizeof(arg) + sandbox_NaClAddParams(rem...);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+template <typename T>
+inline size_t sandbox_NaClStackArraySizeOf(T arg)
+{
+	UNUSED(arg);
+	return 0;
+}
+
+template <typename T>
+inline size_t sandbox_NaClStackArraySizeOf(sandbox_stackarr_helper<T> arg)
+{
+	return arg.size;
+}
+
+template<typename... T>
+inline size_t sandbox_NaClAddStackArrParams(T... arg)
+{
+	UNUSED(arg...);
+	return 0;
+}
+
+template <typename T, typename ... Targs>
+inline size_t sandbox_NaClAddStackArrParams(T arg, Targs... rem)
+{
+	return sandbox_NaClStackArraySizeOf(arg) + sandbox_NaClAddStackArrParams(rem...);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -251,11 +341,11 @@ inline void sandbox_handleNaClArg(NaClSandbox_Thread* threadData, T* arg)
 	PUSH_PTR_TO_STACK(threadData, T*, arg);
 }
 
-template <>
-inline void sandbox_handleNaClArg(NaClSandbox_Thread* threadData, sandbox_stackarr_helper<const char> arg)
+template <typename T>
+inline void sandbox_handleNaClArg(NaClSandbox_Thread* threadData, sandbox_stackarr_helper<T> arg)
 {
-	printf("got a string stack arg\n");
-	PUSH_STRING_TO_STACK(threadData, arg.arr);
+	printf("got a stack array arg\n");
+	PUSH_GEN_ARRAY_TO_STACK(threadData, arg.arr, arg.size);
 }
 
 template <typename T>
@@ -263,6 +353,13 @@ inline void sandbox_handleNaClArg(NaClSandbox_Thread* threadData, std::shared_pt
 {
 	printf("got a heap copy ptr arg\n");
 	PUSH_PTR_TO_STACK(threadData, T*, arg->arr);
+}
+
+template <typename T>
+inline void sandbox_handleNaClArg(NaClSandbox_Thread* threadData, std::shared_ptr<sandbox_callback_helper<T>> arg)
+{
+	printf("got a callback arg\n");
+	PUSH_VAL_TO_STACK(threadData, uintptr_t, arg->callbackRegisteredAddress);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -332,7 +429,8 @@ template <typename T, typename ... Targs>
 __attribute__ ((noinline)) typename std::enable_if<std::is_function<T>::value,
 return_argument<T>>::type sandbox_invoker(NaClSandbox* sandbox, void* fnPtr, Targs ... param)
 {
-	NaClSandbox_Thread* threadData = preFunctionCall(sandbox, sandbox_NaClAddParams(param...), 128 /* size of any arrays being pushed on the stack */);
+	NaClSandbox_Thread* threadData = preFunctionCall(sandbox, sandbox_NaClAddParams(param...), sandbox_NaClAddStackArrParams(param...) /* size of any arrays being pushed on the stack */);
+	printf("StackArr Size: %u\n", (unsigned)sandbox_NaClAddStackArrParams(param...));
 	sandbox_dealWithNaClArgs(threadData, param...);
 	return sandbox_checkSignatureAndCallNaClFn<T, Targs ...>(threadData, fnPtr);
 }
