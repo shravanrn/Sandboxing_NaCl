@@ -395,7 +395,6 @@ int main(int argc, char** argv)
 	char* execFolder;
 	char* libraryPath;
 	char* libraryToLoad;
-	short slotNumber = 0;
 	struct runTestParams sandboxParams[2];
 
 	if(argc < 1)
@@ -508,15 +507,6 @@ int main(int argc, char** argv)
 	// 	checkMultiThreadedTest(threadParams1, ThreadsToTest);
 	// 	checkMultiThreadedTest(threadParams2, ThreadsToTest);
 	// }
-
-	//Best to unregister after it is done
-	//In an adversarial setting, the sandboxed app may decide to invoke the callback
-	//arbitrarily in the future, which may allow it to destabilize the hosting app
-	//Note will return 0 if given a slot number greater than getTotalNumberOfCallbackSlots(), 1 if it succeeds
-	for(int i = 0; i < 2; i++)
-	{
-		unregisterSandboxCallback(sandboxParams[i].sandbox, slotNumber);
-	}
 
 	printf("Dyn loader Test Succeeded\n");
 

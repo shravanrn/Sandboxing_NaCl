@@ -83,7 +83,7 @@ int invokeSimpleCallbackTest_callback(unsigned a, char* b)
 	return a + strlen(b);
 }
 
-SANDBOX_CALLBACK unsigned invokeSimpleCallbackTest_callbackStub(uintptr_t sandboxPtr, void* state)
+SANDBOX_CALLBACK unsigned invokeSimpleCallbackTest_callbackStub(uintptr_t sandboxPtr)
 {
 	int a;
 	char* b;
@@ -468,7 +468,7 @@ int main(int argc, char** argv)
 		/**************** Invoking functions in sandbox ****************/
 
 		//Note will return NULL if given a slot number greater than getTotalNumberOfCallbackSlots(), a valid ptr if it succeeds
-		sandboxParams[i].registeredCallback = registerSandboxCallback(sandboxParams[i].sandbox, slotNumber, (uintptr_t) invokeSimpleCallbackTest_callbackStub, NULL /* state */);
+		sandboxParams[i].registeredCallback = registerSandboxCallback(sandboxParams[i].sandbox, slotNumber, (uintptr_t) invokeSimpleCallbackTest_callbackStub);
 	}
 
 	for(int i = 0; i < 2; i++)

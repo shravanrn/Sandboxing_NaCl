@@ -241,7 +241,7 @@ std::shared_ptr<sandbox_callback_helper<T>>>::type sandbox_callback(NaClSandbox*
 	uintptr_t callbackReceiver = (uintptr_t) sandbox_callback_receiver<T>;
 	void* callbackState = (void*)(uintptr_t)fnPtr;
 
-	ret->callbackRegisteredAddress = registerSandboxCallback(sandbox, callbackSlotNum, callbackReceiver, callbackState);
+	ret->callbackRegisteredAddress = registerSandboxCallbackWithState(sandbox, callbackSlotNum, callbackReceiver, callbackState);
 
 	if(!ret->callbackRegisteredAddress)
 	{
