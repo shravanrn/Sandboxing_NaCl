@@ -44,7 +44,7 @@ char* simpleEchoTest(char * str)
 	return str;
 }
 
-double simpleDoubleAddTest(double a, double b)
+double simpleDoubleAddTest(const double a, const double b)
 {
 	printf("simpleDoubleAddTest\n");
 	return a + b;

@@ -1,5 +1,6 @@
 #include <type_traits>
 #include <memory>
+#include <functional>
 #include <stdio.h>
 
 //https://stackoverflow.com/questions/19532475/casting-a-variadic-parameter-pack-to-void
@@ -294,8 +295,8 @@ T* sandbox_removeWrapper_helper(std::shared_ptr<sandbox_callback_helper<T>>);
 template<typename T>
 T sandbox_removeWrapper_helper(T);
 
-template <typename... T>
-using sandbox_removeWrapper = std::tuple<decltype(sandbox_removeWrapper_helper(std::declval<T>()))...>;
+template <typename T>
+using sandbox_removeWrapper = decltype(sandbox_removeWrapper_helper(std::declval<T>()));
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -443,9 +444,44 @@ return_argument<T>>::type sandbox_invokeNaClReturn(NaClSandbox_Thread* threadDat
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+//https://github.com/facebook/folly/blob/master/folly/functional/Invoke.h
+//mimic C++17's std::invocable
+namespace invoke_detail {
+
+	template< class... >
+	using void_t = void;
+
+	template <typename F, typename... Args>
+	constexpr auto invoke(F&& f, Args&&... args) noexcept(
+	    noexcept(static_cast<F&&>(f)(static_cast<Args&&>(args)...)))
+	    -> decltype(static_cast<F&&>(f)(static_cast<Args&&>(args)...)) {
+	  return static_cast<F&&>(f)(static_cast<Args&&>(args)...);
+	}
+	template <typename M, typename C, typename... Args>
+	constexpr auto invoke(M(C::*d), Args&&... args)
+	    -> decltype(std::mem_fn(d)(static_cast<Args&&>(args)...)) {
+	  return std::mem_fn(d)(static_cast<Args&&>(args)...);
+	}
+
+	template <typename F, typename... Args>
+	using invoke_result_ =
+	decltype(invoke(std::declval<F>(), std::declval<Args>()...));
+
+	template <typename Void, typename F, typename... Args>
+	struct is_invocable : std::false_type {};
+
+	template <typename F, typename... Args>
+	struct is_invocable<void_t<invoke_result_<F, Args...>>, F, Args...>
+	: std::true_type {};
+}
+
+template <typename F, typename... Args>
+struct is_invocable_port : invoke_detail::is_invocable<void, F, Args...> {};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <typename T, typename ... Targs>
-inline typename std::enable_if<std::is_same<fn_parameters<T>, sandbox_removeWrapper<Targs...>>::value, 
+inline typename std::enable_if<is_invocable_port<T, sandbox_removeWrapper<Targs>...>::value, 
 return_argument<T>>::type sandbox_checkSignatureAndCallNaClFn(NaClSandbox_Thread* threadData, void* fnPtr)
 {
 	invokeFunctionCall(threadData, fnPtr);
