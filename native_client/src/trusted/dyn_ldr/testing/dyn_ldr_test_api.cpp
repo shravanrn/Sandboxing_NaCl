@@ -7,6 +7,23 @@
 #include "native_client/src/trusted/dyn_ldr/nacl_sandbox.h"
 #include "native_client/src/trusted/dyn_ldr/testing/test_dyn_lib.h"
 
+
+//////////////////////////////////////////////////////////////////
+
+#define sandbox_fields_reflection_exampleId_class_testStruct(f, g) \
+	f(unsigned long, fieldLong) \
+	g() \
+	f(const char*, fieldString) \
+	g() \
+	f(unsigned int, fieldBool)
+
+#define sandbox_fields_reflection_exampleId_allClasses(f) \
+	f(testStruct, exampleId)
+
+sandbox_nacl_load_library_api(exampleId);
+
+//////////////////////////////////////////////////////////////////
+
 char SEPARATOR = '/';
 #include <pthread.h>
 
@@ -61,10 +78,11 @@ int invokeSimpleEchoTestPassed(NaClSandbox* sandbox, void* simpleEchoTestPtr, co
 		return 0;
 	}
 
-	retStr = sandbox_invoke(sandbox, simpleEchoTest, simpleEchoTestPtr, strInSandbox);
+	retStr = sandbox_invoke(sandbox, simpleEchoTest, simpleEchoTestPtr, strInSandbox)
+		.sandbox_copyAndVerifyString([](char* val) { return strlen(val) < 100; }, nullptr);
 
-	//retStr is allocated in sandbox heap, not our heap
-	if(!isAddressInSandboxMemoryOrNull(sandbox, (uintptr_t) retStr))
+	//retStr.field is a copy on our heap
+	if(isAddressInSandboxMemoryOrNull(sandbox, (uintptr_t) retStr))
 	{
 		return 0;
 	}
@@ -94,6 +112,8 @@ struct runTestParams
 	void* simpleEchoTestResult;
 	void* simpleDoubleAddTestResult;
 	void* simpleLongAddTestResult;
+	void* simpleTestStructValResult;
+	void* simpleTestStructPtrResult;
 	std::shared_ptr<sandbox_callback_helper<int(unsigned int, const char*)>> registeredCallback;
 
 	//for multi threaded test only
@@ -109,28 +129,37 @@ void* runTests(void* runTestParamsPtr)
 	int* testResult = &(testParams->testResult);
 	*testResult = -1;
 
-	if(sandbox_invoke(sandbox, simpleAddTest, testParams->simpleAddTestSymResult, 2, 3) != 5)
+
+	auto result1 = sandbox_invoke(sandbox, simpleAddTest, testParams->simpleAddTestSymResult, 2, 3)
+		.sandbox_copyAndVerify([](int val){ return val > 0 && val < 10;}, -1);
+	if(result1 != 5)
 	{
 		printf("Dyn loader Test 1: Failed\n");
 		*testResult = 0;
 		return NULL;
 	}
 
-	if(sandbox_invoke(sandbox, simpleStrLenTest, testParams->simpleStrLenTestResult, sandbox_stackarr("Hello")) != 5)
+	auto result2 = sandbox_invoke(sandbox, simpleStrLenTest, testParams->simpleStrLenTestResult, sandbox_stackarr("Hello"))
+		.sandbox_copyAndVerify([](size_t val) -> size_t { return (val <= 0 || val >= 10)? -1 : val; });
+	if(result2 != 5)
 	{
-		printf("Dyn loader Test 2: Failed\n");
+		printf("Dyn loader Test 2: Failed %d \n", (int)result2);
 		*testResult = 0;
 		return NULL;
 	}
 
-	if(sandbox_invoke(sandbox, simpleStrLenTest, testParams->simpleStrLenTestResult, sandbox_heaparr_sharedptr(sandbox, "Hello")) != 5)
+	auto result3 = sandbox_invoke(sandbox, simpleStrLenTest, testParams->simpleStrLenTestResult, sandbox_heaparr_sharedptr(sandbox, "Hello"))
+		.sandbox_copyAndVerify([](size_t val) -> size_t { return (val <= 0 || val >= 10)? -1 : val; });
+	if(result3 != 5)
 	{
 		printf("Dyn loader Test 3: Failed\n");
 		*testResult = 0;
 		return NULL;
 	}
 
-	if(sandbox_invoke(sandbox, simpleCallbackTest, testParams->simpleCallbackTestResult, (unsigned) 4, sandbox_stackarr("Hello"), testParams->registeredCallback) != 10)
+	auto result4 = sandbox_invoke(sandbox, simpleCallbackTest, testParams->simpleCallbackTestResult, (unsigned) 4, sandbox_stackarr("Hello"), testParams->registeredCallback)
+		.sandbox_copyAndVerify([](int val){ return val > 0 && val < 100;}, -1);
+	if(result4 != 10)
 	{
 		printf("Dyn loader Test 4: Failed\n");
 		*testResult = 0;
@@ -141,28 +170,48 @@ void* runTests(void* runTestParamsPtr)
 	{
 		printf("Dyn loader Test 5: Failed\n");
 		*testResult = 0;
-		return NULL;	
+		return NULL;
 	}
 
 	if(!invokeSimpleEchoTestPassed(sandbox, testParams->simpleEchoTestResult, "Hello"))
 	{
 		printf("Dyn loader Test 6: Failed\n");
 		*testResult = 0;
-		return NULL;	
+		return NULL;
 	}
 
-	if(sandbox_invoke(sandbox, simpleDoubleAddTest, testParams->simpleDoubleAddTestResult, 1.0, 2.0) != 3.0)
+	auto result7 = sandbox_invoke(sandbox, simpleDoubleAddTest, testParams->simpleDoubleAddTestResult, 1.0, 2.0)
+		.sandbox_copyAndVerify([](double val){ return val > 0 && val < 100;}, -1.0);
+	if(result7 != 3.0)
 	{
 		printf("Dyn loader Test 7: Failed\n");
 		*testResult = 0;
 		return NULL;
 	}
 
-	if(sandbox_invoke(sandbox, simpleLongAddTest, testParams->simpleLongAddTestResult, ULONG_MAX - 1ul, 1ul) != ULONG_MAX)
+	auto result8 = sandbox_invoke(sandbox, simpleLongAddTest, testParams->simpleLongAddTestResult, ULONG_MAX - 1ul, 1ul)
+		.sandbox_copyAndVerify([](unsigned long val){ return val > 100;}, 0);
+	if(result8 != ULONG_MAX)
 	{
 		printf("Dyn loader Test 8: Failed\n");
 		*testResult = 0;
-		return NULL;	
+		return NULL;
+	}
+
+	auto result9T = sandbox_invoke(sandbox, simpleTestStructVal, testParams->simpleTestStructValResult);
+	auto result9 = result9T
+		.sandbox_copyAndVerify([](sandbox_unverified_data<testStruct>& val){ 
+			testStruct ret;
+			ret.fieldLong = val.fieldLong.sandbox_copyAndVerify([](unsigned long val) { return val; });
+			ret.fieldString = val.fieldString.sandbox_copyAndVerifyString([](const char* val) { return strlen(val) < 100; }, nullptr);
+			ret.fieldBool = val.fieldBool.sandbox_copyAndVerify([](unsigned int val) { return val; });
+			return ret; 
+		});
+	if(result9.fieldLong != 7 || strcmp(result9.fieldString, "Hello") != 0 || result9.fieldBool != 1)
+	{
+		printf("Dyn loader Test 9: Failed\n");
+		*testResult = 0;
+		return NULL;
 	}
 
 	*testResult = 1;
@@ -281,6 +330,8 @@ int main(int argc, char** argv)
 		sandboxParams[i].simpleEchoTestResult        = symbolTableLookupInSandbox(sandboxParams[i].sandbox, "simpleEchoTest");
 		sandboxParams[i].simpleDoubleAddTestResult   = symbolTableLookupInSandbox(sandboxParams[i].sandbox, "simpleDoubleAddTest");
 		sandboxParams[i].simpleLongAddTestResult     = symbolTableLookupInSandbox(sandboxParams[i].sandbox, "simpleLongAddTest");
+		sandboxParams[i].simpleTestStructValResult   = symbolTableLookupInSandbox(sandboxParams[i].sandbox, "simpleTestStructVal");
+		sandboxParams[i].simpleTestStructPtrResult   = symbolTableLookupInSandbox(sandboxParams[i].sandbox, "simpleTestStructPtr");
 
 		printf("symbol lookup successful: %d\n", i);
 
@@ -290,7 +341,9 @@ int main(int argc, char** argv)
 			|| sandboxParams[i].simpleWriteToFileTestResult == NULL
 			|| sandboxParams[i].simpleEchoTestResult == NULL
 			|| sandboxParams[i].simpleDoubleAddTestResult == NULL
-			|| sandboxParams[i].simpleLongAddTestResult == NULL)
+			|| sandboxParams[i].simpleLongAddTestResult == NULL
+			|| sandboxParams[i].simpleTestStructValResult == NULL
+			|| sandboxParams[i].simpleTestStructPtrResult == NULL)
 		{
 			printf("Dyn loader Test: symbol lookup returned null: %d\n", i);
 			return 1;

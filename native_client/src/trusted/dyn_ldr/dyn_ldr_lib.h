@@ -60,6 +60,8 @@ int initializeDlSandboxCreator(int enableLogging);
 int closeSandboxCreator(void);
 NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAppFullPath);
 
+unsigned long getSandboxMemoryBase(NaClSandbox* sandbox);
+
 void* mallocInSandbox(NaClSandbox* sandbox, size_t size);
 void  freeInSandbox  (NaClSandbox* sandbox, void* ptr);
 
@@ -114,6 +116,12 @@ int isAddressInNonSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr);
 		*regPtr = value; \
 		threadData->floatRegisterParameterNumber++; \
 	}
+
+	#define ALLOCATE_STACK_VARIABLE(threadData, type, variable) type* variable; \
+	do { \
+		threadData->stack_ptr_forParameters = ADJUST_STACK_PTR(threadData->stack_ptr_forParameters, sizeof(type)); \
+		variable = (type*) threadData->stack_ptr_forParameters; \
+	} while (0)
 
 	#define PUSH_VAL_TO_STACK_SKIP_REGS(threadData, type, value) do { \
 		*(type *) (threadData->stack_ptr_forParameters) = (type) value; \

@@ -486,6 +486,11 @@ err_createdSandbox:
   return NULL;
 }
 
+unsigned long getSandboxMemoryBase(NaClSandbox* sandbox)
+{
+	return sandbox->nap->mem_start;
+}
+
 /********************** "Function call stub" helpers *****************************/
 NaClSandbox_Thread* getThreadData(NaClSandbox* sandbox)
 {

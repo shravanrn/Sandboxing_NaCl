@@ -1,8 +1,8 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdio.h>
-
-typedef int (*CallbackType)(unsigned, const char*);
+#include <stdlib.h>
+#include "native_client/src/trusted/dyn_ldr/testing/test_dyn_lib.h"
 
 int simpleAddTest(int a, int b)
 {
@@ -55,4 +55,26 @@ unsigned long simpleLongAddTest(unsigned long a, unsigned long b)
 	printf("simpleLongAddTest\n");
 	fflush(stdout);
 	return a + b;
+}
+
+struct testStruct simpleTestStructVal()
+{
+	struct testStruct ret;
+	ret.fieldLong = 7;
+	ret.fieldString = "Hello";
+	//explicitly mess up the top bits of the pointer. The sandbox checks outside the sandbox should catch this
+	ret.fieldString = (char *)((((uintptr_t) ret.fieldString) & 0xFFFFFFFF) | 0x1234567800000000);
+	ret.fieldBool = 1;
+	return ret;
+}
+
+struct testStruct* simpleTestStructPtr()
+{
+	struct testStruct* ret = (struct testStruct*) malloc(sizeof(struct testStruct));
+	ret->fieldLong = 7;
+	ret->fieldString = "Hello";
+	//explicitly mess up the top bits of the pointer. The sandbox checks outside the sandbox should catch this
+	ret->fieldString = (char *)((((uintptr_t) ret->fieldString) & 0xFFFFFFFF) | 0x1234567800000000);
+	ret->fieldBool = 1;
+	return ret;
 }
