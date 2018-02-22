@@ -13,6 +13,10 @@ struct UNUSED_PACK_HELPER { template<typename ...Args> UNUSED_PACK_HELPER(Args c
 #define UNUSED(x) UNUSED_PACK_HELPER {x}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+template< class T >
+using my_remove_pointer_t = typename std::remove_pointer<T>::type;
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<typename T, typename T2=void>
 struct sandbox_unverified_data;
@@ -64,59 +68,59 @@ struct sandbox_unverified_data<T, typename std::enable_if<std::is_pointer<T>::va
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	//Validate one level of indirection, eg int*, by returning the derefed value as we have to get a copy of the actual object
 	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>)>
-	inline std::remove_pointer<T> sandbox_copyAndVerify(std::remove_pointer<T>(*verify_fn)(T))
+	inline my_remove_pointer_t<T> sandbox_copyAndVerify(my_remove_pointer_t<T>(*verify_fn)(T))
 	{
 		T maskedFieldPtr = getMasked(field);
 		return verify_fn(maskedFieldPtr);
 	}
 
 	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>)>
-	inline std::remove_pointer<T> sandbox_copyAndVerify(bool(*verify_fn)(std::remove_pointer<T>), std::remove_pointer<T> defaultValue)
+	inline my_remove_pointer_t<T> sandbox_copyAndVerify(bool(*verify_fn)(my_remove_pointer_t<T>), my_remove_pointer_t<T> defaultValue)
 	{
-		std::remove_pointer<T> maskedField = *(getMasked(field));
+		my_remove_pointer_t<T> maskedField = *(getMasked(field));
 		return verify_fn(maskedField)? maskedField : defaultValue;
 	}
 
 	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>)>
-	inline optional<std::remove_pointer<T>> sandbox_copyAndVerify(optional<std::remove_pointer<T>>(*verify_fn)(T))
+	inline optional<my_remove_pointer_t<T>> sandbox_copyAndVerify(optional<my_remove_pointer_t<T>>(*verify_fn)(T))
 	{
 		T maskedFieldPtr = getMasked(field);
 		return verify_fn(maskedFieldPtr);
 	}
 
 	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>)>
-	inline optional<std::remove_pointer<T>> sandbox_copyAndVerify(bool(*verify_fn)(std::remove_pointer<T>), optional<std::remove_pointer<T>> defaultValue)
+	inline optional<my_remove_pointer_t<T>> sandbox_copyAndVerify(bool(*verify_fn)(my_remove_pointer_t<T>), optional<my_remove_pointer_t<T>> defaultValue)
 	{
-		std::remove_pointer<T> maskedField = *(getMasked(field));
+		my_remove_pointer_t<T> maskedField = *(getMasked(field));
 		return verify_fn(maskedField)? maskedField : defaultValue;
 	}
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	//For multiple levels of indirection, rg: int **, we can just return the value wrapped with sandbox_unverified_data as it is likely, the user hasn't made a deep copy here
 	template<typename U=T, ENABLE_IF(std::is_pointer<std::remove_pointer<U>>)>
-	inline sandbox_unverified_data<std::remove_pointer<T>> sandbox_copyAndVerify(std::remove_pointer<T>(*verify_fn)(T))
+	inline sandbox_unverified_data<my_remove_pointer_t<T>> sandbox_copyAndVerify(my_remove_pointer_t<T>(*verify_fn)(T))
 	{
 		T maskedFieldPtr = getMasked(field);
 		return make_sandbox_unverified_data(verify_fn(maskedFieldPtr));
 	}
 
 	template<typename U=T, ENABLE_IF(std::is_pointer<std::remove_pointer<U>>)>
-	inline sandbox_unverified_data<std::remove_pointer<T>> sandbox_copyAndVerify(bool(*verify_fn)(std::remove_pointer<T>), std::remove_pointer<T> defaultValue)
+	inline sandbox_unverified_data<my_remove_pointer_t<T>> sandbox_copyAndVerify(bool(*verify_fn)(my_remove_pointer_t<T>), my_remove_pointer_t<T> defaultValue)
 	{
-		std::remove_pointer<T> maskedField = *(getMasked(field));
+		my_remove_pointer_t<T> maskedField = *(getMasked(field));
 		return make_sandbox_unverified_data(verify_fn(maskedField)? maskedField : defaultValue);
 	}
 
 	template<typename U=T, ENABLE_IF(std::is_pointer<std::remove_pointer<U>>)>
-	inline sandbox_unverified_data<optional<std::remove_pointer<T>>> sandbox_copyAndVerify(optional<std::remove_pointer<T>>(*verify_fn)(T))
+	inline sandbox_unverified_data<optional<my_remove_pointer_t<T>>> sandbox_copyAndVerify(optional<my_remove_pointer_t<T>>(*verify_fn)(T))
 	{
 		T maskedFieldPtr = getMasked(field);
 		return make_sandbox_unverified_data(verify_fn(maskedFieldPtr));
 	}
 
 	template<typename U=T, ENABLE_IF(std::is_pointer<std::remove_pointer<U>>)>
-	inline sandbox_unverified_data<optional<std::remove_pointer<T>>> sandbox_copyAndVerify(bool(*verify_fn)(std::remove_pointer<T>), optional<std::remove_pointer<T>> defaultValue)
+	inline sandbox_unverified_data<optional<my_remove_pointer_t<T>>> sandbox_copyAndVerify(bool(*verify_fn)(my_remove_pointer_t<T>), optional<my_remove_pointer_t<T>> defaultValue)
 	{
-		std::remove_pointer<T> maskedField = *(getMasked(field));
+		my_remove_pointer_t<T> maskedField = *(getMasked(field));
 		return make_sandbox_unverified_data(verify_fn(maskedField)? maskedField : defaultValue);
 	}
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -162,14 +166,14 @@ struct sandbox_unverified_data<T, typename std::enable_if<std::is_pointer<T>::va
 		return *this;
 	}
 
-	inline sandbox_unverified_data<std::remove_pointer<T>>& operator*() const
+	inline sandbox_unverified_data<my_remove_pointer_t<T>>& operator*() const
 	{
 		return make_sandbox_unverified_data(*getMasked(field));
 	}
 
-	inline sandbox_unverified_data<std::remove_pointer<T>>* operator->()
+	inline sandbox_unverified_data<my_remove_pointer_t<T>>* operator->()
 	{
-		return (sandbox_unverified_data<std::remove_pointer<T>>*) getMasked(field);
+		return (sandbox_unverified_data<my_remove_pointer_t<T>>*) getMasked(field);
 	}
 
 private:
@@ -251,59 +255,59 @@ struct sandbox_unverified_data_outside_sandbox<T, typename std::enable_if<std::i
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	//Validate one level of indirection, eg int*, by returning the derefed value as we have to get a copy of the actual object
 	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>)>
-	inline std::remove_pointer<T> sandbox_copyAndVerify(std::remove_pointer<T>(*verify_fn)(T))
+	inline my_remove_pointer_t<T> sandbox_copyAndVerify(my_remove_pointer_t<T>(*verify_fn)(T))
 	{
 		T maskedFieldPtr = getMasked(field);
 		return verify_fn(maskedFieldPtr);
 	}
 
 	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>)>
-	inline std::remove_pointer<T> sandbox_copyAndVerify(bool(*verify_fn)(std::remove_pointer<T>), std::remove_pointer<T> defaultValue)
+	inline my_remove_pointer_t<T> sandbox_copyAndVerify(bool(*verify_fn)(my_remove_pointer_t<T>), my_remove_pointer_t<T> defaultValue)
 	{
-		std::remove_pointer<T> maskedField = *(getMasked(field));
+		my_remove_pointer_t<T> maskedField = *(getMasked(field));
 		return verify_fn(maskedField)? maskedField : defaultValue;
 	}
 
 	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>)>
-	inline optional<std::remove_pointer<T>> sandbox_copyAndVerify(optional<std::remove_pointer<T>>(*verify_fn)(T))
+	inline optional<my_remove_pointer_t<T>> sandbox_copyAndVerify(optional<my_remove_pointer_t<T>>(*verify_fn)(T))
 	{
 		T maskedFieldPtr = getMasked(field);
 		return verify_fn(maskedFieldPtr);
 	}
 
 	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>)>
-	inline optional<std::remove_pointer<T>> sandbox_copyAndVerify(bool(*verify_fn)(std::remove_pointer<T>), optional<std::remove_pointer<T>> defaultValue)
+	inline optional<my_remove_pointer_t<T>> sandbox_copyAndVerify(bool(*verify_fn)(my_remove_pointer_t<T>), optional<my_remove_pointer_t<T>> defaultValue)
 	{
-		std::remove_pointer<T> maskedField = *(getMasked(field));
+		my_remove_pointer_t<T> maskedField = *(getMasked(field));
 		return verify_fn(maskedField)? maskedField : defaultValue;
 	}
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	//For multiple levels of indirection, rg: int **, we can just return the value wrapped with sandbox_unverified_data as it is likely, the user hasn't made a deep copy here
 	template<typename U=T, ENABLE_IF(std::is_pointer<std::remove_pointer<U>>)>
-	inline sandbox_unverified_data<std::remove_pointer<T>> sandbox_copyAndVerify(std::remove_pointer<T>(*verify_fn)(T))
+	inline sandbox_unverified_data<my_remove_pointer_t<T>> sandbox_copyAndVerify(my_remove_pointer_t<T>(*verify_fn)(T))
 	{
 		T maskedFieldPtr = getMasked(field);
 		return make_sandbox_unverified_data(verify_fn(maskedFieldPtr));
 	}
 
 	template<typename U=T, ENABLE_IF(std::is_pointer<std::remove_pointer<U>>)>
-	inline sandbox_unverified_data<std::remove_pointer<T>> sandbox_copyAndVerify(bool(*verify_fn)(std::remove_pointer<T>), std::remove_pointer<T> defaultValue)
+	inline sandbox_unverified_data<my_remove_pointer_t<T>> sandbox_copyAndVerify(bool(*verify_fn)(my_remove_pointer_t<T>), my_remove_pointer_t<T> defaultValue)
 	{
-		std::remove_pointer<T> maskedField = *(getMasked(field));
+		my_remove_pointer_t<T> maskedField = *(getMasked(field));
 		return make_sandbox_unverified_data(verify_fn(maskedField)? maskedField : defaultValue);
 	}
 
 	template<typename U=T, ENABLE_IF(std::is_pointer<std::remove_pointer<U>>)>
-	inline sandbox_unverified_data<optional<std::remove_pointer<T>>> sandbox_copyAndVerify(optional<std::remove_pointer<T>>(*verify_fn)(T))
+	inline sandbox_unverified_data<optional<my_remove_pointer_t<T>>> sandbox_copyAndVerify(optional<my_remove_pointer_t<T>>(*verify_fn)(T))
 	{
 		T maskedFieldPtr = getMasked(field);
 		return make_sandbox_unverified_data(verify_fn(maskedFieldPtr));
 	}
 
 	template<typename U=T, ENABLE_IF(std::is_pointer<std::remove_pointer<U>>)>
-	inline sandbox_unverified_data<optional<std::remove_pointer<T>>> sandbox_copyAndVerify(bool(*verify_fn)(std::remove_pointer<T>), optional<std::remove_pointer<T>> defaultValue)
+	inline sandbox_unverified_data<optional<my_remove_pointer_t<T>>> sandbox_copyAndVerify(bool(*verify_fn)(my_remove_pointer_t<T>), optional<my_remove_pointer_t<T>> defaultValue)
 	{
-		std::remove_pointer<T> maskedField = *(getMasked(field));
+		my_remove_pointer_t<T> maskedField = *(getMasked(field));
 		return make_sandbox_unverified_data(verify_fn(maskedField)? maskedField : defaultValue);
 	}
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -349,14 +353,14 @@ struct sandbox_unverified_data_outside_sandbox<T, typename std::enable_if<std::i
 		return *this;
 	}
 
-	inline sandbox_unverified_data<std::remove_pointer<T>>& operator*() const
+	inline sandbox_unverified_data<my_remove_pointer_t<T>>& operator*() const
 	{
 		return make_sandbox_unverified_data(*getMasked(field));
 	}
 
-	inline sandbox_unverified_data<std::remove_pointer<T>>* operator->()
+	inline sandbox_unverified_data<my_remove_pointer_t<T>>* operator->()
 	{
-		return (sandbox_unverified_data<std::remove_pointer<T>>*) getMasked(field);
+		return (sandbox_unverified_data<my_remove_pointer_t<T>>*) getMasked(field);
 	}
 
 private:
