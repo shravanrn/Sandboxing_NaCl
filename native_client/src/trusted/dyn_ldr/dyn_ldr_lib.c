@@ -475,6 +475,7 @@ NaClSandbox* constructNaClSandbox(struct NaClApp* nap)
   }
 
   Map_Put(sandbox->threadDataMap, threadId, (uintptr_t) threadData);
+  sandbox->extraState = NULL;
   return sandbox;
 
 err_createdThreadMap:

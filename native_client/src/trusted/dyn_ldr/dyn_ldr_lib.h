@@ -51,6 +51,8 @@ struct _NaClSandbox
     free_type freePtr;
     fopen_type fopenPtr;
     fclose_type fclosePtr;
+
+    void* extraState;
 };
 
 typedef struct _NaClSandbox NaClSandbox;

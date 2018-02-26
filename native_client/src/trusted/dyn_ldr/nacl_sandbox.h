@@ -1,6 +1,7 @@
 #include <type_traits>
 #include <memory>
 #include <functional>
+#include <map>
 #include <stdio.h>
 
 #include "helpers/optional.hpp"
@@ -173,7 +174,7 @@ struct sandbox_unverified_data<T, typename std::enable_if<std::is_pointer<T>::va
 
 	//Class*
 	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>::value && std::is_class<std::remove_pointer<U>>::value)>
-	inline my_remove_pointer_t<U> sandbox_copyAndVerifyC(my_remove_pointer_t<U>(*verify_fn)(sandbox_unverified_data<my_remove_pointer_t<U>> *)) const
+	inline my_remove_pointer_t<U> sandbox_copyAndVerify(my_remove_pointer_t<U>(*verify_fn)(sandbox_unverified_data<my_remove_pointer_t<U>> *)) const
 	{
 		auto maskedFieldPtr = (sandbox_unverified_data<my_remove_pointer_t<U>> *) getMasked();
 		return verify_fn(maskedFieldPtr);
@@ -331,7 +332,7 @@ struct unverified_data<T, typename std::enable_if<std::is_pointer<T>::value && !
 
 	//Class*
 	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>::value && std::is_class<std::remove_pointer<U>>::value)>
-	inline my_remove_pointer_t<U> sandbox_copyAndVerifyC(my_remove_pointer_t<U>(*verify_fn)(sandbox_unverified_data<my_remove_pointer_t<U>> *)) const
+	inline my_remove_pointer_t<U> sandbox_copyAndVerify(my_remove_pointer_t<U>(*verify_fn)(sandbox_unverified_data<my_remove_pointer_t<U>> *)) const
 	{
 		auto maskedFieldPtr = (sandbox_unverified_data<my_remove_pointer_t<U>> *) getMasked();
 		return verify_fn(maskedFieldPtr);
@@ -1063,7 +1064,7 @@ inline void sandbox_checkSignatureAndCallNaClFn(NaClSandbox_Thread* threadData, 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <typename T, typename ... Targs>
-__attribute__ ((noinline)) return_argument<decltype(sandbox_invokeNaClReturn<T>)> sandbox_invoker(NaClSandbox* sandbox, void* fnPtr, typename std::enable_if<std::is_function<T>::value>::type* dummy, Targs ... param)
+__attribute__ ((noinline)) return_argument<decltype(sandbox_invokeNaClReturn<T>)> sandbox_invoker_with_ptr(NaClSandbox* sandbox, void* fnPtr, typename std::enable_if<std::is_function<T>::value>::type* dummy, Targs ... param)
 {
 	UNUSED(dummy);
 	NaClSandbox_Thread* threadData = preFunctionCall(sandbox, sandbox_NaClAddParams(param...), sandbox_NaClAddStackArrParams(param...) /* size of any arrays being pushed on the stack */);
@@ -1074,4 +1075,34 @@ __attribute__ ((noinline)) return_argument<decltype(sandbox_invokeNaClReturn<T>)
 	return sandbox_invokeNaClReturn<T>(threadData);
 }
 
-#define sandbox_invoke(sandbox, fnName, fnPtr, ...) sandbox_invoker<decltype(fnName)>(sandbox, fnPtr, nullptr, ##__VA_ARGS__)
+#ifdef __clang__
+	#pragma clang diagnostic push
+	#pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
+#endif
+#define sandbox_invoke_with_ptr(sandbox, fnName, fnPtr, ...) sandbox_invoker_with_ptr<decltype(fnName)>(sandbox, fnPtr, nullptr, ##__VA_ARGS__)
+#ifdef __clang__
+	#pragma clang diagnostic pop
+#endif
+
+#define initCPPApi(sandbox) sandbox->extraState = new std::map<std::string, void*>
+
+inline void* sandbox_cacheAndRetrieveFnPtr(NaClSandbox* sandbox, const char* fnName)
+{
+	auto& fnMap = *(std::map<std::string, void*> *) sandbox->extraState;
+	auto fnPtrRef = fnMap.find(fnName);
+	void* fnPtr;
+	if(fnPtrRef == fnMap.end())
+	{
+		printf("Auto Symbol lookup for %s\n", fnName);
+		fnPtr = symbolTableLookupInSandbox(sandbox, fnName);
+		fnMap[fnName] = fnPtr;
+	}
+	else
+	{
+		fnPtr = fnPtrRef->second;
+	}
+
+	return fnPtr;
+}
+
+#define sandbox_invoke(sandbox, fnName, ...) sandbox_invoke_with_ptr(sandbox, fnName, sandbox_cacheAndRetrieveFnPtr(sandbox, #fnName), ##__VA_ARGS__)

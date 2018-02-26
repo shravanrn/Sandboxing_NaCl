@@ -34,7 +34,7 @@ int invokeSimpleCallbackTest_callback(unsigned a, const char* b)
 
 //////////////////////////////////////////////////////////////////
 
-int fileTestPassed(NaClSandbox* sandbox, void* simpleWriteToFileTestPtr)
+int fileTestPassed(NaClSandbox* sandbox)
 {
 	FILE* file = fopenInSandbox(sandbox, "test123.txt", "w");
 
@@ -44,7 +44,7 @@ int fileTestPassed(NaClSandbox* sandbox, void* simpleWriteToFileTestPtr)
 		return 0;
 	}
 
-	sandbox_invoke(sandbox, simpleWriteToFileTest, simpleWriteToFileTestPtr, file, sandbox_stackarr("test123"));
+	sandbox_invoke(sandbox, simpleWriteToFileTest, file, sandbox_stackarr("test123"));
 
 	if(fcloseInSandbox(sandbox, file))
 	{
@@ -57,7 +57,7 @@ int fileTestPassed(NaClSandbox* sandbox, void* simpleWriteToFileTestPtr)
 
 //////////////////////////////////////////////////////////////////
 
-int invokeSimpleEchoTestPassed(NaClSandbox* sandbox, void* simpleEchoTestPtr, const char* str)
+int invokeSimpleEchoTestPassed(NaClSandbox* sandbox, const char* str)
 {
 	char* strInSandbox;
 	char* retStr;
@@ -78,7 +78,7 @@ int invokeSimpleEchoTestPassed(NaClSandbox* sandbox, void* simpleEchoTestPtr, co
 		return 0;
 	}
 
-	auto retStrRaw = sandbox_invoke(sandbox, simpleEchoTest, simpleEchoTestPtr, strInSandbox);
+	auto retStrRaw = sandbox_invoke(sandbox, simpleEchoTest, strInSandbox);
 	*retStrRaw = 'g';
 	*retStrRaw = 'H';
 	retStr = retStrRaw.sandbox_copyAndVerifyString([](char* val) { return strlen(val) < 100; }, nullptr);
@@ -108,15 +108,6 @@ struct runTestParams
 {
 	NaClSandbox* sandbox;
 	int testResult;
-	void* simpleAddTestSymResult;
-	void* simpleStrLenTestResult;
-	void* simpleCallbackTestResult;
-	void* simpleWriteToFileTestResult;
-	void* simpleEchoTestResult;
-	void* simpleDoubleAddTestResult;
-	void* simpleLongAddTestResult;
-	void* simpleTestStructValResult;
-	void* simpleTestStructPtrResult;
 	std::shared_ptr<sandbox_callback_helper<int(unsigned int, const char*)>> registeredCallback;
 
 	//for multi threaded test only
@@ -133,7 +124,7 @@ void* runTests(void* runTestParamsPtr)
 	*testResult = -1;
 
 
-	auto result1 = sandbox_invoke(sandbox, simpleAddTest, testParams->simpleAddTestSymResult, 2, 3)
+	auto result1 = sandbox_invoke(sandbox, simpleAddTest, 2, 3)
 		.sandbox_copyAndVerify([](int val){ return val > 0 && val < 10;}, -1);
 	if(result1 != 5)
 	{
@@ -142,7 +133,7 @@ void* runTests(void* runTestParamsPtr)
 		return NULL;
 	}
 
-	auto result2 = sandbox_invoke(sandbox, simpleStrLenTest, testParams->simpleStrLenTestResult, sandbox_stackarr("Hello"))
+	auto result2 = sandbox_invoke(sandbox, simpleStrLenTest, sandbox_stackarr("Hello"))
 		.sandbox_copyAndVerify([](size_t val) -> size_t { return (val <= 0 || val >= 10)? -1 : val; });
 	if(result2 != 5)
 	{
@@ -151,7 +142,7 @@ void* runTests(void* runTestParamsPtr)
 		return NULL;
 	}
 
-	auto result3 = sandbox_invoke(sandbox, simpleStrLenTest, testParams->simpleStrLenTestResult, sandbox_heaparr_sharedptr(sandbox, "Hello"))
+	auto result3 = sandbox_invoke(sandbox, simpleStrLenTest, sandbox_heaparr_sharedptr(sandbox, "Hello"))
 		.sandbox_copyAndVerify([](size_t val) -> size_t { return (val <= 0 || val >= 10)? -1 : val; });
 	if(result3 != 5)
 	{
@@ -160,7 +151,7 @@ void* runTests(void* runTestParamsPtr)
 		return NULL;
 	}
 
-	auto result4 = sandbox_invoke(sandbox, simpleCallbackTest, testParams->simpleCallbackTestResult, (unsigned) 4, sandbox_stackarr("Hello"), testParams->registeredCallback)
+	auto result4 = sandbox_invoke(sandbox, simpleCallbackTest, (unsigned) 4, sandbox_stackarr("Hello"), testParams->registeredCallback)
 		.sandbox_copyAndVerify([](int val){ return val > 0 && val < 100;}, -1);
 	if(result4 != 10)
 	{
@@ -169,21 +160,21 @@ void* runTests(void* runTestParamsPtr)
 		return NULL;
 	}
 
-	if(!fileTestPassed(sandbox, testParams->simpleWriteToFileTestResult))
+	if(!fileTestPassed(sandbox))
 	{
 		printf("Dyn loader Test 5: Failed\n");
 		*testResult = 0;
 		return NULL;
 	}
 
-	if(!invokeSimpleEchoTestPassed(sandbox, testParams->simpleEchoTestResult, "Hello"))
+	if(!invokeSimpleEchoTestPassed(sandbox, "Hello"))
 	{
 		printf("Dyn loader Test 6: Failed\n");
 		*testResult = 0;
 		return NULL;
 	}
 
-	auto result7 = sandbox_invoke(sandbox, simpleDoubleAddTest, testParams->simpleDoubleAddTestResult, 1.0, 2.0)
+	auto result7 = sandbox_invoke(sandbox, simpleDoubleAddTest, 1.0, 2.0)
 		.sandbox_copyAndVerify([](double val){ return val > 0 && val < 100;}, -1.0);
 	if(result7 != 3.0)
 	{
@@ -192,7 +183,7 @@ void* runTests(void* runTestParamsPtr)
 		return NULL;
 	}
 
-	auto result8 = sandbox_invoke(sandbox, simpleLongAddTest, testParams->simpleLongAddTestResult, ULONG_MAX - 1ul, 1ul)
+	auto result8 = sandbox_invoke(sandbox, simpleLongAddTest, ULONG_MAX - 1ul, 1ul)
 		.sandbox_copyAndVerify([](unsigned long val){ return val > 100;}, 0);
 	if(result8 != ULONG_MAX)
 	{
@@ -203,7 +194,7 @@ void* runTests(void* runTestParamsPtr)
 
 	//////////////////////////////////////////////////////////////////
 
-	auto result9T = sandbox_invoke(sandbox, simpleTestStructVal, testParams->simpleTestStructValResult);
+	auto result9T = sandbox_invoke(sandbox, simpleTestStructVal);
 	auto result9 = result9T
 		.sandbox_copyAndVerify([](unverified_data<testStruct>& val){ 
 			testStruct ret;
@@ -230,9 +221,9 @@ void* runTests(void* runTestParamsPtr)
 	}
 
 	//////////////////////////////////////////////////////////////////
-	auto result10T = sandbox_invoke(sandbox, simpleTestStructPtr, testParams->simpleTestStructPtrResult);
+	auto result10T = sandbox_invoke(sandbox, simpleTestStructPtr);
 	auto result10 = result10T
-		.sandbox_copyAndVerifyC([](sandbox_unverified_data<testStruct>* val) { 
+		.sandbox_copyAndVerify([](sandbox_unverified_data<testStruct>* val) { 
 			testStruct ret;
 			ret.fieldLong = val->fieldLong.sandbox_copyAndVerify([](unsigned long val) { return val; });
 			ret.fieldString = val->fieldString.sandbox_copyAndVerifyString([](const char* val) { return strlen(val) < 100; }, nullptr);
@@ -358,6 +349,7 @@ int main(int argc, char** argv)
 	for(int i = 0; i < 2; i++)
 	{
 		sandboxParams[i].sandbox = createDlSandbox(libraryPath, libraryToLoad);
+		initCPPApi(sandboxParams[i].sandbox);
 
 		if(sandboxParams[i].sandbox == NULL)
 		{
@@ -366,32 +358,6 @@ int main(int argc, char** argv)
 		}
 
 		printf("Sandbox created: %d\n", i);
-
-		sandboxParams[i].simpleAddTestSymResult      = symbolTableLookupInSandbox(sandboxParams[i].sandbox, "simpleAddTest");
-		sandboxParams[i].simpleStrLenTestResult      = symbolTableLookupInSandbox(sandboxParams[i].sandbox, "simpleStrLenTest");
-		sandboxParams[i].simpleCallbackTestResult    = symbolTableLookupInSandbox(sandboxParams[i].sandbox, "simpleCallbackTest");
-		sandboxParams[i].simpleWriteToFileTestResult = symbolTableLookupInSandbox(sandboxParams[i].sandbox, "simpleWriteToFileTest");
-		sandboxParams[i].simpleEchoTestResult        = symbolTableLookupInSandbox(sandboxParams[i].sandbox, "simpleEchoTest");
-		sandboxParams[i].simpleDoubleAddTestResult   = symbolTableLookupInSandbox(sandboxParams[i].sandbox, "simpleDoubleAddTest");
-		sandboxParams[i].simpleLongAddTestResult     = symbolTableLookupInSandbox(sandboxParams[i].sandbox, "simpleLongAddTest");
-		sandboxParams[i].simpleTestStructValResult   = symbolTableLookupInSandbox(sandboxParams[i].sandbox, "simpleTestStructVal");
-		sandboxParams[i].simpleTestStructPtrResult   = symbolTableLookupInSandbox(sandboxParams[i].sandbox, "simpleTestStructPtr");
-
-		printf("symbol lookup successful: %d\n", i);
-
-		if(sandboxParams[i].simpleAddTestSymResult == NULL 
-			|| sandboxParams[i].simpleStrLenTestResult == NULL 
-			|| sandboxParams[i].simpleCallbackTestResult == NULL
-			|| sandboxParams[i].simpleWriteToFileTestResult == NULL
-			|| sandboxParams[i].simpleEchoTestResult == NULL
-			|| sandboxParams[i].simpleDoubleAddTestResult == NULL
-			|| sandboxParams[i].simpleLongAddTestResult == NULL
-			|| sandboxParams[i].simpleTestStructValResult == NULL
-			|| sandboxParams[i].simpleTestStructPtrResult == NULL)
-		{
-			printf("Dyn loader Test: symbol lookup returned null: %d\n", i);
-			return 1;
-		}
 
 		/**************** Invoking functions in sandbox ****************/
 
