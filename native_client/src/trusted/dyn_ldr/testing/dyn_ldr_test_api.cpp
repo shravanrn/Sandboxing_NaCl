@@ -78,8 +78,11 @@ int invokeSimpleEchoTestPassed(NaClSandbox* sandbox, void* simpleEchoTestPtr, co
 		return 0;
 	}
 
-	retStr = sandbox_invoke(sandbox, simpleEchoTest, simpleEchoTestPtr, strInSandbox)
-		.sandbox_copyAndVerifyString([](char* val) { return strlen(val) < 100; }, nullptr);
+	auto retStrRaw = sandbox_invoke(sandbox, simpleEchoTest, simpleEchoTestPtr, strInSandbox);
+	*retStrRaw = 'g';
+	*retStrRaw = 'H';
+	retStr = retStrRaw.sandbox_copyAndVerifyString([](char* val) { return strlen(val) < 100; }, nullptr);
+	printf("RetStr: %s\n", retStr);
 
 	//retStr.field is a copy on our heap
 	if(isAddressInSandboxMemoryOrNull(sandbox, (uintptr_t) retStr))
@@ -198,9 +201,11 @@ void* runTests(void* runTestParamsPtr)
 		return NULL;
 	}
 
+	//////////////////////////////////////////////////////////////////
+
 	auto result9T = sandbox_invoke(sandbox, simpleTestStructVal, testParams->simpleTestStructValResult);
 	auto result9 = result9T
-		.sandbox_copyAndVerify([](sandbox_unverified_data<testStruct>& val){ 
+		.sandbox_copyAndVerify([](unverified_data<testStruct>& val){ 
 			testStruct ret;
 			ret.fieldLong = val.fieldLong.sandbox_copyAndVerify([](unsigned long val) { return val; });
 			ret.fieldString = val.fieldString.sandbox_copyAndVerifyString([](const char* val) { return strlen(val) < 100; }, nullptr);
@@ -213,6 +218,45 @@ void* runTests(void* runTestParamsPtr)
 		*testResult = 0;
 		return NULL;
 	}
+
+	//writes should still go through
+	result9T.fieldLong = 17;
+	long val = result9T.fieldLong.sandbox_copyAndVerify([](unsigned long val) { return val; });
+	if(val != 17)
+	{
+		printf("Dyn loader Test 9.1: Failed\n");
+		*testResult = 0;
+		return NULL;
+	}
+
+	//////////////////////////////////////////////////////////////////
+	auto result10T = sandbox_invoke(sandbox, simpleTestStructPtr, testParams->simpleTestStructPtrResult);
+	auto result10 = result10T
+		.sandbox_copyAndVerifyC([](sandbox_unverified_data<testStruct>* val) { 
+			testStruct ret;
+			ret.fieldLong = val->fieldLong.sandbox_copyAndVerify([](unsigned long val) { return val; });
+			ret.fieldString = val->fieldString.sandbox_copyAndVerifyString([](const char* val) { return strlen(val) < 100; }, nullptr);
+			ret.fieldBool = val->fieldBool.sandbox_copyAndVerify([](unsigned int val) { return val; });
+			return ret; 
+		});
+	if(result10.fieldLong != 7 || strcmp(result10.fieldString, "Hello") != 0 || result10.fieldBool != 1)
+	{
+		printf("Dyn loader Test 10: Failed\n");
+		*testResult = 0;
+		return NULL;
+	}
+
+	//writes should still go through
+	result10T->fieldLong = 17;
+	long val2 = result10T->fieldLong.sandbox_copyAndVerify([](unsigned long val) { return val; });
+	if(val2 != 17)
+	{
+		printf("Dyn loader Test 10.1: Failed\n");
+		*testResult = 0;
+		return NULL;
+	}
+
+	//////////////////////////////////////////////////////////////////
 
 	*testResult = 1;
 	return NULL;

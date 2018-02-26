@@ -17,121 +17,209 @@ template< class T >
 using my_remove_pointer_t = typename std::remove_pointer<T>::type;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+template<typename T>
+inline T getMaskedField(unsigned long sandboxMask, T arg)
+{
+	unsigned long lowBits = ((uintptr_t)arg) & ((unsigned long)0xFFFFFFFF);
+	if(lowBits == 0)
+	{
+		return 0;
+	}
+
+	return (T)(sandboxMask | lowBits);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<typename T, typename T2=void>
 struct sandbox_unverified_data;
 
+template<typename T, typename T2=void>
+struct unverified_data;
+
 template<typename T>
 struct sandbox_unverified_data<T, typename std::enable_if<!std::is_pointer<T>::value && !std::is_class<T>::value && !std::is_reference<T>::value>::type>
 {
-	T& field;
+	T field;
 
-	inline sandbox_unverified_data(T& arg) noexcept : field(arg)
-	{
-		printf("sandbox_unverified_data value constructor\n");
-	}
-
-	inline T sandbox_copyAndVerify(T(*verify_fn)(T))
+	inline T sandbox_copyAndVerify(T(*verify_fn)(T)) const
 	{
 		return verify_fn(field);
 	}
 
-	inline T sandbox_copyAndVerify(bool(*verify_fn)(T), T defaultValue)
+	inline T sandbox_copyAndVerify(bool(*verify_fn)(T), T defaultValue) const
 	{
 		return verify_fn(field)? field : defaultValue;
 	}
 
-	inline sandbox_unverified_data<T>& operator=(sandbox_unverified_data<T> arg) noexcept
+	inline sandbox_unverified_data<T>& operator=(const sandbox_unverified_data<T>& arg) noexcept
 	{
+		printf("Sbox Value - Wrapped Assignment\n");
 		field = arg.field;
 		return *this;
 	}
 
-	inline sandbox_unverified_data<T>& operator=(T arg) noexcept
+	inline sandbox_unverified_data<T>& operator=(const unverified_data<T>& arg) noexcept
 	{
+		printf("Sbox Value - Unverified Assignment\n");
+		field = arg.field;
+		return *this;
+	}
+
+	inline sandbox_unverified_data<T>& operator=(const T& arg) noexcept
+	{
+		printf("Sbox Value - Direct Assignment\n");
 		field = arg;
 		return *this;
+	}
+
+	inline T getMasked() const
+	{
+		return field;
+	}
+};
+
+template<typename T>
+struct unverified_data<T, typename std::enable_if<!std::is_pointer<T>::value && !std::is_class<T>::value && !std::is_reference<T>::value>::type>
+{
+	T field;
+
+	inline T sandbox_copyAndVerify(T(*verify_fn)(T)) const
+	{
+		return verify_fn(field);
+	}
+
+	inline T sandbox_copyAndVerify(bool(*verify_fn)(T), T defaultValue) const
+	{
+		return verify_fn(field)? field : defaultValue;
+	}
+
+	inline unverified_data<T>& operator=(const sandbox_unverified_data<T>& arg) noexcept
+	{
+		printf("Value - Wrapped Assignment\n");
+		field = arg.field;
+		return *this;
+	}
+
+	inline unverified_data<T>& operator=(const unverified_data<T>& arg) noexcept
+	{
+		printf("Value - Unverified Assignment\n");
+		field = arg.field;
+		return *this;
+	}
+
+	inline unverified_data<T>& operator=(const T& arg) noexcept
+	{
+		printf("Value - Direct Assignment\n");
+		field = arg;
+		return *this;
+	}
+
+	inline T getMasked() const
+	{
+		return field;
 	}
 };
 
 template<typename T>
 struct sandbox_unverified_data<T, typename std::enable_if<std::is_pointer<T>::value && !std::is_reference<T>::value>::type>
 {
-	T& field;
+	T field;
 
-	inline sandbox_unverified_data(T& arg) noexcept : field(arg)
-	{
-		printf("sandbox_unverified_data pointer constructor\n");
-	}
+	#define ENABLE_IF(...) typename std::enable_if<__VA_ARGS__>::type* = nullptr
 
-	#define ENABLE_IF(...) typename std::enable_if<__VA_ARGS__::value>::type* = nullptr
-	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	//Validate one level of indirection, eg int*, by returning the derefed value as we have to get a copy of the actual object
-	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>)>
-	inline my_remove_pointer_t<T> sandbox_copyAndVerify(my_remove_pointer_t<T>(*verify_fn)(T))
+	//Only validate one level of indirection, eg int*, by returning the derefed value as we have to get a copy of the actual object
+
+	//Primitive*
+	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>::value && !std::is_class<std::remove_pointer<U>>::value)>
+	inline my_remove_pointer_t<U> sandbox_copyAndVerify(my_remove_pointer_t<U>(*verify_fn)(U)) const
 	{
-		T maskedFieldPtr = getMasked(field);
+		U maskedFieldPtr = getMasked();
 		return verify_fn(maskedFieldPtr);
 	}
 
-	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>)>
-	inline my_remove_pointer_t<T> sandbox_copyAndVerify(bool(*verify_fn)(my_remove_pointer_t<T>), my_remove_pointer_t<T> defaultValue)
+	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>::value && !std::is_class<std::remove_pointer<U>>::value)>
+	inline my_remove_pointer_t<U> sandbox_copyAndVerify(bool(*verify_fn)(my_remove_pointer_t<U>), my_remove_pointer_t<U> defaultValue) const
 	{
-		my_remove_pointer_t<T> maskedField = *(getMasked(field));
+		U maskedFieldPtr = getMasked();
+		if(maskedFieldPtr == nullptr)
+		{
+			return defaultValue;
+		}
+
+		my_remove_pointer_t<U> maskedField = *maskedFieldPtr;
 		return verify_fn(maskedField)? maskedField : defaultValue;
 	}
 
-	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>)>
-	inline optional<my_remove_pointer_t<T>> sandbox_copyAndVerify(optional<my_remove_pointer_t<T>>(*verify_fn)(T))
+	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>::value && !std::is_class<std::remove_pointer<U>>::value)>
+	inline optional<my_remove_pointer_t<U>> sandbox_copyAndVerify(optional<my_remove_pointer_t<U>>(*verify_fn)(U)) const
 	{
-		T maskedFieldPtr = getMasked(field);
+		U maskedFieldPtr = getMasked();
 		return verify_fn(maskedFieldPtr);
 	}
 
-	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>)>
-	inline optional<my_remove_pointer_t<T>> sandbox_copyAndVerify(bool(*verify_fn)(my_remove_pointer_t<T>), optional<my_remove_pointer_t<T>> defaultValue)
+	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>::value && !std::is_class<std::remove_pointer<U>>::value)>
+	inline optional<my_remove_pointer_t<U>> sandbox_copyAndVerify(bool(*verify_fn)(my_remove_pointer_t<U>), optional<my_remove_pointer_t<U>> defaultValue) const
 	{
-		my_remove_pointer_t<T> maskedField = *(getMasked(field));
+		U maskedFieldPtr = getMasked();
+		if(maskedFieldPtr == nullptr)
+		{
+			return defaultValue;
+		}
+
+		my_remove_pointer_t<U> maskedField = *maskedFieldPtr;
 		return verify_fn(maskedField)? maskedField : defaultValue;
 	}
-	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	//For multiple levels of indirection, rg: int **, we can just return the value wrapped with sandbox_unverified_data as it is likely, the user hasn't made a deep copy here
-	template<typename U=T, ENABLE_IF(std::is_pointer<std::remove_pointer<U>>)>
-	inline sandbox_unverified_data<my_remove_pointer_t<T>> sandbox_copyAndVerify(my_remove_pointer_t<T>(*verify_fn)(T))
+
+	//Class*
+	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>::value && std::is_class<std::remove_pointer<U>>::value)>
+	inline my_remove_pointer_t<U> sandbox_copyAndVerifyC(my_remove_pointer_t<U>(*verify_fn)(sandbox_unverified_data<my_remove_pointer_t<U>> *)) const
 	{
-		T maskedFieldPtr = getMasked(field);
-		return make_sandbox_unverified_data(verify_fn(maskedFieldPtr));
+		auto maskedFieldPtr = (sandbox_unverified_data<my_remove_pointer_t<U>> *) getMasked();
+		return verify_fn(maskedFieldPtr);
 	}
 
-	template<typename U=T, ENABLE_IF(std::is_pointer<std::remove_pointer<U>>)>
-	inline sandbox_unverified_data<my_remove_pointer_t<T>> sandbox_copyAndVerify(bool(*verify_fn)(my_remove_pointer_t<T>), my_remove_pointer_t<T> defaultValue)
+	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>::value && std::is_class<std::remove_pointer<U>>::value)>
+	inline my_remove_pointer_t<U> sandbox_copyAndVerify(bool(*verify_fn)(sandbox_unverified_data<my_remove_pointer_t<U>>), my_remove_pointer_t<U> defaultValue) const
 	{
-		my_remove_pointer_t<T> maskedField = *(getMasked(field));
-		return make_sandbox_unverified_data(verify_fn(maskedField)? maskedField : defaultValue);
+		auto maskedFieldPtr = (sandbox_unverified_data<my_remove_pointer_t<U>> *) getMasked();
+		if(maskedFieldPtr == nullptr)
+		{
+			return defaultValue;
+		}
+
+		auto maskedField = *maskedFieldPtr;
+		return verify_fn(maskedField)? maskedField : defaultValue;
 	}
 
-	template<typename U=T, ENABLE_IF(std::is_pointer<std::remove_pointer<U>>)>
-	inline sandbox_unverified_data<optional<my_remove_pointer_t<T>>> sandbox_copyAndVerify(optional<my_remove_pointer_t<T>>(*verify_fn)(T))
+	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>::value && std::is_class<std::remove_pointer<U>>::value)>
+	inline optional<my_remove_pointer_t<U>> sandbox_copyAndVerify(optional<my_remove_pointer_t<U>>(*verify_fn)(U)) const
 	{
-		T maskedFieldPtr = getMasked(field);
-		return make_sandbox_unverified_data(verify_fn(maskedFieldPtr));
+		auto maskedFieldPtr = (sandbox_unverified_data<my_remove_pointer_t<U>> *) getMasked();
+		return verify_fn(maskedFieldPtr);
 	}
 
-	template<typename U=T, ENABLE_IF(std::is_pointer<std::remove_pointer<U>>)>
-	inline sandbox_unverified_data<optional<my_remove_pointer_t<T>>> sandbox_copyAndVerify(bool(*verify_fn)(my_remove_pointer_t<T>), optional<my_remove_pointer_t<T>> defaultValue)
+	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>::value && std::is_class<std::remove_pointer<U>>::value)>
+	inline optional<my_remove_pointer_t<U>> sandbox_copyAndVerify(bool(*verify_fn)(sandbox_unverified_data<my_remove_pointer_t<U>>), optional<my_remove_pointer_t<U>> defaultValue) const
 	{
-		my_remove_pointer_t<T> maskedField = *(getMasked(field));
-		return make_sandbox_unverified_data(verify_fn(maskedField)? maskedField : defaultValue);
+		auto maskedFieldPtr = (sandbox_unverified_data<my_remove_pointer_t<U>> *) getMasked();
+		if(maskedFieldPtr == nullptr)
+		{
+			return defaultValue;
+		}
+
+		auto maskedField = *maskedFieldPtr;
+		return verify_fn(maskedField)? maskedField : defaultValue;
 	}
-	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 	#undef ENABLE_IF
 
-	inline T sandbox_copyAndVerifyArray(bool(*verify_fn)(T), unsigned int elementCount, T defaultValue)
+	inline T sandbox_copyAndVerifyArray(bool(*verify_fn)(T), unsigned int elementCount, T defaultValue) const
 	{
 		typedef typename std::remove_pointer<T>::type nonPointerType;
 		typedef typename std::remove_const<nonPointerType>::type nonPointerConstType;
 
-		T maskedFieldPtr = getMasked(field);
+		T maskedFieldPtr = getMasked();
 		uintptr_t arrayEnd = ((uintptr_t)maskedFieldPtr) + sizeof(std::remove_pointer<T>) * elementCount;
 
 		//check for overflow
@@ -145,67 +233,221 @@ struct sandbox_unverified_data<T, typename std::enable_if<std::is_pointer<T>::va
 		return verify_fn(copy)? copy : defaultValue;
 	}
 
-	inline T sandbox_copyAndVerifyString(bool(*verify_fn)(T), T defaultValue)
+	inline T sandbox_copyAndVerifyString(bool(*verify_fn)(T), T defaultValue) const
 	{
-		T maskedFieldPtr = getMasked(field);
+		T maskedFieldPtr = getMasked();
 		unsigned int elementCount = strlen(maskedFieldPtr) + 1;
 		return sandbox_copyAndVerifyArray(verify_fn, elementCount, defaultValue);
 	}
 
-	// inline sandbox_unverified_data<T>& operator=(sandbox_unverified_data<T> arg) noexcept
-	// {
-	// 	fieldLoc = arg.fieldLoc;
-	// 	printf("Pointer - Wrapped Assignment\n");
-	// 	return *this;
-	// }
+	inline sandbox_unverified_data<T>& operator=(const sandbox_unverified_data<T>& arg) noexcept
+	{
+		field = arg.field;
+		printf("Sbox Pointer - Wrapped Assignment\n");
+		return *this;
+	}
 
-	inline sandbox_unverified_data<T>& operator=(T arg) noexcept
+	inline sandbox_unverified_data<T>& operator=(const unverified_data<T>& arg) noexcept
+	{
+		field = arg.field;
+		printf("Sbox Pointer - Unverified Assignment\n");
+		return *this;
+	}
+
+	inline sandbox_unverified_data<T>& operator=(const T& arg) noexcept
 	{
 		field = arg;
-		printf("Pointer - Direct Assignment\n");
+		printf("Sbox Pointer - Direct Assignment\n");
 		return *this;
 	}
 
 	inline sandbox_unverified_data<my_remove_pointer_t<T>>& operator*() const
 	{
-		return make_sandbox_unverified_data(*getMasked(field));
+		auto r = (sandbox_unverified_data<my_remove_pointer_t<T>>*) getMasked();
+		return *r;
 	}
 
 	inline sandbox_unverified_data<my_remove_pointer_t<T>>* operator->()
 	{
-		return (sandbox_unverified_data<my_remove_pointer_t<T>>*) getMasked(field);
+		return (sandbox_unverified_data<my_remove_pointer_t<T>>*) getMasked();
 	}
 
-private:
-	inline T getMasked(T arg)
+	inline T getMasked() const
 	{
 		unsigned long sandboxMask = ((uintptr_t) &field) & ((unsigned long)0xFFFFFFFF00000000);
-		unsigned long lowBits = ((uintptr_t)arg) & ((unsigned long)0xFFFFFFFF);
-		if(lowBits == 0)
+		return getMaskedField(sandboxMask, field);
+	}
+};
+
+template<typename T>
+struct unverified_data<T, typename std::enable_if<std::is_pointer<T>::value && !std::is_reference<T>::value>::type>
+{
+	T field;
+
+	#define ENABLE_IF(...) typename std::enable_if<__VA_ARGS__>::type* = nullptr
+
+	//Only validate one level of indirection, eg int*, by returning the derefed value as we have to get a copy of the actual object
+
+	//Primitive*
+	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>::value && !std::is_class<std::remove_pointer<U>>::value)>
+	inline my_remove_pointer_t<U> sandbox_copyAndVerify(my_remove_pointer_t<U>(*verify_fn)(U)) const
+	{
+		U maskedFieldPtr = getMasked();
+		return verify_fn(maskedFieldPtr);
+	}
+
+	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>::value && !std::is_class<std::remove_pointer<U>>::value)>
+	inline my_remove_pointer_t<U> sandbox_copyAndVerify(bool(*verify_fn)(my_remove_pointer_t<U>), my_remove_pointer_t<U> defaultValue) const
+	{
+		U maskedFieldPtr = getMasked();
+		if(maskedFieldPtr == nullptr)
 		{
-			return nullptr;
+			return defaultValue;
 		}
 
-		return (T)(sandboxMask | lowBits);
+		my_remove_pointer_t<U> maskedField = *maskedFieldPtr;
+		return verify_fn(maskedField)? maskedField : defaultValue;
+	}
+
+	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>::value && !std::is_class<std::remove_pointer<U>>::value)>
+	inline optional<my_remove_pointer_t<U>> sandbox_copyAndVerify(optional<my_remove_pointer_t<U>>(*verify_fn)(U)) const
+	{
+		U maskedFieldPtr = getMasked();
+		return verify_fn(maskedFieldPtr);
+	}
+
+	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>::value && !std::is_class<std::remove_pointer<U>>::value)>
+	inline optional<my_remove_pointer_t<U>> sandbox_copyAndVerify(bool(*verify_fn)(my_remove_pointer_t<U>), optional<my_remove_pointer_t<U>> defaultValue) const
+	{
+		U maskedFieldPtr = getMasked();
+		if(maskedFieldPtr == nullptr)
+		{
+			return defaultValue;
+		}
+
+		my_remove_pointer_t<U> maskedField = *maskedFieldPtr;
+		return verify_fn(maskedField)? maskedField : defaultValue;
+	}
+
+	//Class*
+	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>::value && std::is_class<std::remove_pointer<U>>::value)>
+	inline my_remove_pointer_t<U> sandbox_copyAndVerifyC(my_remove_pointer_t<U>(*verify_fn)(sandbox_unverified_data<my_remove_pointer_t<U>> *)) const
+	{
+		auto maskedFieldPtr = (sandbox_unverified_data<my_remove_pointer_t<U>> *) getMasked();
+		return verify_fn(maskedFieldPtr);
+	}
+
+	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>::value && std::is_class<std::remove_pointer<U>>::value)>
+	inline my_remove_pointer_t<U> sandbox_copyAndVerify(bool(*verify_fn)(sandbox_unverified_data<my_remove_pointer_t<U>>), my_remove_pointer_t<U> defaultValue) const
+	{
+		auto maskedFieldPtr = (sandbox_unverified_data<my_remove_pointer_t<U>> *) getMasked();
+		if(maskedFieldPtr == nullptr)
+		{
+			return defaultValue;
+		}
+
+		auto maskedField = *maskedFieldPtr;
+		return verify_fn(maskedField)? maskedField : defaultValue;
+	}
+
+	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>::value && std::is_class<std::remove_pointer<U>>::value)>
+	inline optional<my_remove_pointer_t<U>> sandbox_copyAndVerify(optional<my_remove_pointer_t<U>>(*verify_fn)(U)) const
+	{
+		auto maskedFieldPtr = (sandbox_unverified_data<my_remove_pointer_t<U>> *) getMasked();
+		return verify_fn(maskedFieldPtr);
+	}
+
+	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>::value && std::is_class<std::remove_pointer<U>>::value)>
+	inline optional<my_remove_pointer_t<U>> sandbox_copyAndVerify(bool(*verify_fn)(sandbox_unverified_data<my_remove_pointer_t<U>>), optional<my_remove_pointer_t<U>> defaultValue) const
+	{
+		auto maskedFieldPtr = (sandbox_unverified_data<my_remove_pointer_t<U>> *) getMasked();
+		if(maskedFieldPtr == nullptr)
+		{
+			return defaultValue;
+		}
+
+		auto maskedField = *maskedFieldPtr;
+		return verify_fn(maskedField)? maskedField : defaultValue;
+	}
+
+	#undef ENABLE_IF
+
+	inline T sandbox_copyAndVerifyArray(bool(*verify_fn)(T), unsigned int elementCount, T defaultValue) const
+	{
+		typedef typename std::remove_pointer<T>::type nonPointerType;
+		typedef typename std::remove_const<nonPointerType>::type nonPointerConstType;
+
+		T maskedFieldPtr = getMasked();
+		uintptr_t arrayEnd = ((uintptr_t)maskedFieldPtr) + sizeof(std::remove_pointer<T>) * elementCount;
+
+		//check for overflow
+		if((arrayEnd && 0xFFFFFFFF00000000) != (((uintptr_t)maskedFieldPtr) && 0xFFFFFFFF00000000))
+		{
+			return defaultValue;
+		}
+
+		nonPointerConstType* copy = new nonPointerConstType[elementCount];
+		memcpy(copy, maskedFieldPtr, sizeof(nonPointerConstType) * elementCount);
+		return verify_fn(copy)? copy : defaultValue;
+	}
+
+	inline T sandbox_copyAndVerifyString(bool(*verify_fn)(T), T defaultValue) const
+	{
+		T maskedFieldPtr = getMasked();
+		unsigned int elementCount = strlen(maskedFieldPtr) + 1;
+		return sandbox_copyAndVerifyArray(verify_fn, elementCount, defaultValue);
+	}
+
+	inline unverified_data<T>& operator=(const sandbox_unverified_data<T>& arg) noexcept
+	{
+		field = arg.getMasked();
+		printf("Sbox Pointer - Wrapped Assignment\n");
+		return *this;
+	}
+
+	inline unverified_data<T>& operator=(const unverified_data<T>& arg) noexcept
+	{
+		field = arg.field;
+		printf("Sbox Pointer - Unverified Assignment\n");
+		return *this;
+	}
+
+	inline unverified_data<T>& operator=(const T& arg) noexcept
+	{
+		field = arg;
+		printf("Sbox Pointer - Direct Assignment\n");
+		return *this;
+	}
+
+	inline sandbox_unverified_data<my_remove_pointer_t<T>>& operator*() const
+	{
+		auto r = (sandbox_unverified_data<my_remove_pointer_t<T>>*) getMasked();
+		return *r;
+	}
+
+	inline sandbox_unverified_data<my_remove_pointer_t<T>>* operator->()
+	{
+		return (sandbox_unverified_data<my_remove_pointer_t<T>>*) getMasked();
+	}
+
+	inline T getMasked() const
+	{
+		return field;
 	}
 };
 
 #define sandbox_unverified_data_createField(fieldType, fieldName) sandbox_unverified_data<fieldType> fieldName;
+#define unverified_data_createField(fieldType, fieldName) unverified_data<fieldType> fieldName;
 #define sandbox_unverified_data_noOp() 
-#define sandbox_unverified_data_memberInitializer(fieldType, fieldName) fieldName(arg.fieldName)
-#define sandbox_unverified_data_comma() ,
 #define sandbox_unverified_data_fieldAssign(fieldType, fieldName) fieldName = arg.fieldName;
+#define sandbox_unverified_data_fieldAssignMasked(fieldType, fieldName) fieldName = arg.fieldName.getMasked();
+#define sandbox_unverified_data_copyAssignMasked(fieldType, fieldName) ret.fieldName = fieldName.getMasked();
  
 #define sandbox_unverified_data_specialization(T, libId) \
 template<> \
 struct sandbox_unverified_data<T> \
 { \
 	sandbox_fields_reflection_##libId##_class_##T(sandbox_unverified_data_createField, sandbox_unverified_data_noOp) \
- \
-	inline sandbox_unverified_data(T& arg) noexcept : sandbox_fields_reflection_##libId##_class_##T(sandbox_unverified_data_memberInitializer, sandbox_unverified_data_comma) \
-	{ \
-		printf("Class constructor\n"); \
-	} \
  \
 	inline T sandbox_copyAndVerify(T(*verify_fn)(sandbox_unverified_data<T>&)) \
 	{ \
@@ -217,164 +459,77 @@ struct sandbox_unverified_data<T> \
 		return verify_fn(*this)? *((T*)this) : defaultValue; \
 	} \
  \
-	/*inline sandbox_unverified_data<T>& operator=(sandbox_unverified_data<T> arg) noexcept*/ \
+	inline sandbox_unverified_data<T>& operator=(const sandbox_unverified_data<T>& arg) noexcept \
+	{ \
+		printf("Sbox Struct - Wrapped Assignment\n"); \
+		sandbox_fields_reflection_##libId##_class_##T(sandbox_unverified_data_fieldAssign, sandbox_unverified_data_noOp) \
+		return *this; \
+	} \
+ \
+	/*inline sandbox_unverified_data<T>& operator=(const unverified_data<T>& arg) noexcept*/ \
 	/*{*/ \
+	/*	printf("Sbox Struct - Unverified Assignment\n");*/ \
 	/*	sandbox_fields_reflection_##libId##_class_##T(sandbox_unverified_data_fieldAssign, sandbox_unverified_data_noOp)*/ \
 	/*	return *this;*/ \
 	/*}*/ \
  \
-	inline sandbox_unverified_data<T>& operator=(T arg) noexcept \
+	inline sandbox_unverified_data<T>& operator=(const T& arg) noexcept \
 	{ \
+		printf("Sbox Struct - Direct Assignment\n"); \
 		sandbox_fields_reflection_##libId##_class_##T(sandbox_unverified_data_fieldAssign, sandbox_unverified_data_noOp) \
 		return *this; \
 	} \
-}
-
-template<typename T>
-inline sandbox_unverified_data<T> make_sandbox_unverified_data(T& arg)
-{
-	sandbox_unverified_data<T> ret(arg);
-	return ret;
-}
-
-template<typename T, typename T2=void>
-struct sandbox_unverified_data_outside_sandbox;
-
-//a sandbox pointer that is lives in memory outside the sandbox
-template<typename T>
-struct sandbox_unverified_data_outside_sandbox<T, typename std::enable_if<std::is_pointer<T>::value && !std::is_reference<T>::value>::type>
-{
-	T& field;
-
-	inline sandbox_unverified_data_outside_sandbox(T& arg) noexcept : field(arg)
-	{
-		printf("sandbox_unverified_data_outside_sandbox pointer constructor\n");
-	}
-
-	#define ENABLE_IF(...) typename std::enable_if<__VA_ARGS__::value>::type* = nullptr
-	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	//Validate one level of indirection, eg int*, by returning the derefed value as we have to get a copy of the actual object
-	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>)>
-	inline my_remove_pointer_t<T> sandbox_copyAndVerify(my_remove_pointer_t<T>(*verify_fn)(T))
-	{
-		T maskedFieldPtr = getMasked(field);
-		return verify_fn(maskedFieldPtr);
-	}
-
-	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>)>
-	inline my_remove_pointer_t<T> sandbox_copyAndVerify(bool(*verify_fn)(my_remove_pointer_t<T>), my_remove_pointer_t<T> defaultValue)
-	{
-		my_remove_pointer_t<T> maskedField = *(getMasked(field));
-		return verify_fn(maskedField)? maskedField : defaultValue;
-	}
-
-	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>)>
-	inline optional<my_remove_pointer_t<T>> sandbox_copyAndVerify(optional<my_remove_pointer_t<T>>(*verify_fn)(T))
-	{
-		T maskedFieldPtr = getMasked(field);
-		return verify_fn(maskedFieldPtr);
-	}
-
-	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>)>
-	inline optional<my_remove_pointer_t<T>> sandbox_copyAndVerify(bool(*verify_fn)(my_remove_pointer_t<T>), optional<my_remove_pointer_t<T>> defaultValue)
-	{
-		my_remove_pointer_t<T> maskedField = *(getMasked(field));
-		return verify_fn(maskedField)? maskedField : defaultValue;
-	}
-	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	//For multiple levels of indirection, rg: int **, we can just return the value wrapped with sandbox_unverified_data as it is likely, the user hasn't made a deep copy here
-	template<typename U=T, ENABLE_IF(std::is_pointer<std::remove_pointer<U>>)>
-	inline sandbox_unverified_data<my_remove_pointer_t<T>> sandbox_copyAndVerify(my_remove_pointer_t<T>(*verify_fn)(T))
-	{
-		T maskedFieldPtr = getMasked(field);
-		return make_sandbox_unverified_data(verify_fn(maskedFieldPtr));
-	}
-
-	template<typename U=T, ENABLE_IF(std::is_pointer<std::remove_pointer<U>>)>
-	inline sandbox_unverified_data<my_remove_pointer_t<T>> sandbox_copyAndVerify(bool(*verify_fn)(my_remove_pointer_t<T>), my_remove_pointer_t<T> defaultValue)
-	{
-		my_remove_pointer_t<T> maskedField = *(getMasked(field));
-		return make_sandbox_unverified_data(verify_fn(maskedField)? maskedField : defaultValue);
-	}
-
-	template<typename U=T, ENABLE_IF(std::is_pointer<std::remove_pointer<U>>)>
-	inline sandbox_unverified_data<optional<my_remove_pointer_t<T>>> sandbox_copyAndVerify(optional<my_remove_pointer_t<T>>(*verify_fn)(T))
-	{
-		T maskedFieldPtr = getMasked(field);
-		return make_sandbox_unverified_data(verify_fn(maskedFieldPtr));
-	}
-
-	template<typename U=T, ENABLE_IF(std::is_pointer<std::remove_pointer<U>>)>
-	inline sandbox_unverified_data<optional<my_remove_pointer_t<T>>> sandbox_copyAndVerify(bool(*verify_fn)(my_remove_pointer_t<T>), optional<my_remove_pointer_t<T>> defaultValue)
-	{
-		my_remove_pointer_t<T> maskedField = *(getMasked(field));
-		return make_sandbox_unverified_data(verify_fn(maskedField)? maskedField : defaultValue);
-	}
-	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	#undef ENABLE_IF
-
-	inline T sandbox_copyAndVerifyArray(bool(*verify_fn)(T), unsigned int elementCount, T defaultValue)
-	{
-		typedef typename std::remove_pointer<T>::type nonPointerType;
-		typedef typename std::remove_const<nonPointerType>::type nonPointerConstType;
-
-		T maskedFieldPtr = getMasked(field);
-		uintptr_t arrayEnd = ((uintptr_t)maskedFieldPtr) + sizeof(std::remove_pointer<T>) * elementCount;
-
-		//check for overflow
-		if((arrayEnd && 0xFFFFFFFF00000000) != (((uintptr_t)maskedFieldPtr) && 0xFFFFFFFF00000000))
-		{
-			return defaultValue;
-		}
-
-		nonPointerConstType* copy = new nonPointerConstType[elementCount];
-		memcpy(copy, maskedFieldPtr, sizeof(nonPointerConstType) * elementCount);
-		return verify_fn(copy)? copy : defaultValue;
-	}
-
-	inline T sandbox_copyAndVerifyString(bool(*verify_fn)(T), T defaultValue)
-	{
-		T maskedFieldPtr = getMasked(field);
-		unsigned int elementCount = strlen(maskedFieldPtr) + 1;
-		return sandbox_copyAndVerifyArray(verify_fn, elementCount, defaultValue);
-	}
-
-	// inline sandbox_unverified_data<T>& operator=(sandbox_unverified_data<T> arg) noexcept
-	// {
-	// 	fieldLoc = arg.fieldLoc;
-	// 	printf("Pointer - Wrapped Assignment\n");
-	// 	return *this;
-	// }
-
-	inline sandbox_unverified_data<T>& operator=(T arg) noexcept
-	{
-		field = arg;
-		printf("Pointer - Direct Assignment\n");
-		return *this;
-	}
-
-	inline sandbox_unverified_data<my_remove_pointer_t<T>>& operator*() const
-	{
-		return make_sandbox_unverified_data(*getMasked(field));
-	}
-
-	inline sandbox_unverified_data<my_remove_pointer_t<T>>* operator->()
-	{
-		return (sandbox_unverified_data<my_remove_pointer_t<T>>*) getMasked(field);
-	}
-
-private:
-	inline T getMasked(T arg)
-	{
-		return arg;
-	}
-};
-
-template<typename T>
-inline sandbox_unverified_data_outside_sandbox<T> make_sandbox_unverified_data_outside_sandbox(T& arg)
-{
-	sandbox_unverified_data_outside_sandbox<T> ret(arg);
-	return ret;
+ \
+	inline T getMasked() const \
+	{ \
+		T ret; \
+		sandbox_fields_reflection_##libId##_class_##T(sandbox_unverified_data_copyAssignMasked, sandbox_unverified_data_noOp) \
+		return ret; \
+	} \
+}; \
+ \
+template<> \
+struct unverified_data<T> \
+{ \
+	sandbox_fields_reflection_##libId##_class_##T(unverified_data_createField, sandbox_unverified_data_noOp) \
+ \
+	inline T sandbox_copyAndVerify(T(*verify_fn)(unverified_data<T>&)) \
+	{ \
+		return verify_fn(*this); \
+	} \
+ \
+	inline T sandbox_copyAndVerify(bool(*verify_fn)(unverified_data<T>&), T defaultValue) \
+	{ \
+		return verify_fn(*this)? *((T*)this) : defaultValue; \
+	} \
+ \
+	inline unverified_data<T>& operator=(const sandbox_unverified_data<T>& arg) noexcept \
+	{ \
+		printf("Struct - Wrapped Assignment\n"); \
+		sandbox_fields_reflection_##libId##_class_##T(sandbox_unverified_data_fieldAssignMasked, sandbox_unverified_data_noOp) \
+		return *this; \
+	} \
+ \
+	inline unverified_data<T>& operator=(const unverified_data<T>& arg) noexcept \
+	{ \
+		printf("Struct - Unverified Assignment\n"); \
+		sandbox_fields_reflection_##libId##_class_##T(sandbox_unverified_data_fieldAssign, sandbox_unverified_data_noOp) \
+		return *this; \
+	} \
+ \
+	inline unverified_data<T>& operator=(const T& arg) noexcept \
+	{ \
+		printf("Struct - Direct Assignment\n"); \
+		sandbox_fields_reflection_##libId##_class_##T(sandbox_unverified_data_fieldAssign, sandbox_unverified_data_noOp) \
+		return *this; \
+	} \
+ \
+	inline T getMasked() const \
+	{ \
+		T ret; \
+		sandbox_fields_reflection_##libId##_class_##T(sandbox_unverified_data_copyAssignMasked, sandbox_unverified_data_noOp) \
+		return ret; \
+	} \
 }
 
 #define sandbox_nacl_load_library_api(libId) sandbox_fields_reflection_##libId##_allClasses(sandbox_unverified_data_specialization)
@@ -817,44 +972,47 @@ void>::type sandbox_invokeNaClReturn(NaClSandbox_Thread* threadData)
 
 template <typename T, typename ... Targs>
 inline typename std::enable_if<std::is_pointer<return_argument<T>>::value,
-sandbox_unverified_data_outside_sandbox<return_argument<T>>>::type sandbox_invokeNaClReturn(NaClSandbox_Thread* threadData)
+unverified_data<return_argument<T>>>::type sandbox_invokeNaClReturn(NaClSandbox_Thread* threadData)
 {
 	printf("got a pointer return\n");
-	auto retRaw = (return_argument<T>)functionCallReturnPtr(threadData);
-	auto ret = make_sandbox_unverified_data_outside_sandbox(retRaw);
-	return ret;
+	auto retRaw = functionCallReturnPtr(threadData);
+	auto retRawMasked = getMaskedField(getSandboxMemoryBase(threadData->sandbox), retRaw);
+	auto retRawPtr = (unverified_data<return_argument<T>> *) &retRawMasked;
+	return *retRawPtr;
 }
 
 template <typename T, typename ... Targs>
 inline typename std::enable_if<std::is_floating_point<return_argument<T>>::value,
-sandbox_unverified_data<return_argument<T>>>::type sandbox_invokeNaClReturn(NaClSandbox_Thread* threadData)
+unverified_data<return_argument<T>>>::type sandbox_invokeNaClReturn(NaClSandbox_Thread* threadData)
 {
 	printf("got a double return\n");
-	auto retRaw = (return_argument<T>)functionCallReturnDouble(threadData);
-	auto ret = make_sandbox_unverified_data(retRaw);
-	return ret;
+	auto retRaw = functionCallReturnDouble(threadData);
+	auto retRawPtr = (unverified_data<return_argument<T>> *) &retRaw;
+	return *retRawPtr;
 }
 
 template <typename T, typename ... Targs>
-inline typename std::enable_if<std::is_class<return_argument<T>>::value,
-sandbox_unverified_data<return_argument<T>>>::type sandbox_invokeNaClReturn(NaClSandbox_Thread* threadData)
+inline typename std::enable_if<std::is_class<return_argument<T>>::value && !std::is_reference<T>::value,
+unverified_data<return_argument<T>>>::type sandbox_invokeNaClReturn(NaClSandbox_Thread* threadData)
 {
 	printf("got a class return\n");
-	auto retRaw = (return_argument<T> *)functionCallReturnPtr(threadData);
-	//return_argument<T>& retRef = *retRaw;
-	auto ret = make_sandbox_unverified_data(*retRaw);
+	//structs are returned as a pointer
+	auto retRaw = functionCallReturnPtr(threadData);
+	auto retRawMasked = getMaskedField(getSandboxMemoryBase(threadData->sandbox), retRaw);
+	auto retRawPtr = (sandbox_unverified_data<return_argument<T>> *) retRawMasked;
+	unverified_data<return_argument<T>> ret;
+	ret = *retRawPtr;
 	return ret;
 }
 
 template <typename T, typename ... Targs>
 inline typename std::enable_if<!std::is_pointer<return_argument<T>>::value && !std::is_void<return_argument<T>>::value && !std::is_floating_point<return_argument<T>>::value && !std::is_class<return_argument<T>>::value,
-sandbox_unverified_data<return_argument<T>>>::type sandbox_invokeNaClReturn(NaClSandbox_Thread* threadData)
+unverified_data<return_argument<T>>>::type sandbox_invokeNaClReturn(NaClSandbox_Thread* threadData)
 {
 	printf("got a value return\n");
 	auto retRaw = functionCallReturnRawPrimitiveInt(threadData);
-	auto retRawPtr = (return_argument<T> *) &retRaw;
-	auto ret = make_sandbox_unverified_data(*retRawPtr);
-	return ret;
+	auto retRawPtr = (unverified_data<return_argument<T>> *) &retRaw;
+	return *retRawPtr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
