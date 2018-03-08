@@ -131,7 +131,16 @@ struct sandbox_unverified_data<T, typename std::enable_if<std::is_pointer<T>::va
 
 	//Only validate one level of indirection, eg int*, by returning the derefed value as we have to get a copy of the actual object
 
+	//All *
+	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>::value)>
+	inline U sandbox_onlyVerifyAddress() const
+	{
+		U maskedFieldPtr = getMasked();
+		return maskedFieldPtr;
+	}
+
 	//Primitive*
+
 	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>::value && !std::is_class<std::remove_pointer<U>>::value)>
 	inline my_remove_pointer_t<U> sandbox_copyAndVerify(my_remove_pointer_t<U>(*verify_fn)(U)) const
 	{
@@ -273,6 +282,11 @@ struct sandbox_unverified_data<T, typename std::enable_if<std::is_pointer<T>::va
 		return (sandbox_unverified_data<my_remove_pointer_t<T>>*) getMasked();
 	}
 
+	inline operator bool() const
+	{
+		return getMasked() != 0;
+	}
+
 	inline T getMasked() const
 	{
 		unsigned long sandboxMask = ((uintptr_t) &field) & ((unsigned long)0xFFFFFFFF00000000);
@@ -288,6 +302,14 @@ struct unverified_data<T, typename std::enable_if<std::is_pointer<T>::value && !
 	#define ENABLE_IF(...) typename std::enable_if<__VA_ARGS__>::type* = nullptr
 
 	//Only validate one level of indirection, eg int*, by returning the derefed value as we have to get a copy of the actual object
+
+	//All *
+	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>::value)>
+	inline U sandbox_onlyVerifyAddress() const
+	{
+		U maskedFieldPtr = getMasked();
+		return maskedFieldPtr;
+	}
 
 	//Primitive*
 	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>::value && !std::is_class<std::remove_pointer<U>>::value)>
@@ -429,6 +451,11 @@ struct unverified_data<T, typename std::enable_if<std::is_pointer<T>::value && !
 	inline sandbox_unverified_data<my_remove_pointer_t<T>>* operator->()
 	{
 		return (sandbox_unverified_data<my_remove_pointer_t<T>>*) getMasked();
+	}
+
+	inline operator bool() const
+	{
+		return getMasked() != 0;
 	}
 
 	inline T getMasked() const
@@ -748,6 +775,11 @@ public:
 	short callbackSlotNum;
 	uintptr_t callbackRegisteredAddress;
 
+	inline uintptr_t getCallbackAddress()
+	{
+		return callbackRegisteredAddress;
+	}
+
 	~sandbox_callback_helper()
 	{
 		printf("sandbox_callback_helper destructor called\n");
@@ -819,6 +851,11 @@ template<typename T>
 T* sandbox_removeWrapper_helper(sandbox_callback_helper<T>);
 template<typename T>
 T* sandbox_removeWrapper_helper(std::shared_ptr<sandbox_callback_helper<T>>);
+
+template<typename T>
+T sandbox_removeWrapper_helper(sandbox_unverified_data<T>);
+template<typename T>
+T sandbox_removeWrapper_helper(unverified_data<T>);
 
 template<typename T>
 T sandbox_removeWrapper_helper(T);
@@ -1106,3 +1143,13 @@ inline void* sandbox_cacheAndRetrieveFnPtr(NaClSandbox* sandbox, const char* fnN
 }
 
 #define sandbox_invoke(sandbox, fnName, ...) sandbox_invoke_with_ptr(sandbox, fnName, sandbox_cacheAndRetrieveFnPtr(sandbox, #fnName), ##__VA_ARGS__)
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+template<typename T>
+inline unverified_data<T*> newInSandbox(NaClSandbox* sandbox, unsigned count = 1)
+{
+	auto ret = (T*) getMaskedField(getSandboxMemoryBase(sandbox), mallocInSandbox(sandbox, sizeof(T) * count));
+	auto casted = (unverified_data<T*> *) &ret;
+	return *casted;
+}

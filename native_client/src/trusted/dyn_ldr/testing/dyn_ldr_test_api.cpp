@@ -69,7 +69,8 @@ int invokeSimpleEchoTestPassed(NaClSandbox* sandbox, const char* str)
 		return 0;
 	}
 
-	strInSandbox = (char*) mallocInSandbox(sandbox, strlen(str) + 1);
+	unverified_data<char*> temp = newInSandbox<char>(sandbox, strlen(str) + 1);
+	strInSandbox = temp.sandbox_onlyVerifyAddress();
 	strcpy(strInSandbox, str);
 
 	//str is allocated in sandbox heap, not our heap
