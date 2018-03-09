@@ -673,6 +673,21 @@ inline std::shared_ptr<sandbox_heaparr_helper<const char>> sandbox_heaparr_share
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+template <typename T>
+class sandbox_unsandboxed_ptr_helper
+{
+public:
+	T field;
+};
+
+template<typename T, typename std::enable_if<std::is_pointer<T>::value>::type* = nullptr>
+inline sandbox_unsandboxed_ptr_helper<T> sandbox_unsandboxed_ptr(T arg)
+{
+	sandbox_unsandboxed_ptr_helper<T> ret;
+	ret.field = arg;
+	return ret;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 //https://stackoverflow.com/questions/10766112/c11-i-can-go-from-multiple-args-to-tuple-but-can-i-go-from-tuple-to-multiple
 template <typename F, typename Tuple, bool Done, int Total, int... N>
@@ -853,9 +868,13 @@ template<typename T>
 T* sandbox_removeWrapper_helper(std::shared_ptr<sandbox_callback_helper<T>>);
 
 template<typename T>
+T sandbox_removeWrapper_helper(sandbox_unsandboxed_ptr_helper<T>);
+
+template<typename T>
 T sandbox_removeWrapper_helper(sandbox_unverified_data<T>);
 template<typename T>
 T sandbox_removeWrapper_helper(unverified_data<T>);
+
 
 template<typename T>
 T sandbox_removeWrapper_helper(T);
@@ -934,6 +953,13 @@ inline void sandbox_handleNaClArg(NaClSandbox_Thread* threadData, T* arg)
 {
 	printf("got a pointer arg\n");
 	PUSH_PTR_TO_STACK(threadData, T*, arg);
+}
+
+template <typename T>
+inline void sandbox_handleNaClArg(NaClSandbox_Thread* threadData, sandbox_unsandboxed_ptr_helper<T> arg)
+{
+	printf("got a unsandboxed pointer arg\n");
+	PUSH_VAL_TO_STACK(threadData, uintptr_t, arg.field);
 }
 
 template <typename T>
@@ -1112,14 +1138,18 @@ __attribute__ ((noinline)) return_argument<decltype(sandbox_invokeNaClReturn<T>)
 	return sandbox_invokeNaClReturn<T>(threadData);
 }
 
-#ifdef __clang__
-	#pragma clang diagnostic push
-	#pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
-#endif
-#define sandbox_invoke_with_ptr(sandbox, fnName, fnPtr, ...) sandbox_invoker_with_ptr<decltype(fnName)>(sandbox, fnPtr, nullptr, ##__VA_ARGS__)
-#ifdef __clang__
-	#pragma clang diagnostic pop
-#endif
+template <typename T, typename ... Targs>
+__attribute__ ((noinline)) return_argument<T> sandbox_invoker_with_ptr_ret_unsandboxed_ptr(NaClSandbox* sandbox, void* fnPtr, typename std::enable_if<std::is_function<T>::value>::type* dummy, Targs ... param)
+{
+	UNUSED(dummy);
+	NaClSandbox_Thread* threadData = preFunctionCall(sandbox, sandbox_NaClAddParams(param...), sandbox_NaClAddStackArrParams(param...) /* size of any arrays being pushed on the stack */);
+	printf("StackArr Size: %u\n", (unsigned)sandbox_NaClAddStackArrParams(param...));
+	sandbox_dealWithNaClReturnArg<return_argument<T>>(threadData);
+	sandbox_dealWithNaClArgs(threadData, param...);
+	sandbox_checkSignatureAndCallNaClFn<T, Targs ...>(threadData, fnPtr);
+	auto ret = (uintptr_t) functionCallReturnRawPrimitiveInt(threadData);
+	return (return_argument<T>) ret;
+}
 
 #define initCPPApi(sandbox) sandbox->extraState = new std::map<std::string, void*>
 
@@ -1142,7 +1172,18 @@ inline void* sandbox_cacheAndRetrieveFnPtr(NaClSandbox* sandbox, const char* fnN
 	return fnPtr;
 }
 
-#define sandbox_invoke(sandbox, fnName, ...) sandbox_invoke_with_ptr(sandbox, fnName, sandbox_cacheAndRetrieveFnPtr(sandbox, #fnName), ##__VA_ARGS__)
+#ifdef __clang__
+	#pragma clang diagnostic push
+	#pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
+#endif
+#define sandbox_invoke_with_ptr(sandbox, fnName, fnPtr, ...) sandbox_invoker_with_ptr<decltype(fnName)>(sandbox, fnPtr, nullptr, ##__VA_ARGS__)
+#define sandbox_invoke(sandbox, fnName, ...) sandbox_invoker_with_ptr<decltype(fnName)>(sandbox, sandbox_cacheAndRetrieveFnPtr(sandbox, #fnName), nullptr, ##__VA_ARGS__)
+#define sandbox_invoke_with_ptr_ret_unsandboxed_ptr(sandbox, fnName, fnPtr, ...) sandbox_invoker_with_ptr_ret_unsandboxed_ptr<decltype(fnName)>(sandbox, fnPtr, nullptr, ##__VA_ARGS__)
+#define sandbox_invoke_ret_unsandboxed_ptr(sandbox, fnName, ...) sandbox_invoker_with_ptr_ret_unsandboxed_ptr<decltype(fnName)>(sandbox, sandbox_cacheAndRetrieveFnPtr(sandbox, #fnName), nullptr, ##__VA_ARGS__)
+#ifdef __clang__
+	#pragma clang diagnostic pop
+#endif
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

@@ -78,3 +78,8 @@ struct testStruct* simpleTestStructPtr()
 	ret->fieldBool = 1;
 	return ret;
 }
+
+void* echoPointer(void* pointer)
+{
+	return pointer;
+}

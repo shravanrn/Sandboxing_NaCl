@@ -249,6 +249,15 @@ void* runTests(void* runTestParamsPtr)
 	}
 
 	//////////////////////////////////////////////////////////////////
+	void* ptr = (void *)(uintptr_t) 0x1234567812345678;
+	void* result11 = sandbox_invoke_ret_unsandboxed_ptr(sandbox, echoPointer, sandbox_unsandboxed_ptr(ptr));
+
+	if(result11 != ptr)
+	{
+		printf("Dyn loader Test 11: Failed\n");
+		*testResult = 0;
+		return NULL;
+	}
 
 	*testResult = 1;
 	return NULL;
