@@ -1,3 +1,6 @@
+#ifndef NACL_DYN_LDR_LIB
+#define NACL_DYN_LDR_LIB
+
 #ifdef __cplusplus
   extern "C" {
 #endif
@@ -217,4 +220,6 @@ uintptr_t functionCallReturnSandboxPtr(NaClSandbox_Thread* threadData);
 
 #ifdef __cplusplus
   }
+#endif
+
 #endif

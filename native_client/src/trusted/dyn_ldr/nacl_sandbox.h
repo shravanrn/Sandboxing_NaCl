@@ -1,9 +1,13 @@
+#ifndef NACL_SANDBOX_API
+#define NACL_SANDBOX_API
+
 #include <type_traits>
 #include <memory>
 #include <functional>
 #include <map>
 #include <stdio.h>
 
+#include "dyn_ldr_lib.h"
 #include "helpers/optional.hpp"
 
 using nonstd::optional;
@@ -55,21 +59,21 @@ struct sandbox_unverified_data<T, typename std::enable_if<!std::is_pointer<T>::v
 
 	inline sandbox_unverified_data<T>& operator=(const sandbox_unverified_data<T>& arg) noexcept
 	{
-		printf("Sbox Value - Wrapped Assignment\n");
+		//printf("Sbox Value - Wrapped Assignment\n");
 		field = arg.field;
 		return *this;
 	}
 
 	inline sandbox_unverified_data<T>& operator=(const unverified_data<T>& arg) noexcept
 	{
-		printf("Sbox Value - Unverified Assignment\n");
+		//printf("Sbox Value - Unverified Assignment\n");
 		field = arg.field;
 		return *this;
 	}
 
 	inline sandbox_unverified_data<T>& operator=(const T& arg) noexcept
 	{
-		printf("Sbox Value - Direct Assignment\n");
+		//printf("Sbox Value - Direct Assignment\n");
 		field = arg;
 		return *this;
 	}
@@ -97,21 +101,21 @@ struct unverified_data<T, typename std::enable_if<!std::is_pointer<T>::value && 
 
 	inline unverified_data<T>& operator=(const sandbox_unverified_data<T>& arg) noexcept
 	{
-		printf("Value - Wrapped Assignment\n");
+		//printf("Value - Wrapped Assignment\n");
 		field = arg.field;
 		return *this;
 	}
 
 	inline unverified_data<T>& operator=(const unverified_data<T>& arg) noexcept
 	{
-		printf("Value - Unverified Assignment\n");
+		//printf("Value - Unverified Assignment\n");
 		field = arg.field;
 		return *this;
 	}
 
 	inline unverified_data<T>& operator=(const T& arg) noexcept
 	{
-		printf("Value - Direct Assignment\n");
+		//printf("Value - Direct Assignment\n");
 		field = arg;
 		return *this;
 	}
@@ -253,21 +257,21 @@ struct sandbox_unverified_data<T, typename std::enable_if<std::is_pointer<T>::va
 	inline sandbox_unverified_data<T>& operator=(const sandbox_unverified_data<T>& arg) noexcept
 	{
 		field = arg.field;
-		printf("Sbox Pointer - Wrapped Assignment\n");
+		//printf("Sbox Pointer - Wrapped Assignment\n");
 		return *this;
 	}
 
 	inline sandbox_unverified_data<T>& operator=(const unverified_data<T>& arg) noexcept
 	{
 		field = arg.field;
-		printf("Sbox Pointer - Unverified Assignment\n");
+		//printf("Sbox Pointer - Unverified Assignment\n");
 		return *this;
 	}
 
 	inline sandbox_unverified_data<T>& operator=(const T& arg) noexcept
 	{
 		field = arg;
-		printf("Sbox Pointer - Direct Assignment\n");
+		//printf("Sbox Pointer - Direct Assignment\n");
 		return *this;
 	}
 
@@ -424,21 +428,21 @@ struct unverified_data<T, typename std::enable_if<std::is_pointer<T>::value && !
 	inline unverified_data<T>& operator=(const sandbox_unverified_data<T>& arg) noexcept
 	{
 		field = arg.getMasked();
-		printf("Sbox Pointer - Wrapped Assignment\n");
+		//printf("Sbox Pointer - Wrapped Assignment\n");
 		return *this;
 	}
 
 	inline unverified_data<T>& operator=(const unverified_data<T>& arg) noexcept
 	{
 		field = arg.field;
-		printf("Sbox Pointer - Unverified Assignment\n");
+		//printf("Sbox Pointer - Unverified Assignment\n");
 		return *this;
 	}
 
 	inline unverified_data<T>& operator=(const T& arg) noexcept
 	{
 		field = arg;
-		printf("Sbox Pointer - Direct Assignment\n");
+		//printf("Sbox Pointer - Direct Assignment\n");
 		return *this;
 	}
 
@@ -489,21 +493,21 @@ struct sandbox_unverified_data<T> \
  \
 	inline sandbox_unverified_data<T>& operator=(const sandbox_unverified_data<T>& arg) noexcept \
 	{ \
-		printf("Sbox Struct - Wrapped Assignment\n"); \
+		/*printf("Sbox Struct - Wrapped Assignment\n");*/ \
 		sandbox_fields_reflection_##libId##_class_##T(sandbox_unverified_data_fieldAssign, sandbox_unverified_data_noOp) \
 		return *this; \
 	} \
  \
 	/*inline sandbox_unverified_data<T>& operator=(const unverified_data<T>& arg) noexcept*/ \
 	/*{*/ \
-	/*	printf("Sbox Struct - Unverified Assignment\n");*/ \
+	/*	/*printf("Sbox Struct - Unverified Assignment\n");*/ \
 	/*	sandbox_fields_reflection_##libId##_class_##T(sandbox_unverified_data_fieldAssign, sandbox_unverified_data_noOp)*/ \
 	/*	return *this;*/ \
 	/*}*/ \
  \
 	inline sandbox_unverified_data<T>& operator=(const T& arg) noexcept \
 	{ \
-		printf("Sbox Struct - Direct Assignment\n"); \
+		/*printf("Sbox Struct - Direct Assignment\n");*/ \
 		sandbox_fields_reflection_##libId##_class_##T(sandbox_unverified_data_fieldAssign, sandbox_unverified_data_noOp) \
 		return *this; \
 	} \
@@ -533,21 +537,21 @@ struct unverified_data<T> \
  \
 	inline unverified_data<T>& operator=(const sandbox_unverified_data<T>& arg) noexcept \
 	{ \
-		printf("Struct - Wrapped Assignment\n"); \
+		/*printf("Struct - Wrapped Assignment\n");*/ \
 		sandbox_fields_reflection_##libId##_class_##T(sandbox_unverified_data_fieldAssignMasked, sandbox_unverified_data_noOp) \
 		return *this; \
 	} \
  \
 	inline unverified_data<T>& operator=(const unverified_data<T>& arg) noexcept \
 	{ \
-		printf("Struct - Unverified Assignment\n"); \
+		/*printf("Struct - Unverified Assignment\n");*/ \
 		sandbox_fields_reflection_##libId##_class_##T(sandbox_unverified_data_fieldAssign, sandbox_unverified_data_noOp) \
 		return *this; \
 	} \
  \
 	inline unverified_data<T>& operator=(const T& arg) noexcept \
 	{ \
-		printf("Struct - Direct Assignment\n"); \
+		/*printf("Struct - Direct Assignment\n");*/ \
 		sandbox_fields_reflection_##libId##_class_##T(sandbox_unverified_data_fieldAssign, sandbox_unverified_data_noOp) \
 		return *this; \
 	} \
@@ -638,7 +642,7 @@ public:
 
 	~sandbox_heaparr_helper()
 	{
-		printf("sandbox_heaparr_helper destructor called\n");
+		//printf("sandbox_heaparr_helper destructor called\n");
 		freeInSandbox(sandbox, (void *)arr);
 	}
 };
@@ -721,7 +725,7 @@ template<typename TArg>
 inline typename std::enable_if<std::is_pointer<TArg>::value,
 TArg>::type sandbox_get_callback_param(NaClSandbox_Thread* threadData)
 {
-	printf("callback pointer arg\n");
+	//printf("callback pointer arg\n");
 	return COMPLETELY_UNTRUSTED_CALLBACK_PTR_PARAM(threadData, TArg);
 }
 
@@ -729,7 +733,7 @@ template<typename TArg>
 inline typename std::enable_if<!std::is_pointer<TArg>::value,
 TArg>::type sandbox_get_callback_param(NaClSandbox_Thread* threadData)
 {
-	printf("callback value arg\n");
+	//printf("callback value arg\n");
 	return COMPLETELY_UNTRUSTED_CALLBACK_STACK_PARAM(threadData, TArg);
 }
 
@@ -797,7 +801,7 @@ public:
 
 	~sandbox_callback_helper()
 	{
-		printf("sandbox_callback_helper destructor called\n");
+		//printf("sandbox_callback_helper destructor called\n");
 		if(!unregisterSandboxCallback(sandbox, callbackSlotNum))
 		{
 			sandbox_error("Unregister sandbox failed");
@@ -813,7 +817,7 @@ SANDBOX_CALLBACK return_argument<TFunc> sandbox_callback_receiver(uintptr_t sand
 
 	TFunc* fnPtr = (TFunc*)(uintptr_t) state;
 	fn_parameters<TFunc> params = sandbox_get_callback_params(fnPtr, threadData);
-	printf("Calling callback function\n");
+	//printf("Calling callback function\n");
 	auto ret = call_func(fnPtr, params);
 	return sandbox_callback_return(threadData, ret);
 }
@@ -930,56 +934,56 @@ inline size_t sandbox_NaClAddStackArrParams(T arg, Targs... rem)
 template <typename T>
 inline void sandbox_handleNaClArg(NaClSandbox_Thread* threadData, T arg)
 {
-	printf("got a value arg\n");
+	//printf("got a value arg\n");
 	PUSH_VAL_TO_STACK(threadData, T, arg);
 }
 
 template <>
 inline void sandbox_handleNaClArg(NaClSandbox_Thread* threadData, float arg)
 {
-	printf("got a float arg\n");
+	//printf("got a float arg\n");
 	PUSH_FLOAT_TO_STACK(threadData, float, arg);
 }
 
 template <>
 inline void sandbox_handleNaClArg(NaClSandbox_Thread* threadData, double arg)
 {
-	printf("got a double arg\n");
+	//printf("got a double arg\n");
 	PUSH_FLOAT_TO_STACK(threadData, double, arg);
 }
 
 template <typename T>
 inline void sandbox_handleNaClArg(NaClSandbox_Thread* threadData, T* arg)
 {
-	printf("got a pointer arg\n");
+	//printf("got a pointer arg\n");
 	PUSH_PTR_TO_STACK(threadData, T*, arg);
 }
 
 template <typename T>
 inline void sandbox_handleNaClArg(NaClSandbox_Thread* threadData, sandbox_unsandboxed_ptr_helper<T> arg)
 {
-	printf("got a unsandboxed pointer arg\n");
+	//printf("got a unsandboxed pointer arg\n");
 	PUSH_VAL_TO_STACK(threadData, uintptr_t, arg.field);
 }
 
 template <typename T>
 inline void sandbox_handleNaClArg(NaClSandbox_Thread* threadData, sandbox_stackarr_helper<T> arg)
 {
-	printf("got a stack array arg\n");
+	//printf("got a stack array arg\n");
 	PUSH_GEN_ARRAY_TO_STACK(threadData, arg.arr, arg.size);
 }
 
 template <typename T>
 inline void sandbox_handleNaClArg(NaClSandbox_Thread* threadData, std::shared_ptr<sandbox_heaparr_helper<T>> arg)
 {
-	printf("got a heap copy ptr arg\n");
+	//printf("got a heap copy ptr arg\n");
 	PUSH_PTR_TO_STACK(threadData, T*, arg->arr);
 }
 
 template <typename T>
 inline void sandbox_handleNaClArg(NaClSandbox_Thread* threadData, std::shared_ptr<sandbox_callback_helper<T>> arg)
 {
-	printf("got a callback arg\n");
+	//printf("got a callback arg\n");
 	PUSH_VAL_TO_STACK(threadData, uintptr_t, arg->callbackRegisteredAddress);
 }
 
@@ -989,7 +993,7 @@ template <typename T>
 inline typename std::enable_if<std::is_class<T>::value,
 void>::type sandbox_dealWithNaClReturnArg(NaClSandbox_Thread* threadData)
 {
-	printf("pushing return argument slot on stack\n");
+	//printf("pushing return argument slot on stack\n");
 
 	#if defined(_M_IX86) || defined(__i386__)
 		#error 32 bit not yet suppported!
@@ -1030,7 +1034,7 @@ template <typename T, typename ... Targs>
 inline typename std::enable_if<std::is_void<return_argument<T>>::value,
 void>::type sandbox_invokeNaClReturn(NaClSandbox_Thread* threadData)
 {
-	printf("got a void return\n");
+	//printf("got a void return\n");
 	UNUSED(threadData);
 }
 
@@ -1038,7 +1042,7 @@ template <typename T, typename ... Targs>
 inline typename std::enable_if<std::is_pointer<return_argument<T>>::value,
 unverified_data<return_argument<T>>>::type sandbox_invokeNaClReturn(NaClSandbox_Thread* threadData)
 {
-	printf("got a pointer return\n");
+	//printf("got a pointer return\n");
 	auto retRaw = functionCallReturnPtr(threadData);
 	auto retRawMasked = getMaskedField(getSandboxMemoryBase(threadData->sandbox), retRaw);
 	auto retRawPtr = (unverified_data<return_argument<T>> *) &retRawMasked;
@@ -1049,7 +1053,7 @@ template <typename T, typename ... Targs>
 inline typename std::enable_if<std::is_floating_point<return_argument<T>>::value,
 unverified_data<return_argument<T>>>::type sandbox_invokeNaClReturn(NaClSandbox_Thread* threadData)
 {
-	printf("got a double return\n");
+	//printf("got a double return\n");
 	auto retRaw = functionCallReturnDouble(threadData);
 	auto retRawPtr = (unverified_data<return_argument<T>> *) &retRaw;
 	return *retRawPtr;
@@ -1059,7 +1063,7 @@ template <typename T, typename ... Targs>
 inline typename std::enable_if<std::is_class<return_argument<T>>::value && !std::is_reference<T>::value,
 unverified_data<return_argument<T>>>::type sandbox_invokeNaClReturn(NaClSandbox_Thread* threadData)
 {
-	printf("got a class return\n");
+	//printf("got a class return\n");
 	//structs are returned as a pointer
 	auto retRaw = functionCallReturnPtr(threadData);
 	auto retRawMasked = getMaskedField(getSandboxMemoryBase(threadData->sandbox), retRaw);
@@ -1073,7 +1077,7 @@ template <typename T, typename ... Targs>
 inline typename std::enable_if<!std::is_pointer<return_argument<T>>::value && !std::is_void<return_argument<T>>::value && !std::is_floating_point<return_argument<T>>::value && !std::is_class<return_argument<T>>::value,
 unverified_data<return_argument<T>>>::type sandbox_invokeNaClReturn(NaClSandbox_Thread* threadData)
 {
-	printf("got a value return\n");
+	//printf("got a value return\n");
 	auto retRaw = functionCallReturnRawPrimitiveInt(threadData);
 	auto retRawPtr = (unverified_data<return_argument<T>> *) &retRaw;
 	return *retRawPtr;
@@ -1131,7 +1135,7 @@ __attribute__ ((noinline)) return_argument<decltype(sandbox_invokeNaClReturn<T>)
 {
 	UNUSED(dummy);
 	NaClSandbox_Thread* threadData = preFunctionCall(sandbox, sandbox_NaClAddParams(param...), sandbox_NaClAddStackArrParams(param...) /* size of any arrays being pushed on the stack */);
-	printf("StackArr Size: %u\n", (unsigned)sandbox_NaClAddStackArrParams(param...));
+	//printf("StackArr Size: %u\n", (unsigned)sandbox_NaClAddStackArrParams(param...));
 	sandbox_dealWithNaClReturnArg<return_argument<T>>(threadData);
 	sandbox_dealWithNaClArgs(threadData, param...);
 	sandbox_checkSignatureAndCallNaClFn<T, Targs ...>(threadData, fnPtr);
@@ -1143,7 +1147,7 @@ __attribute__ ((noinline)) return_argument<T> sandbox_invoker_with_ptr_ret_unsan
 {
 	UNUSED(dummy);
 	NaClSandbox_Thread* threadData = preFunctionCall(sandbox, sandbox_NaClAddParams(param...), sandbox_NaClAddStackArrParams(param...) /* size of any arrays being pushed on the stack */);
-	printf("StackArr Size: %u\n", (unsigned)sandbox_NaClAddStackArrParams(param...));
+	//printf("StackArr Size: %u\n", (unsigned)sandbox_NaClAddStackArrParams(param...));
 	sandbox_dealWithNaClReturnArg<return_argument<T>>(threadData);
 	sandbox_dealWithNaClArgs(threadData, param...);
 	sandbox_checkSignatureAndCallNaClFn<T, Targs ...>(threadData, fnPtr);
@@ -1160,7 +1164,7 @@ inline void* sandbox_cacheAndRetrieveFnPtr(NaClSandbox* sandbox, const char* fnN
 	void* fnPtr;
 	if(fnPtrRef == fnMap.end())
 	{
-		printf("Auto Symbol lookup for %s\n", fnName);
+		//printf("Auto Symbol lookup for %s\n", fnName);
 		fnPtr = symbolTableLookupInSandbox(sandbox, fnName);
 		fnMap[fnName] = fnPtr;
 	}
@@ -1194,3 +1198,5 @@ inline unverified_data<T*> newInSandbox(NaClSandbox* sandbox, unsigned count = 1
 	auto casted = (unverified_data<T*> *) &ret;
 	return *casted;
 }
+
+#endif

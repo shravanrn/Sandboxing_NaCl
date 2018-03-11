@@ -3,7 +3,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <limits.h>
-#include "native_client/src/trusted/dyn_ldr/dyn_ldr_lib.h"
 #include "native_client/src/trusted/dyn_ldr/nacl_sandbox.h"
 #include "native_client/src/trusted/dyn_ldr/testing/test_dyn_lib.h"
 
