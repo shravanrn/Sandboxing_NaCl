@@ -1160,13 +1160,21 @@ void invokeIdentifyCallbackOffsetHelper(NaClSandbox* sandbox)
 
 void* mallocInSandbox(NaClSandbox* sandbox, size_t size)
 {
+  void* ret;
   NaClSandbox_Thread* threadData = preFunctionCall(sandbox, sizeof(size), 0);
 
   PUSH_VAL_TO_STACK(threadData, size_t, size);
 
   invokeFunctionCallWithSandboxPtr(threadData, (uintptr_t)sandbox->mallocPtr);
 
-  return (void *) functionCallReturnPtr(threadData);
+  ret = (void *) functionCallReturnPtr(threadData);
+  //safety check
+  if(!isAddressInSandboxMemoryOrNull(sandbox, (uintptr_t) ret))
+  {
+    return NULL;
+  }
+
+  return ret;
 }
 
 void freeInSandbox(NaClSandbox* sandbox, void* ptr)
