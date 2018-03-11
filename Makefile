@@ -60,11 +60,17 @@ runopt32 : buildopt32
 runopt64 : buildopt64
 	./native_client/scons-out/opt-linux-x86-64/staging/dyn_ldr_test
 
+runopt64_cpp : buildopt64
+	./native_client/scons-out/opt-linux-x86-64/staging/dyn_ldr_test_api
+
 rundebug32 : builddebug32
 	./native_client/scons-out/dbg-linux-x86-32/staging/dyn_ldr_test
 
 rundebug64 : builddebug64
 	./native_client/scons-out/dbg-linux-x86-64/staging/dyn_ldr_test
+
+rundebug64_cpp : builddebug64
+	./native_client/scons-out/dbg-linux-x86-64/staging/dyn_ldr_test_api
 
 buildperftest32 : native_client/src/trusted/dyn_ldr/benchmark/dyn_ldr_benchmark.cpp
 	$(CXX) $(CXXFLAGS) -m32 -o native_client/src/trusted/dyn_ldr/benchmark/dyn_ldr_benchmark_32.o -c $<
