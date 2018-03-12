@@ -2,7 +2,6 @@
 #define NACL_SANDBOX_API
 
 #include <type_traits>
-#include <memory>
 #include <functional>
 #include <map>
 #include <stdio.h>
@@ -664,18 +663,6 @@ inline sandbox_heaparr_helper<const char>* sandbox_heaparr(NaClSandbox* sandbox,
 	return sandbox_heaparr(sandbox, str, strlen(str) + 1);
 }
 
-template <typename T>
-inline std::shared_ptr<sandbox_heaparr_helper<T>> sandbox_heaparr_sharedptr(NaClSandbox* sandbox, T* str, size_t size)
-{
-	return std::shared_ptr<sandbox_heaparr_helper<T>> (sandbox_heaparr(sandbox, str, size));
-}
-
-
-inline std::shared_ptr<sandbox_heaparr_helper<const char>> sandbox_heaparr_sharedptr(NaClSandbox* sandbox, const char* str)
-{
-	return sandbox_heaparr_sharedptr(sandbox, str, strlen(str) + 1);
-}
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <typename T>
 class sandbox_unsandboxed_ptr_helper
@@ -850,26 +837,16 @@ sandbox_callback_helper<T>*>::type sandbox_callback(NaClSandbox* sandbox, T* fnP
 	return ret; 
 }
 
-template <typename T>
-std::shared_ptr<sandbox_callback_helper<T>> sandbox_callback_sharedptr(NaClSandbox* sandbox, T* fnPtr)
-{
-	return std::shared_ptr<sandbox_callback_helper<T>> (sandbox_callback(sandbox, fnPtr));
-}
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<typename T>
 T* sandbox_removeWrapper_helper(sandbox_stackarr_helper<T>);
 
 template<typename T>
-T* sandbox_removeWrapper_helper(sandbox_heaparr_helper<T>);
-template<typename T>
-T* sandbox_removeWrapper_helper(std::shared_ptr<sandbox_heaparr_helper<T>>);
+T* sandbox_removeWrapper_helper(sandbox_heaparr_helper<T>*);
 
 template<typename T>
-T* sandbox_removeWrapper_helper(sandbox_callback_helper<T>);
-template<typename T>
-T* sandbox_removeWrapper_helper(std::shared_ptr<sandbox_callback_helper<T>>);
+T* sandbox_removeWrapper_helper(sandbox_callback_helper<T>*);
 
 template<typename T>
 T sandbox_removeWrapper_helper(sandbox_unsandboxed_ptr_helper<T>);
@@ -974,14 +951,14 @@ inline void sandbox_handleNaClArg(NaClSandbox_Thread* threadData, sandbox_stacka
 }
 
 template <typename T>
-inline void sandbox_handleNaClArg(NaClSandbox_Thread* threadData, std::shared_ptr<sandbox_heaparr_helper<T>> arg)
+inline void sandbox_handleNaClArg(NaClSandbox_Thread* threadData, sandbox_heaparr_helper<T>* arg)
 {
 	//printf("got a heap copy ptr arg\n");
 	PUSH_PTR_TO_STACK(threadData, T*, arg->arr);
 }
 
 template <typename T>
-inline void sandbox_handleNaClArg(NaClSandbox_Thread* threadData, std::shared_ptr<sandbox_callback_helper<T>> arg)
+inline void sandbox_handleNaClArg(NaClSandbox_Thread* threadData, sandbox_callback_helper<T>* arg)
 {
 	//printf("got a callback arg\n");
 	PUSH_VAL_TO_STACK(threadData, uintptr_t, arg->callbackRegisteredAddress);

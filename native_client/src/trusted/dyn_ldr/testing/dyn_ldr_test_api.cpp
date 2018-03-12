@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <limits.h>
+#include <memory>
 #include "native_client/src/trusted/dyn_ldr/nacl_sandbox.h"
 #include "native_client/src/trusted/dyn_ldr/testing/test_dyn_lib.h"
 
@@ -142,16 +143,20 @@ void* runTests(void* runTestParamsPtr)
 		return NULL;
 	}
 
-	auto result3 = sandbox_invoke(sandbox, simpleStrLenTest, sandbox_heaparr_sharedptr(sandbox, "Hello"))
-		.sandbox_copyAndVerify([](size_t val) -> size_t { return (val <= 0 || val >= 10)? -1 : val; });
-	if(result3 != 5)
 	{
-		printf("Dyn loader Test 3: Failed\n");
-		*testResult = 0;
-		return NULL;
+		auto sharedHeapPtr = std::shared_ptr<sandbox_heaparr_helper<const char>>(sandbox_heaparr(sandbox, "Hello"));
+
+		auto result3 = sandbox_invoke(sandbox, simpleStrLenTest, sharedHeapPtr.get())
+			.sandbox_copyAndVerify([](size_t val) -> size_t { return (val <= 0 || val >= 10)? -1 : val; });
+		if(result3 != 5)
+		{
+			printf("Dyn loader Test 3: Failed\n");
+			*testResult = 0;
+			return NULL;
+		}
 	}
 
-	auto result4 = sandbox_invoke(sandbox, simpleCallbackTest, (unsigned) 4, sandbox_stackarr("Hello"), testParams->registeredCallback)
+	auto result4 = sandbox_invoke(sandbox, simpleCallbackTest, (unsigned) 4, sandbox_stackarr("Hello"), testParams->registeredCallback.get())
 		.sandbox_copyAndVerify([](int val){ return val > 0 && val < 100;}, -1);
 	if(result4 != 10)
 	{
@@ -371,7 +376,7 @@ int main(int argc, char** argv)
 		/**************** Invoking functions in sandbox ****************/
 
 		//Note will return NULL if given a slot number greater than getTotalNumberOfCallbackSlots(), a valid ptr if it succeeds
-		sandboxParams[i].registeredCallback = sandbox_callback_sharedptr(sandboxParams[i].sandbox, invokeSimpleCallbackTest_callback);
+		sandboxParams[i].registeredCallback = std::shared_ptr<sandbox_callback_helper<int(unsigned int, const char*)>>(sandbox_callback(sandboxParams[i].sandbox, invokeSimpleCallbackTest_callback));
 	}
 
 	for(int i = 0; i < 2; i++)
