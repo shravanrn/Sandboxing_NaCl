@@ -15,12 +15,14 @@
 	g() \
 	f(const char*, fieldString) \
 	g() \
-	f(unsigned int, fieldBool)
+	f(unsigned int, fieldBool) \
+	g() \
+	f(char[8], fixedName)
 
 #define sandbox_fields_reflection_exampleId_allClasses(f) \
 	f(testStruct, exampleId)
 
-sandbox_nacl_load_library_api(exampleId);
+sandbox_nacl_load_library_api(exampleId)
 
 //////////////////////////////////////////////////////////////////
 

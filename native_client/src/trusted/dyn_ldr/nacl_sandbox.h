@@ -46,7 +46,7 @@ template<typename T, typename T2=void>
 struct unverified_data;
 
 template<typename T>
-struct sandbox_unverified_data<T, typename std::enable_if<!std::is_pointer<T>::value && !std::is_class<T>::value && !std::is_reference<T>::value>::type>
+struct sandbox_unverified_data<T, typename std::enable_if<!std::is_pointer<T>::value && !std::is_class<T>::value && !std::is_reference<T>::value && !std::is_array<T>::value>::type>
 {
 	T field;
 
@@ -88,7 +88,7 @@ struct sandbox_unverified_data<T, typename std::enable_if<!std::is_pointer<T>::v
 };
 
 template<typename T>
-struct unverified_data<T, typename std::enable_if<!std::is_pointer<T>::value && !std::is_class<T>::value && !std::is_reference<T>::value>::type>
+struct unverified_data<T, typename std::enable_if<!std::is_pointer<T>::value && !std::is_class<T>::value && !std::is_reference<T>::value && !std::is_array<T>::value>::type>
 {
 	T field;
 
@@ -130,7 +130,32 @@ struct unverified_data<T, typename std::enable_if<!std::is_pointer<T>::value && 
 };
 
 template<typename T>
-struct sandbox_unverified_data<T, typename std::enable_if<std::is_pointer<T>::value && !std::is_reference<T>::value>::type>
+struct sandbox_unverified_data<T, typename std::enable_if<std::is_array<T>::value>::type>
+{
+	T field;
+
+	inline std::remove_reference<T>* getMasked() const
+	{
+		unsigned long sandboxMask = ((uintptr_t) &field) & ((unsigned long)0xFFFFFFFF00000000);
+		return getMaskedField(sandboxMask, (std::remove_reference<T>*) field);
+	}
+};
+
+template<typename T>
+struct unverified_data<T, typename std::enable_if<std::is_array<T>::value>::type>
+{
+	T field;
+
+	inline std::remove_reference<T>* getMasked() const
+	{
+		unsigned long sandboxMask = ((uintptr_t) &field) & ((unsigned long)0xFFFFFFFF00000000);
+		return getMaskedField(sandboxMask, (std::remove_reference<T>*) field);
+	}
+};
+
+
+template<typename T>
+struct sandbox_unverified_data<T, typename std::enable_if<std::is_pointer<T>::value && !std::is_reference<T>::value && !std::is_array<T>::value>::type>
 {
 	T field;
 
@@ -306,7 +331,7 @@ struct sandbox_unverified_data<T, typename std::enable_if<std::is_pointer<T>::va
 };
 
 template<typename T>
-struct unverified_data<T, typename std::enable_if<std::is_pointer<T>::value && !std::is_reference<T>::value>::type>
+struct unverified_data<T, typename std::enable_if<std::is_pointer<T>::value && !std::is_reference<T>::value && !std::is_array<T>::value>::type>
 {
 	T field;
 
@@ -479,12 +504,48 @@ struct unverified_data<T, typename std::enable_if<std::is_pointer<T>::value && !
 	}
 };
 
+template<typename L, typename R, typename std::enable_if<!std::is_array<L>::value>::type* = nullptr>
+inline void assignValue(L& lhs, R rhs)
+{
+	lhs = rhs;
+}
+
+template<typename L, typename R, typename std::enable_if<std::is_array<L>::value>::type* = nullptr>
+inline void assignValue(L& lhs, R rhs)
+{
+	memcpy((void *) lhs, (void *) rhs, sizeof(lhs));
+}
+
+template<typename L, typename R, typename std::enable_if<std::is_array<L>::value>::type* = nullptr>
+inline void assignValue(unverified_data<L>& lhs, R rhs)
+{
+	memcpy((void *) lhs.field, (void *) rhs, sizeof(lhs));
+}
+
+template<typename L, typename R, typename std::enable_if<std::is_array<L>::value>::type* = nullptr>
+inline void assignValue(sandbox_unverified_data<L>& lhs, R rhs)
+{
+	memcpy((void *) lhs.field, (void *) rhs, sizeof(lhs));
+}
+
+template<typename L, typename R, typename std::enable_if<std::is_array<L>::value>::type* = nullptr>
+inline void assignValue(unverified_data<L>& lhs, unverified_data<R> rhs)
+{
+	memcpy((void *) lhs.field, (void *) rhs.field, sizeof(lhs));
+}
+
+template<typename L, typename R, typename std::enable_if<std::is_array<L>::value>::type* = nullptr>
+inline void assignValue(sandbox_unverified_data<L>& lhs, sandbox_unverified_data<R> rhs)
+{
+	memcpy((void *) lhs.field, (void *) rhs.field, sizeof(lhs));
+}
+
 #define sandbox_unverified_data_createField(fieldType, fieldName) sandbox_unverified_data<fieldType> fieldName;
 #define unverified_data_createField(fieldType, fieldName) unverified_data<fieldType> fieldName;
 #define sandbox_unverified_data_noOp() 
-#define sandbox_unverified_data_fieldAssign(fieldType, fieldName) fieldName = arg.fieldName;
-#define sandbox_unverified_data_fieldAssignMasked(fieldType, fieldName) fieldName = arg.fieldName.getMasked();
-#define sandbox_unverified_data_copyAssignMasked(fieldType, fieldName) ret.fieldName = fieldName.getMasked();
+#define sandbox_unverified_data_fieldAssign(fieldType, fieldName) assignValue(fieldName, arg.fieldName);
+#define sandbox_unverified_data_fieldAssignMasked(fieldType, fieldName) assignValue(fieldName, arg.fieldName.getMasked());
+#define sandbox_unverified_data_copyAssignMasked(fieldType, fieldName) assignValue(ret.fieldName, fieldName.getMasked());
  
 #define sandbox_unverified_data_specialization(T, libId) \
 template<> \
@@ -511,7 +572,7 @@ struct sandbox_unverified_data<T> \
  \
 	/*inline sandbox_unverified_data<T>& operator=(const unverified_data<T>& arg) noexcept*/ \
 	/*{*/ \
-	/*	/*printf("Sbox Struct - Unverified Assignment\n");*/ \
+	/*	printf("Sbox Struct - Unverified Assignment\n");*/ \
 	/*	sandbox_fields_reflection_##libId##_class_##T(sandbox_unverified_data_fieldAssign, sandbox_unverified_data_noOp)*/ \
 	/*	return *this;*/ \
 	/*}*/ \
@@ -573,7 +634,7 @@ struct unverified_data<T> \
 		sandbox_fields_reflection_##libId##_class_##T(sandbox_unverified_data_copyAssignMasked, sandbox_unverified_data_noOp) \
 		return ret; \
 	} \
-}
+};
 
 #define sandbox_nacl_load_library_api(libId) sandbox_fields_reflection_##libId##_allClasses(sandbox_unverified_data_specialization)
 

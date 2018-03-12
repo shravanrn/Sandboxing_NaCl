@@ -5,6 +5,7 @@ struct testStruct
 	unsigned long fieldLong;
 	const char* fieldString;
 	unsigned int fieldBool; 
+	char fixedName[8];
 };
 
 int simpleAddTest(int a, int b);
