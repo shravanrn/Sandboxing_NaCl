@@ -18,4 +18,4 @@ double simpleDoubleAddTest(const double a, const double b);
 unsigned long simpleLongAddTest(unsigned long a, unsigned long b);
 struct testStruct simpleTestStructVal();
 struct testStruct* simpleTestStructPtr();
-void* echoPointer(void* pointer);
+int* echoPointer(int* pointer);

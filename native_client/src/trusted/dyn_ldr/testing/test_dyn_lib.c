@@ -79,7 +79,7 @@ struct testStruct* simpleTestStructPtr()
 	return ret;
 }
 
-void* echoPointer(void* pointer)
+int* echoPointer(int* pointer)
 {
 	return pointer;
 }

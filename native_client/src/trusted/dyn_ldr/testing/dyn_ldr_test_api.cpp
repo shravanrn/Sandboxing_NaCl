@@ -268,12 +268,25 @@ void* runTests(void* runTestParamsPtr)
 	}
 
 	//////////////////////////////////////////////////////////////////
-	void* ptr = (void *)(uintptr_t) 0x1234567812345678;
-	void* result11 = sandbox_invoke_ret_unsandboxed_ptr(sandbox, echoPointer, sandbox_unsandboxed_ptr(ptr));
+	int* ptr = (int *)(uintptr_t) 0x1234567812345678;
+	int* result11 = sandbox_invoke_ret_unsandboxed_ptr(sandbox, echoPointer, sandbox_unsandboxed_ptr(ptr));
 
 	if(result11 != ptr)
 	{
 		printf("Dyn loader Test 11: Failed\n");
+		*testResult = 0;
+		return NULL;
+	}
+
+	//////////////////////////////////////////////////////////////////
+	auto tempValPtr = newInSandbox<int>(sandbox);
+	*tempValPtr = 3;
+	auto result12 = sandbox_invoke(sandbox, echoPointer, tempValPtr)
+		.sandbox_copyAndVerify([](int* val) -> int { return *val; });
+
+	if(result12 != 3)
+	{
+		printf("Dyn loader Test 12: Failed\n");
 		*testResult = 0;
 		return NULL;
 	}
