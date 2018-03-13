@@ -5,7 +5,8 @@ struct testStruct
 	unsigned long fieldLong;
 	const char* fieldString;
 	unsigned int fieldBool; 
-	char fixedName[8];
+	char fieldFixedArr[8];
+	int (*fieldFnPtr)(int, struct testStruct);
 };
 
 int simpleAddTest(int a, int b);

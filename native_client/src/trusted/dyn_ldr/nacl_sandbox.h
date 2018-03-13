@@ -92,6 +92,14 @@ struct unverified_data<T, typename std::enable_if<!std::is_pointer<T>::value && 
 {
 	T field;
 
+	unverified_data() = default;
+	unverified_data(unverified_data<T>& p) { field = p.field; }
+	unverified_data(const unverified_data<T>& p) { field = p.field; }
+
+	template<typename Arg, typename... Args, typename std::enable_if<!std::is_same<Arg, unverified_data<T>>::value>::type* = nullptr>
+	unverified_data(Arg&& arg, Args&&... args) : field(std::forward<Arg>(arg), std::forward<Args>(args)...) {}
+
+
 	inline T sandbox_copyAndVerify(T(*verify_fn)(T)) const
 	{
 		return verify_fn(field);
@@ -334,6 +342,13 @@ template<typename T>
 struct unverified_data<T, typename std::enable_if<std::is_pointer<T>::value && !std::is_reference<T>::value && !std::is_array<T>::value>::type>
 {
 	T field;
+
+	unverified_data() = default;
+	unverified_data(unverified_data<T>& p) { field = p.field; }
+	unverified_data(const unverified_data<T>& p) { field = p.field; }
+
+	template<typename Arg, typename... Args, typename std::enable_if<!std::is_same<Arg, unverified_data<T>>::value>::type* = nullptr>
+	unverified_data(Arg&& arg, Args&&... args) : field(std::forward<Arg>(arg), std::forward<Args>(args)...) {}
 
 	#define ENABLE_IF(...) typename std::enable_if<__VA_ARGS__>::type* = nullptr
 

@@ -17,7 +17,10 @@
 	g() \
 	f(unsigned int, fieldBool) \
 	g() \
-	f(char[8], fixedName)
+	f(char[8], fieldFixedArr) \
+	g() \
+	f(int (*)(int, testStruct), fieldFnPtr) \
+	g()
 
 #define sandbox_fields_reflection_exampleId_allClasses(f) \
 	f(testStruct, exampleId)
@@ -33,6 +36,16 @@ int invokeSimpleCallbackTest_callback(unsigned a, const char* b)
 {
 	return a + strlen(b);
 }
+
+//////////////////////////////////////////////////////////////////
+
+//Test member initialization
+class TestInit
+{
+	unverified_data<int*> memberPtr;
+	unverified_data<int> memberInt;
+	TestInit() : memberPtr(nullptr), memberInt(0){}
+};
 
 //////////////////////////////////////////////////////////////////
 
