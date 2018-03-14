@@ -291,6 +291,16 @@ void* runTests(void* runTestParamsPtr)
 		return NULL;
 	}
 
+	//capture something to test stateful lambdas
+	int result13 = tempValPtr->sandbox_copyAndVerify([&tempValPtr](int val) { return val; });
+
+	if(result13 != 3)
+	{
+		printf("Dyn loader Test 13: Failed\n");
+		*testResult = 0;
+		return NULL;
+	}
+
 	*testResult = 1;
 	return NULL;
 }
