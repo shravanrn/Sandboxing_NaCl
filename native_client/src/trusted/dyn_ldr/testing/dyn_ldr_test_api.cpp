@@ -32,9 +32,11 @@ sandbox_nacl_load_library_api(exampleId)
 char SEPARATOR = '/';
 #include <pthread.h>
 
-int invokeSimpleCallbackTest_callback(unsigned a, const char* b)
+int invokeSimpleCallbackTest_callback(unverified_data<unsigned> a, unverified_data<const char*> b)
 {
-	return a + strlen(b);
+	auto aCopy = a.sandbox_copyAndVerify([](unsigned val){ return val > 0 && val < 100;}, -1);
+	auto bCopy = b.sandbox_copyAndVerifyString([](const char* val) { return strlen(val) < 100; }, nullptr);
+	return aCopy + strlen(bCopy);
 }
 
 //////////////////////////////////////////////////////////////////
@@ -124,7 +126,7 @@ struct runTestParams
 {
 	NaClSandbox* sandbox;
 	int testResult;
-	std::shared_ptr<sandbox_callback_helper<int(unsigned int, const char*)>> registeredCallback;
+	std::shared_ptr<sandbox_callback_helper<int(unverified_data<unsigned>, unverified_data<const char*>)>> registeredCallback;
 
 	//for multi threaded test only
 	pthread_t newThread;
@@ -267,13 +269,24 @@ void* runTests(void* runTestParamsPtr)
 		return NULL;
 	}
 
-	//////////////////////////////////////////////////////////////////
-	int* ptr = (int *)(uintptr_t) 0x1234567812345678;
-	int* result11 = sandbox_invoke_ret_unsandboxed_ptr(sandbox, echoPointer, sandbox_unsandboxed_ptr(ptr));
+	//test & and * operators
+	unsigned long result11 = (*&result10T->fieldLong).sandbox_copyAndVerify([](unsigned long val) { return val; });
 
-	if(result11 != ptr)
+	if(result11 != 17)
 	{
 		printf("Dyn loader Test 11: Failed\n");
+		*testResult = 0;
+		return NULL;
+	}
+
+
+	//////////////////////////////////////////////////////////////////
+	int* ptr = (int *)(uintptr_t) 0x1234567812345678;
+	int* result12 = sandbox_invoke_ret_unsandboxed_ptr(sandbox, echoPointer, sandbox_unsandboxed_ptr(ptr));
+
+	if(result12 != ptr)
+	{
+		printf("Dyn loader Test 12: Failed\n");
 		*testResult = 0;
 		return NULL;
 	}
@@ -281,22 +294,31 @@ void* runTests(void* runTestParamsPtr)
 	//////////////////////////////////////////////////////////////////
 	auto tempValPtr = newInSandbox<int>(sandbox);
 	*tempValPtr = 3;
-	auto result12 = sandbox_invoke(sandbox, echoPointer, tempValPtr)
-		.sandbox_copyAndVerify([](int* val) -> int { return *val; });
+	auto result13T = sandbox_invoke(sandbox, echoPointer, tempValPtr);
+	//make sure null checks go through
 
-	if(result12 != 3)
+	if(result13T == nullptr)
 	{
-		printf("Dyn loader Test 12: Failed\n");
+		printf("Dyn loader Test 13: Failed\n");
+		*testResult = 0;
+		return NULL;
+	}
+
+	auto result13 = result13T.sandbox_copyAndVerify([](int* val) -> int { return *val; });
+
+	if(result13 != 3)
+	{
+		printf("Dyn loader Test 13.1: Failed\n");
 		*testResult = 0;
 		return NULL;
 	}
 
 	//capture something to test stateful lambdas
-	int result13 = tempValPtr->sandbox_copyAndVerify([&tempValPtr](int val) { return val; });
+	int result14 = tempValPtr->sandbox_copyAndVerify([&tempValPtr](int val) { return val; });
 
-	if(result13 != 3)
+	if(result14 != 3)
 	{
-		printf("Dyn loader Test 13: Failed\n");
+		printf("Dyn loader Test 14: Failed\n");
 		*testResult = 0;
 		return NULL;
 	}
@@ -414,7 +436,7 @@ int main(int argc, char** argv)
 		/**************** Invoking functions in sandbox ****************/
 
 		//Note will return NULL if given a slot number greater than getTotalNumberOfCallbackSlots(), a valid ptr if it succeeds
-		sandboxParams[i].registeredCallback = std::shared_ptr<sandbox_callback_helper<int(unsigned int, const char*)>>(sandbox_callback(sandboxParams[i].sandbox, invokeSimpleCallbackTest_callback));
+		sandboxParams[i].registeredCallback = std::shared_ptr<sandbox_callback_helper<int (unverified_data<unsigned>, unverified_data<const char*>)>>(sandbox_callback(sandboxParams[i].sandbox, invokeSimpleCallbackTest_callback));
 	}
 
 	for(int i = 0; i < 2; i++)
