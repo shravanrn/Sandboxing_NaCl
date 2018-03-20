@@ -45,6 +45,9 @@ inline T getMaskedField(unsigned long sandboxMask, T arg)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+template<typename TFunc>
+class sandbox_callback_helper;
+
 template<typename T, typename T2=void>
 struct sandbox_unverified_data;
 
@@ -198,9 +201,8 @@ struct unverified_data<T, typename std::enable_if<std::is_array<T>::value>::type
 	}
 };
 
-
 template<typename T>
-struct sandbox_unverified_data<T, typename std::enable_if<std::is_pointer<T>::value && !std::is_reference<T>::value && !std::is_array<T>::value>::type>
+struct sandbox_unverified_data<T, typename std::enable_if<std::is_pointer<T>::value && !std::is_reference<T>::value && !std::is_array<T>::value && !std::is_function<my_remove_pointer_t<T>>::value>::type>
 {
 	T field;
 
@@ -379,7 +381,7 @@ struct sandbox_unverified_data<T, typename std::enable_if<std::is_pointer<T>::va
 };
 
 template<typename T>
-struct unverified_data<T, typename std::enable_if<std::is_pointer<T>::value && !std::is_reference<T>::value && !std::is_array<T>::value>::type>
+struct unverified_data<T, typename std::enable_if<std::is_pointer<T>::value && !std::is_reference<T>::value && !std::is_array<T>::value && !std::is_function<my_remove_pointer_t<T>>::value>::type>
 {
 	T field;
 
@@ -572,10 +574,130 @@ struct unverified_data<T, typename std::enable_if<std::is_pointer<T>::value && !
 	}
 };
 
-template<typename L, typename R, ENABLE_IF(!std::is_array<L>::value)>
+template<typename Ret, typename... Rest>
+Ret(*sandbox_add_unverified_data_on_args_helper(Ret(*) (Rest...))) (unverified_data<Rest>...);
+
+template <typename T>
+using sandbox_add_unverified_data_on_args = decltype(sandbox_add_unverified_data_on_args_helper(std::declval<T>()));
+
+template<typename T>
+struct sandbox_unverified_data<T, typename std::enable_if<std::is_function<my_remove_pointer_t<T>>::value>::type>
+{
+	T field;
+
+	inline T sandbox_onlyVerifyAddress() const
+	{
+		T maskedFieldPtr = getMasked();
+		return maskedFieldPtr;
+	}
+
+	inline sandbox_unverified_data<T>& operator=(const sandbox_callback_helper<my_remove_pointer_t<sandbox_add_unverified_data_on_args<T>>>* arg) noexcept
+	{
+		field = (T) arg->callbackRegisteredAddress;
+		//printf("Sbox fn pointer - CB Assignment\n");
+		return *this;
+	}
+
+	inline sandbox_unverified_data<T>& operator=(const sandbox_unverified_data<T>& arg) noexcept
+	{
+		field = arg.field;
+		//printf("Sbox Pointer - Wrapped Assignment\n");
+		return *this;
+	}
+
+	inline sandbox_unverified_data<T>& operator=(const unverified_data<T>& arg) noexcept
+	{
+		field = arg.field;
+		//printf("Sbox Pointer - Unverified Assignment\n");
+		return *this;
+	}
+
+	inline unverified_data<T*> operator&() const 
+	{
+		unverified_data<T*> ret = getMaskedAddress();
+		return ret;
+	}
+
+	inline T getMasked() const
+	{
+		unsigned long sandboxMask = ((uintptr_t) &field) & ((unsigned long)0xFFFFFFFF00000000);
+		return getMaskedField(sandboxMask, field);
+	}
+
+	inline T* getMaskedAddress() const
+	{
+		unsigned long sandboxMask = ((uintptr_t) &field) & ((unsigned long)0xFFFFFFFF00000000);
+		return getMaskedField(sandboxMask, (T*) &field);
+	}
+};
+
+template<typename T>
+struct unverified_data<T, typename std::enable_if<std::is_function<my_remove_pointer_t<T>>::value>::type>
+{
+	T field;
+
+	inline T sandbox_onlyVerifyAddress() const
+	{
+		T maskedFieldPtr = getMasked();
+		return maskedFieldPtr;
+	}
+
+	inline unverified_data<T>& operator=(const sandbox_callback_helper<my_remove_pointer_t<sandbox_add_unverified_data_on_args<T>>>* arg) noexcept
+	{
+		field = (T) arg->callbackRegisteredAddress;
+		//printf("Sbox fn pointer - CB Assignment\n");
+		return *this;
+	}
+
+	inline unverified_data<T>& operator=(const sandbox_unverified_data<T>& arg) noexcept
+	{
+		field = arg.getMasked();
+		//printf("Sbox Pointer - Wrapped Assignment\n");
+		return *this;
+	}
+
+	inline unverified_data<T>& operator=(const unverified_data<T>& arg) noexcept
+	{
+		field = arg.field;
+		//printf("Sbox Pointer - Unverified Assignment\n");
+		return *this;
+	}
+
+	inline bool operator ==(const std::nullptr_t&) const
+	{
+		return field == 0;
+	}
+
+	inline bool operator !=(const std::nullptr_t&) const
+	{
+		return field != 0;
+	}
+
+	inline operator bool() const
+	{
+		return getMasked() != 0;
+	}
+
+	inline T getMasked() const
+	{
+		return field;
+	}
+};
+
+
+template<typename L, typename R, ENABLE_IF(!std::is_array<L>::value && !std::is_function<my_remove_pointer_t<R>>::value)>
 inline void assignValue(L& lhs, R rhs)
 {
 	lhs = rhs;
+}
+
+template<typename L, typename R, ENABLE_IF(std::is_function<my_remove_pointer_t<R>>::value)>
+inline void assignValue(L& lhs, R rhs)
+{
+	//we do not assign function pointers while copying structs.
+	//this have to be assigned by assigning a value of type sandbox_callback_helper
+	UNUSED(lhs);
+	UNUSED(rhs);
 }
 
 template<typename L, typename R, ENABLE_IF(std::is_array<L>::value)>

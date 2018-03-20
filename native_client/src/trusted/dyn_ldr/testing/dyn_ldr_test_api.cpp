@@ -19,7 +19,7 @@
 	g() \
 	f(char[8], fieldFixedArr) \
 	g() \
-	f(int (*)(int, testStruct), fieldFnPtr) \
+	f(int (*)(unsigned, const char*), fieldFnPtr) \
 	g()
 
 #define sandbox_fields_reflection_exampleId_allClasses(f) \
@@ -261,6 +261,9 @@ void* runTests(void* runTestParamsPtr)
 
 	//writes should still go through
 	result10T->fieldLong = 17;
+	//writes of callback functions should check parameters
+	result10T->fieldFnPtr = testParams->registeredCallback.get();
+
 	long val2 = result10T->fieldLong.sandbox_copyAndVerify([](unsigned long val) { return val; });
 	if(val2 != 17)
 	{

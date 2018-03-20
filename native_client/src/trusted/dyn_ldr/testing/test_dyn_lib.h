@@ -6,7 +6,7 @@ struct testStruct
 	const char* fieldString;
 	unsigned int fieldBool; 
 	char fieldFixedArr[8];
-	int (*fieldFnPtr)(int, struct testStruct);
+	int (*fieldFnPtr)(unsigned, const char*);
 };
 
 int simpleAddTest(int a, int b);
