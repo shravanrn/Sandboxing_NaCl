@@ -199,8 +199,7 @@ struct sandbox_unverified_data<T, typename std::enable_if<std::is_array<T>::valu
 	inline arrElemType* getMasked() const
 	{
 		unsigned long sandboxMask = ((uintptr_t) &field) & ((unsigned long)0xFFFFFFFF00000000);
-		char* ret = getMaskedField(sandboxMask, (arrElemType*) field);
-		return ret;
+		return getMaskedField(sandboxMask, (arrElemType*) field);
 	}
 
 	inline T* getMaskedAddress() const
@@ -264,6 +263,22 @@ struct sandbox_unverified_data<T, typename std::enable_if<std::is_pointer<T>::va
 	inline U sandbox_onlyVerifyAddress() const
 	{
 		U maskedFieldPtr = getMasked();
+		return maskedFieldPtr;
+	}
+
+	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>::value)>
+	inline U sandbox_onlyVerifyAddressRange(size_t size) const
+	{
+		U maskedFieldPtr = getMasked();
+		U maskedFieldPtrEnd = maskedFieldPtr + size;
+
+		if((maskedFieldPtr > maskedFieldPtrEnd) || 
+			(maskedFieldPtr && 0xFFFFFFFF00000000) != (maskedFieldPtrEnd && 0xFFFFFFFF00000000)
+		)
+		{
+			return nullptr;
+		}
+
 		return maskedFieldPtr;
 	}
 
@@ -452,6 +467,22 @@ struct unverified_data<T, typename std::enable_if<std::is_pointer<T>::value && !
 	inline U sandbox_onlyVerifyAddress() const
 	{
 		U maskedFieldPtr = getMasked();
+		return maskedFieldPtr;
+	}
+
+	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>::value)>
+	inline U sandbox_onlyVerifyAddressRange(size_t size) const
+	{
+		U maskedFieldPtr = getMasked();
+		U maskedFieldPtrEnd = maskedFieldPtr + size;
+
+		if((maskedFieldPtr > maskedFieldPtrEnd) || 
+			(maskedFieldPtr && 0xFFFFFFFF00000000) != (maskedFieldPtrEnd && 0xFFFFFFFF00000000)
+		)
+		{
+			return nullptr;
+		}
+
 		return maskedFieldPtr;
 	}
 
@@ -1035,7 +1066,17 @@ inline return_argument<F> call_func(F f, Tuple && t)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<typename TArg>
-inline typename std::enable_if<std::is_pointer<TArg>::value,
+inline typename std::enable_if<std::is_array<TArg>::value,
+my_remove_reference_t<decltype(*std::declval<TArg>())>*
+>::type sandbox_get_callback_param_nowrapper(NaClSandbox_Thread* threadData)
+{
+	//printf("callback pointer arg\n");
+	return COMPLETELY_UNTRUSTED_CALLBACK_PTR_PARAM(threadData, my_remove_reference_t<decltype(*std::declval<TArg>())>*);
+}
+
+
+template<typename TArg>
+inline typename std::enable_if<std::is_pointer<TArg>::value && !std::is_array<TArg>::value,
 TArg>::type sandbox_get_callback_param_nowrapper(NaClSandbox_Thread* threadData)
 {
 	//printf("callback pointer arg\n");
