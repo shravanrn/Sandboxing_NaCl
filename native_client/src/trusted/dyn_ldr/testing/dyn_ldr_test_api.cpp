@@ -223,9 +223,10 @@ void* runTests(void* runTestParamsPtr)
 			ret.fieldLong = val.fieldLong.sandbox_copyAndVerify([](unsigned long val) { return val; });
 			ret.fieldString = val.fieldString.sandbox_copyAndVerifyString([](const char* val) { return strlen(val) < 100; }, nullptr);
 			ret.fieldBool = val.fieldBool.sandbox_copyAndVerify([](unsigned int val) { return val; });
+			val.fieldFixedArr.sandbox_copyAndVerify(ret.fieldFixedArr, sizeof(ret.fieldFixedArr), [](char* arr, size_t size){ UNUSED(arr); UNUSED(size); return true; });
 			return ret; 
 		});
-	if(result9.fieldLong != 7 || strcmp(result9.fieldString, "Hello") != 0 || result9.fieldBool != 1)
+	if(result9.fieldLong != 7 || strcmp(result9.fieldString, "Hello") != 0 || result9.fieldBool != 1 || strcmp(result9.fieldFixedArr, "Bye"))
 	{
 		printf("Dyn loader Test 9: Failed\n");
 		*testResult = 0;
@@ -250,9 +251,10 @@ void* runTests(void* runTestParamsPtr)
 			ret.fieldLong = val->fieldLong.sandbox_copyAndVerify([](unsigned long val) { return val; });
 			ret.fieldString = val->fieldString.sandbox_copyAndVerifyString([](const char* val) { return strlen(val) < 100; }, nullptr);
 			ret.fieldBool = val->fieldBool.sandbox_copyAndVerify([](unsigned int val) { return val; });
+			val->fieldFixedArr.sandbox_copyAndVerify(ret.fieldFixedArr, sizeof(ret.fieldFixedArr), [](char* arr, size_t size){ UNUSED(arr); UNUSED(size); return true; });
 			return ret; 
 		});
-	if(result10.fieldLong != 7 || strcmp(result10.fieldString, "Hello") != 0 || result10.fieldBool != 1)
+	if(result10.fieldLong != 7 || strcmp(result10.fieldString, "Hello") != 0 || result10.fieldBool != 1|| strcmp(result10.fieldFixedArr, "Bye"))
 	{
 		printf("Dyn loader Test 10: Failed\n");
 		*testResult = 0;

@@ -65,6 +65,7 @@ struct testStruct simpleTestStructVal()
 	//explicitly mess up the top bits of the pointer. The sandbox checks outside the sandbox should catch this
 	ret.fieldString = (char *)((((uintptr_t) ret.fieldString) & 0xFFFFFFFF) | 0x1234567800000000);
 	ret.fieldBool = 1;
+	strcpy(ret.fieldFixedArr, "Bye");
 	return ret;
 }
 
@@ -76,6 +77,7 @@ struct testStruct* simpleTestStructPtr()
 	//explicitly mess up the top bits of the pointer. The sandbox checks outside the sandbox should catch this
 	ret->fieldString = (char *)((((uintptr_t) ret->fieldString) & 0xFFFFFFFF) | 0x1234567800000000);
 	ret->fieldBool = 1;
+	strcpy(ret->fieldFixedArr, "Bye");
 	return ret;
 }
 

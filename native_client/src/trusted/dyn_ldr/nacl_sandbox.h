@@ -164,6 +164,31 @@ template<typename T>
 struct sandbox_unverified_data<T, typename std::enable_if<std::is_array<T>::value>::type>
 {
 	T field;
+	using arrElemType = my_remove_reference_t<decltype(*field)>;
+
+	inline arrElemType* sandbox_onlyVerifyAddress() const
+	{
+		arrElemType* maskedFieldPtr = getMasked();
+		return maskedFieldPtr;
+	}
+
+	inline bool sandbox_copyAndVerify(arrElemType* copy, size_t sizeOfCopy, std::function<bool(char*, size_t)> verify_fn) const
+	{
+		arrElemType* maskedFieldPtr = getMasked();
+
+		if(sizeOfCopy >= sizeof(T))
+		{
+			memcpy(copy, maskedFieldPtr, sizeof(T));
+			if(verify_fn(copy, sizeof(T)))
+			{
+				return true;
+			}
+		}
+
+		//something went wrong, clear the target for safety
+		memset(copy, 0, sizeof(T));
+		return false;
+	}
 
 	inline unverified_data<T*> operator&() const 
 	{
@@ -171,10 +196,11 @@ struct sandbox_unverified_data<T, typename std::enable_if<std::is_array<T>::valu
 		return ret;
 	}
 
-	inline my_remove_reference_t<T>* getMasked() const
+	inline arrElemType* getMasked() const
 	{
 		unsigned long sandboxMask = ((uintptr_t) &field) & ((unsigned long)0xFFFFFFFF00000000);
-		return getMaskedField(sandboxMask, (my_remove_reference_t<T>*) field);
+		char* ret = getMaskedField(sandboxMask, (arrElemType*) field);
+		return ret;
 	}
 
 	inline T* getMaskedAddress() const
@@ -188,16 +214,41 @@ template<typename T>
 struct unverified_data<T, typename std::enable_if<std::is_array<T>::value>::type>
 {
 	T field;
+	using arrElemType = my_remove_reference_t<decltype(*field)>;
 
-	inline operator sandbox_unverified_data<my_remove_reference_t<T>>*() const 
+	inline arrElemType* sandbox_onlyVerifyAddress() const
 	{
-		return (sandbox_unverified_data<my_remove_reference_t<T>>*) field;
+		arrElemType* maskedFieldPtr = getMasked();
+		return maskedFieldPtr;
 	}
 
-	inline my_remove_reference_t<T>* getMasked() const
+	inline bool sandbox_copyAndVerify(arrElemType* copy, size_t sizeOfCopy, std::function<bool(arrElemType*, size_t)> verify_fn) const
+	{
+		arrElemType* maskedFieldPtr = getMasked();
+
+		if(sizeOfCopy >= sizeof(T))
+		{
+			memcpy(copy, maskedFieldPtr, sizeof(T));
+			if(verify_fn(copy, sizeof(T)))
+			{
+				return true;
+			}
+		}
+
+		//something went wrong, clear the target for safety
+		memset(copy, 0, sizeof(T));
+		return false;
+	}
+
+	inline operator sandbox_unverified_data<arrElemType>*() const 
+	{
+		return (sandbox_unverified_data<arrElemType>*) field;
+	}
+
+	inline arrElemType* getMasked() const
 	{
 		unsigned long sandboxMask = ((uintptr_t) &field) & ((unsigned long)0xFFFFFFFF00000000);
-		return getMaskedField(sandboxMask, (my_remove_reference_t<T>*) field);
+		return getMaskedField(sandboxMask, (arrElemType*) field);
 	}
 };
 
