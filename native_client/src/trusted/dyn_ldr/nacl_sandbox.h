@@ -43,6 +43,13 @@ inline T getMaskedField(unsigned long sandboxMask, T arg)
 	return (T)(sandboxMask | lowBits);
 }
 
+template<typename T>
+inline T getSandboxedField(T arg)
+{
+	T lowBits = (T) (((uintptr_t)arg) & ((unsigned long)0xFFFFFFFF));
+	return lowBits;
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<typename TFunc>
@@ -397,14 +404,14 @@ struct sandbox_unverified_data<T, typename std::enable_if<std::is_pointer<T>::va
 
 	inline sandbox_unverified_data<T>& operator=(const sandbox_unverified_data<T>& arg) noexcept
 	{
-		field = arg.field;
+		field = getSandboxedField(arg.field);
 		//printf("Sbox Pointer - Wrapped Assignment\n");
 		return *this;
 	}
 
 	inline sandbox_unverified_data<T>& operator=(const unverified_data<T>& arg) noexcept
 	{
-		field = arg.field;
+		field = getSandboxedField(arg.field);
 		//printf("Sbox Pointer - Unverified Assignment\n");
 		return *this;
 	}
@@ -452,10 +459,10 @@ struct unverified_data<T, typename std::enable_if<std::is_pointer<T>::value && !
 	T field;
 
 	unverified_data() = default;
-	unverified_data(unverified_data<T>& p) { field = p.field; }
-	unverified_data(const unverified_data<T>& p) { field = p.field; }
-	unverified_data(sandbox_unverified_data<T>& p) { field = p.field; }
-	unverified_data(const sandbox_unverified_data<T>& p) { field = p.field; }
+	unverified_data(unverified_data<T>& p) { field = p.getMasked(); }
+	unverified_data(const unverified_data<T>& p) { field = p.getMasked(); }
+	unverified_data(sandbox_unverified_data<T>& p) { field = p.getMasked(); }
+	unverified_data(const sandbox_unverified_data<T>& p) { field = p.getMasked(); }
 
 	template<typename Arg, typename... Args, ENABLE_IF(!std::is_same<Arg, unverified_data<T>>::value)>
 	unverified_data(Arg&& arg, Args&&... args) : field(std::forward<Arg>(arg), std::forward<Args>(args)...) {}
@@ -607,7 +614,7 @@ struct unverified_data<T, typename std::enable_if<std::is_pointer<T>::value && !
 
 	inline unverified_data<T>& operator=(const unverified_data<T>& arg) noexcept
 	{
-		field = arg.field;
+		field = arg.getMasked();
 		//printf("Sbox Pointer - Unverified Assignment\n");
 		return *this;
 	}
@@ -682,14 +689,14 @@ struct sandbox_unverified_data<T, typename std::enable_if<std::is_function<my_re
 
 	inline sandbox_unverified_data<T>& operator=(const sandbox_unverified_data<T>& arg) noexcept
 	{
-		field = arg.field;
+		field = getSandboxedField(arg.field);
 		//printf("Sbox Pointer - Wrapped Assignment\n");
 		return *this;
 	}
 
 	inline sandbox_unverified_data<T>& operator=(const unverified_data<T>& arg) noexcept
 	{
-		field = arg.field;
+		field = getSandboxedField(arg.field);
 		//printf("Sbox Pointer - Unverified Assignment\n");
 		return *this;
 	}
@@ -740,7 +747,7 @@ struct unverified_data<T, typename std::enable_if<std::is_function<my_remove_poi
 
 	inline unverified_data<T>& operator=(const unverified_data<T>& arg) noexcept
 	{
-		field = arg.field;
+		field = arg.getMasked();
 		//printf("Sbox Pointer - Unverified Assignment\n");
 		return *this;
 	}
@@ -1219,6 +1226,7 @@ sandbox_callback_helper<T>*>::type sandbox_callback(NaClSandbox* sandbox, T* fnP
 {
 	unsigned callbackSlotNum;
 
+	//printf("Creating callback\n");
 	if(!getFreeSandboxCallbackSlot(sandbox, &callbackSlotNum))
 	{
 		sandbox_error("No free callback slots left in sandbox");
@@ -1233,6 +1241,8 @@ sandbox_callback_helper<T>*>::type sandbox_callback(NaClSandbox* sandbox, T* fnP
 	{
 		sandbox_error("Register sandbox failed");
 	}
+
+	//printf("Created callback: %u, %p\n", callbackSlotNum, (void*) callbackRegisteredAddress);
 
 	auto ret = new sandbox_callback_helper<T>();
 	ret->sandbox = sandbox;
