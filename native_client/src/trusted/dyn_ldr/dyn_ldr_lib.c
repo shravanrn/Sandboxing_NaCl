@@ -115,7 +115,9 @@ int initializeDlSandboxCreator(int enableLogging)
     NaClLogSetVerbosity(LOG_FATAL);
   }
 
-  NaClSetUseExtendedTls(TRUE);
+  #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64 && NACL_LINUX
+    NaClSetUseExtendedTls(TRUE);
+  #endif
 
   // pq_error = NaClRunSelQualificationTests();
   // if (LOAD_OK != pq_error) {
