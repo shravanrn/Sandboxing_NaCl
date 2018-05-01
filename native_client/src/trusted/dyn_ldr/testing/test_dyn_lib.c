@@ -26,7 +26,7 @@ int simpleCallbackTest(unsigned a, const char* b, CallbackType callback)
 	printf("simpleCallbackTest\n");
 	fflush(stdout);
 
-	ret = callback(a + 1, b);
+	ret = callback(a + 1, b, &a);
 	return ret;
 }
 

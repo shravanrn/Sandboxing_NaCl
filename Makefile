@@ -54,36 +54,36 @@ builddebug64 : init_if_necessary
 	mv ./native_client/scons-out ./native_client/scons-out-firefox
 	mv ./native_client/scons-out-clean ./native_client/scons-out
 
-runopt32 : buildopt32
+runopt32 :
 	./native_client/scons-out/opt-linux-x86-32/staging/dyn_ldr_test
 
-runopt64 : buildopt64
+runopt64 :
 	./native_client/scons-out/opt-linux-x86-64/staging/dyn_ldr_test
 
-runopt64_cpp : buildopt64
+runopt64_cpp :
 	./native_client/scons-out/opt-linux-x86-64/staging/dyn_ldr_test_api
 
-rundebug32 : builddebug32
+rundebug32 :
 	./native_client/scons-out/dbg-linux-x86-32/staging/dyn_ldr_test
 
-rundebug64 : builddebug64
+rundebug64 :
 	./native_client/scons-out/dbg-linux-x86-64/staging/dyn_ldr_test
 
-rundebug64_cpp : builddebug64
+rundebug64_cpp :
 	./native_client/scons-out/dbg-linux-x86-64/staging/dyn_ldr_test_api
 
 buildperftest32 : native_client/src/trusted/dyn_ldr/benchmark/dyn_ldr_benchmark.cpp
 	$(CXX) $(CXXFLAGS) -m32 -o native_client/src/trusted/dyn_ldr/benchmark/dyn_ldr_benchmark_32.o -c $<
 	$(CXX) -std=c++11 -fPIC -O0 -o native_client/src/trusted/dyn_ldr/benchmark/dyn_ldr_benchmark_32 -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack -m32 -Wl,-rpath="./native_client/scons-out/opt-linux-x86-32/lib" native_client/src/trusted/dyn_ldr/benchmark/dyn_ldr_benchmark_32.o -L"./native_client/scons-out/opt-linux-x86-32/lib" -ldyn_ldr -lsel -lnacl_error_code -lenv_cleanser -lnrd_xfer -lnacl_perf_counter -lnacl_base -limc -lnacl_fault_inject -lnacl_interval -lplatform_qual_lib -lvalidators -ldfa_validate_caller_x86_32 -lcpu_features -lvalidation_cache -lplatform -lgio -lnccopy_x86_32 -lrt -lpthread
 
-runperftest32 : buildopt32 buildperftest32
+runperftest32 :
 	./native_client/src/trusted/dyn_ldr/benchmark/dyn_ldr_benchmark_32
 
 buildperftest64 : native_client/src/trusted/dyn_ldr/benchmark/dyn_ldr_benchmark.cpp
 	$(CXX) $(CXXFLAGS) -m64 -o native_client/src/trusted/dyn_ldr/benchmark/dyn_ldr_benchmark_64.o -c $<
 	$(CXX) -std=c++11 -fPIC -O0 -o native_client/src/trusted/dyn_ldr/benchmark/dyn_ldr_benchmark_64 -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack -m64 -Wl,-rpath="./native_client/scons-out/opt-linux-x86-64/lib" native_client/src/trusted/dyn_ldr/benchmark/dyn_ldr_benchmark_64.o -L"./native_client/scons-out/opt-linux-x86-64/lib" -ldyn_ldr -lsel -lnacl_error_code -lenv_cleanser -lnrd_xfer -lnacl_perf_counter -lnacl_base -limc -lnacl_fault_inject -lnacl_interval -lplatform_qual_lib -lvalidators -ldfa_validate_caller_x86_64 -lcpu_features -lvalidation_cache -lplatform -lgio -lnccopy_x86_64 -lrt -lpthread
 
-runperftest64 : buildopt64 buildperftest64
+runperftest64 :
 	./native_client/src/trusted/dyn_ldr/benchmark/dyn_ldr_benchmark_64
 
 clean :

@@ -1,4 +1,4 @@
-typedef int (*CallbackType)(unsigned, const char*);
+typedef int (*CallbackType)(unsigned, const char*, unsigned[1]);
 
 struct testStruct
 {
@@ -6,7 +6,7 @@ struct testStruct
 	const char* fieldString;
 	unsigned int fieldBool; 
 	char fieldFixedArr[8];
-	int (*fieldFnPtr)(unsigned, const char*);
+	int (*fieldFnPtr)(unsigned, const char*, unsigned[1]);
 };
 
 int simpleAddTest(int a, int b);

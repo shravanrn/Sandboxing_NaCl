@@ -76,21 +76,27 @@ struct sandbox_unverified_data<T, typename std::enable_if<!std::is_pointer<T>::v
 		return verify_fn(field)? field : defaultValue;
 	}
 
-	inline sandbox_unverified_data<T>& operator=(const sandbox_unverified_data<T>& arg) noexcept
+	template<typename TRHS>
+	inline typename std::enable_if<std::is_assignable<T&, TRHS>::value,
+	sandbox_unverified_data<T>&>::type operator=(const sandbox_unverified_data<TRHS>& arg) noexcept
 	{
 		//printf("Sbox Value - Wrapped Assignment\n");
 		field = arg.field;
 		return *this;
 	}
 
-	inline sandbox_unverified_data<T>& operator=(const unverified_data<T>& arg) noexcept
+	template<typename TRHS>
+	inline typename std::enable_if<std::is_assignable<T&, TRHS>::value,
+	sandbox_unverified_data<T>&>::type operator=(const unverified_data<TRHS>& arg) noexcept
 	{
 		//printf("Sbox Value - Unverified Assignment\n");
 		field = arg.field;
 		return *this;
 	}
 
-	inline sandbox_unverified_data<T>& operator=(const T& arg) noexcept
+	template<typename TRHS>
+	inline typename std::enable_if<std::is_assignable<T&, TRHS>::value,
+	sandbox_unverified_data<T>&>::type operator=(const TRHS& arg) noexcept
 	{
 		//printf("Sbox Value - Direct Assignment\n");
 		field = arg;
@@ -140,21 +146,27 @@ struct unverified_data<T, typename std::enable_if<!std::is_pointer<T>::value && 
 		return verify_fn(field)? field : defaultValue;
 	}
 
-	inline unverified_data<T>& operator=(const sandbox_unverified_data<T>& arg) noexcept
+	template<typename TRHS>
+	inline typename std::enable_if<std::is_assignable<T&, TRHS>::value,
+	unverified_data<T>&>::type operator=(const sandbox_unverified_data<TRHS>& arg) noexcept
 	{
 		//printf("Value - Wrapped Assignment\n");
 		field = arg.field;
 		return *this;
 	}
 
-	inline unverified_data<T>& operator=(const unverified_data<T>& arg) noexcept
+	template<typename TRHS>
+	inline typename std::enable_if<std::is_assignable<T&, TRHS>::value,
+	unverified_data<T>&>::type operator=(const unverified_data<TRHS>& arg) noexcept
 	{
 		//printf("Value - Unverified Assignment\n");
 		field = arg.field;
 		return *this;
 	}
 
-	inline unverified_data<T>& operator=(const T& arg) noexcept
+	template<typename TRHS>
+	inline typename std::enable_if<std::is_assignable<T&, TRHS>::value,
+	unverified_data<T>&>::type operator=(const TRHS& arg) noexcept
 	{
 		//printf("Value - Direct Assignment\n");
 		field = arg;
@@ -402,21 +414,27 @@ struct sandbox_unverified_data<T, typename std::enable_if<std::is_pointer<T>::va
 		return sandbox_copyAndVerifyArray(verify_fn, elementCount, defaultValue);
 	}
 
-	inline sandbox_unverified_data<T>& operator=(const sandbox_unverified_data<T>& arg) noexcept
+	template<typename TRHS>
+	inline typename std::enable_if<std::is_assignable<T&, TRHS>::value,
+	sandbox_unverified_data<T>&>::type operator=(const sandbox_unverified_data<TRHS>& arg) noexcept
 	{
 		field = getSandboxedField(arg.field);
 		//printf("Sbox Pointer - Wrapped Assignment\n");
 		return *this;
 	}
 
-	inline sandbox_unverified_data<T>& operator=(const unverified_data<T>& arg) noexcept
+	template<typename TRHS>
+	inline typename std::enable_if<std::is_assignable<T&, TRHS>::value,
+	sandbox_unverified_data<T>&>::type operator=(const unverified_data<TRHS>& arg) noexcept
 	{
 		field = getSandboxedField(arg.field);
 		//printf("Sbox Pointer - Unverified Assignment\n");
 		return *this;
 	}
 
-	inline sandbox_unverified_data<T>& operator=(const T& arg) noexcept
+	template<typename TRHS>
+	inline typename std::enable_if<std::is_assignable<T&, TRHS>::value,
+	sandbox_unverified_data<T>&>::type operator=(const TRHS& arg) noexcept
 	{
 		field = arg;
 		//printf("Sbox Pointer - Direct Assignment\n");
@@ -605,21 +623,27 @@ struct unverified_data<T, typename std::enable_if<std::is_pointer<T>::value && !
 		return sandbox_copyAndVerifyArray(verify_fn, elementCount, defaultValue);
 	}
 
-	inline unverified_data<T>& operator=(const sandbox_unverified_data<T>& arg) noexcept
+	template<typename TRHS>
+	inline typename std::enable_if<std::is_assignable<T&, TRHS>::value,
+	unverified_data<T>&>::type operator=(const sandbox_unverified_data<TRHS>& arg) noexcept
 	{
 		field = arg.getMasked();
 		//printf("Sbox Pointer - Wrapped Assignment\n");
 		return *this;
 	}
 
-	inline unverified_data<T>& operator=(const unverified_data<T>& arg) noexcept
+	template<typename TRHS>
+	inline typename std::enable_if<std::is_assignable<T&, TRHS>::value,
+	unverified_data<T>&>::type operator=(const unverified_data<TRHS>& arg) noexcept
 	{
 		field = arg.getMasked();
 		//printf("Sbox Pointer - Unverified Assignment\n");
 		return *this;
 	}
 
-	inline unverified_data<T>& operator=(const T& arg) noexcept
+	template<typename TRHS>
+	inline typename std::enable_if<std::is_assignable<T&, TRHS>::value,
+	unverified_data<T>&>::type operator=(const TRHS& arg) noexcept
 	{
 		field = arg;
 		//printf("Sbox Pointer - Direct Assignment\n");
@@ -664,10 +688,10 @@ struct unverified_data<T, typename std::enable_if<std::is_pointer<T>::value && !
 };
 
 template<typename Ret, typename... Rest>
-Ret(*sandbox_add_unverified_data_on_args_helper(Ret(*) (Rest...))) (unverified_data<Rest>...);
+Ret(*sandbox_remove_unverified_data_on_args_helper(Ret(*) (unverified_data<Rest>...))) (Rest...);
 
 template <typename T>
-using sandbox_add_unverified_data_on_args = decltype(sandbox_add_unverified_data_on_args_helper(std::declval<T>()));
+using sandbox_remove_unverified_data_on_args = decltype(sandbox_remove_unverified_data_on_args_helper(std::declval<T>()));
 
 template<typename T>
 struct sandbox_unverified_data<T, typename std::enable_if<std::is_function<my_remove_pointer_t<T>>::value>::type>
@@ -680,21 +704,27 @@ struct sandbox_unverified_data<T, typename std::enable_if<std::is_function<my_re
 		return maskedFieldPtr;
 	}
 
-	inline sandbox_unverified_data<T>& operator=(const sandbox_callback_helper<my_remove_pointer_t<sandbox_add_unverified_data_on_args<T>>>* arg) noexcept
+	template<typename TRHS>
+	inline typename std::enable_if<std::is_assignable<T&, sandbox_remove_unverified_data_on_args<TRHS*>>::value,
+	sandbox_unverified_data<T>&>::type operator=(const sandbox_callback_helper<TRHS>* arg) noexcept
 	{
 		field = (T) arg->callbackRegisteredAddress;
 		//printf("Sbox fn pointer - CB Assignment\n");
 		return *this;
 	}
 
-	inline sandbox_unverified_data<T>& operator=(const sandbox_unverified_data<T>& arg) noexcept
+	template<typename TRHS>
+	inline typename std::enable_if<std::is_assignable<T&, TRHS>::value,
+	sandbox_unverified_data<T>&>::type operator=(const sandbox_unverified_data<TRHS>& arg) noexcept
 	{
 		field = getSandboxedField(arg.field);
 		//printf("Sbox Pointer - Wrapped Assignment\n");
 		return *this;
 	}
 
-	inline sandbox_unverified_data<T>& operator=(const unverified_data<T>& arg) noexcept
+	template<typename TRHS>
+	inline typename std::enable_if<std::is_assignable<T&, TRHS>::value,
+	sandbox_unverified_data<T>&>::type operator=(const unverified_data<TRHS>& arg) noexcept
 	{
 		field = getSandboxedField(arg.field);
 		//printf("Sbox Pointer - Unverified Assignment\n");
@@ -731,21 +761,27 @@ struct unverified_data<T, typename std::enable_if<std::is_function<my_remove_poi
 		return maskedFieldPtr;
 	}
 
-	inline unverified_data<T>& operator=(const sandbox_callback_helper<my_remove_pointer_t<sandbox_add_unverified_data_on_args<T>>>* arg) noexcept
+	template<typename TRHS>
+	inline typename std::enable_if<std::is_assignable<T&, sandbox_remove_unverified_data_on_args<TRHS*>>::value,
+	unverified_data<T>&>::type operator=(const sandbox_callback_helper<TRHS>* arg) noexcept
 	{
 		field = (T) arg->callbackRegisteredAddress;
 		//printf("Sbox fn pointer - CB Assignment\n");
 		return *this;
 	}
 
-	inline unverified_data<T>& operator=(const sandbox_unverified_data<T>& arg) noexcept
+	template<typename TRHS>
+	inline typename std::enable_if<std::is_assignable<T&, TRHS>::value,
+	unverified_data<T>&>::type operator=(const sandbox_unverified_data<TRHS>& arg) noexcept
 	{
 		field = arg.getMasked();
 		//printf("Sbox Pointer - Wrapped Assignment\n");
 		return *this;
 	}
 
-	inline unverified_data<T>& operator=(const unverified_data<T>& arg) noexcept
+	template<typename TRHS>
+	inline typename std::enable_if<std::is_assignable<T&, TRHS>::value,
+	unverified_data<T>&>::type operator=(const unverified_data<TRHS>& arg) noexcept
 	{
 		field = arg.getMasked();
 		//printf("Sbox Pointer - Unverified Assignment\n");
@@ -842,21 +878,27 @@ struct sandbox_unverified_data<T> \
 		return verify_fn(*this)? *((T*)this) : defaultValue; \
 	} \
  \
-	inline sandbox_unverified_data<T>& operator=(const sandbox_unverified_data<T>& arg) noexcept \
+	template<typename TRHS> \
+	inline typename std::enable_if<std::is_assignable<T&, TRHS>::value, \
+	sandbox_unverified_data<T>&>::type operator=(const sandbox_unverified_data<TRHS>& arg) noexcept \
 	{ \
 		/*printf("Sbox Struct - Wrapped Assignment\n");*/ \
 		sandbox_fields_reflection_##libId##_class_##T(sandbox_unverified_data_fieldAssign, sandbox_unverified_data_noOp) \
 		return *this; \
 	} \
  \
-	/*inline sandbox_unverified_data<T>& operator=(const unverified_data<T>& arg) noexcept*/ \
+ 	/* template<typename TRHS> */ \
+	/* inline typename std::enable_if<std::is_assignable<T&, TRHS>::value,*/ \
+	/* sandbox_unverified_data<T>&>::type operator=(const unverified_data<TRHS>& arg) noexcept*/ \
 	/*{*/ \
 	/*	printf("Sbox Struct - Unverified Assignment\n");*/ \
 	/*	sandbox_fields_reflection_##libId##_class_##T(sandbox_unverified_data_fieldAssign, sandbox_unverified_data_noOp)*/ \
 	/*	return *this;*/ \
 	/*}*/ \
  \
-	inline sandbox_unverified_data<T>& operator=(const T& arg) noexcept \
+	template<typename TRHS> \
+	inline typename std::enable_if<std::is_assignable<T&, TRHS>::value, \
+	sandbox_unverified_data<T>&>::type operator=(const TRHS& arg) noexcept \
 	{ \
 		/*printf("Sbox Struct - Direct Assignment\n");*/ \
 		sandbox_fields_reflection_##libId##_class_##T(sandbox_unverified_data_fieldAssign, sandbox_unverified_data_noOp) \
@@ -898,21 +940,27 @@ struct unverified_data<T> \
 		return verify_fn(*this)? *((T*)this) : defaultValue; \
 	} \
  \
-	inline unverified_data<T>& operator=(const sandbox_unverified_data<T>& arg) noexcept \
+	template<typename TRHS> \
+	inline typename std::enable_if<std::is_assignable<T&, TRHS>::value, \
+	unverified_data<T>&>::type operator=(const sandbox_unverified_data<TRHS>& arg) noexcept \
 	{ \
 		/*printf("Struct - Wrapped Assignment\n");*/ \
 		sandbox_fields_reflection_##libId##_class_##T(sandbox_unverified_data_fieldAssignMasked, sandbox_unverified_data_noOp) \
 		return *this; \
 	} \
  \
-	inline unverified_data<T>& operator=(const unverified_data<T>& arg) noexcept \
+	template<typename TRHS> \
+	inline typename std::enable_if<std::is_assignable<T&, TRHS>::value, \
+	unverified_data<T>&>::type operator=(const unverified_data<TRHS>& arg) noexcept \
 	{ \
 		/*printf("Struct - Unverified Assignment\n");*/ \
 		sandbox_fields_reflection_##libId##_class_##T(sandbox_unverified_data_fieldAssign, sandbox_unverified_data_noOp) \
 		return *this; \
 	} \
  \
-	inline unverified_data<T>& operator=(const T& arg) noexcept \
+ 	template<typename TRHS> \
+	inline typename std::enable_if<std::is_assignable<T&, TRHS>::value, \
+	unverified_data<T>&>::type operator=(const TRHS& arg) noexcept \
 	{ \
 		/*printf("Struct - Direct Assignment\n");*/ \
 		sandbox_fields_reflection_##libId##_class_##T(sandbox_unverified_data_fieldAssign, sandbox_unverified_data_noOp) \
@@ -1072,6 +1120,52 @@ inline return_argument<F> call_func(F f, Tuple && t)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+template <typename T>
+inline typename std::enable_if<std::is_pointer<T>::value && !std::is_array<T>::value,
+unverified_data<T>>::type sandbox_convertToUnverified(NaClSandbox_Thread* threadData, T retRaw)
+{
+	//printf("got a pointer return\n");
+	auto retRawMasked = getMaskedField(getSandboxMemoryBase(threadData->sandbox), retRaw);
+	auto retRawPtr = (unverified_data<T> *) &retRawMasked;
+	return *retRawPtr;
+}
+
+template <typename T>
+inline typename std::enable_if<std::is_class<T>::value && !std::is_reference<T>::value,
+unverified_data<T>>::type sandbox_convertToUnverified(NaClSandbox_Thread* threadData, T& retRaw)
+{
+	//printf("got a class return\n");
+	//structs are returned as a pointer
+	auto retRawMasked = getMaskedField(getSandboxMemoryBase(threadData->sandbox), &retRaw);
+	auto retRawPtr = (sandbox_unverified_data<T> *) retRawMasked;
+	unverified_data<T> ret;
+	ret = *retRawPtr;
+	return ret;
+}
+
+template <typename T>
+inline typename std::enable_if<std::is_array<T>::value,
+unverified_data<T>>::type sandbox_convertToUnverified(NaClSandbox_Thread* threadData, T retRaw)
+{
+	//printf("got a array return\n");
+	//arrays are returned by pointer but are unverified_data<struct Foo> is copied by value
+	auto retRawMasked = getMaskedField(getSandboxMemoryBase(threadData->sandbox), (void*) retRaw);
+	auto retRawPtr = (unverified_data<T> *) retRawMasked;
+	return *retRawPtr;
+}
+
+template <typename T>
+inline typename std::enable_if<!std::is_pointer<T>::value && !std::is_void<T>::value && !std::is_class<T>::value && !std::is_array<T>::value,
+unverified_data<T>>::type sandbox_convertToUnverified(NaClSandbox_Thread* threadData, T retRaw)
+{
+	//printf("got a value return\n");
+	UNUSED(threadData);
+	auto retRawPtr = (unverified_data<T> *) &retRaw;
+	return *retRawPtr;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 template<typename TArg>
 inline typename std::enable_if<std::is_array<TArg>::value,
 my_remove_reference_t<decltype(*std::declval<TArg>())>*
@@ -1111,8 +1205,7 @@ inline TArg sandbox_get_callback_param(NaClSandbox_Thread* threadData)
 {
 	typedef typename template_parameter<TArg>::type unwrappedType;
 	auto cbRet = sandbox_get_callback_param_nowrapper<unwrappedType>(threadData);
-	TArg* p = (TArg*)(&cbRet);
-	return *p;
+	return sandbox_convertToUnverified<unwrappedType>(threadData, cbRet);
 }
 
 template<typename... TArgs>
@@ -1445,10 +1538,7 @@ inline typename std::enable_if<std::is_pointer<return_argument<T>>::value,
 unverified_data<return_argument<T>>>::type sandbox_invokeNaClReturn(NaClSandbox_Thread* threadData)
 {
 	//printf("got a pointer return\n");
-	auto retRaw = functionCallReturnPtr(threadData);
-	auto retRawMasked = getMaskedField(getSandboxMemoryBase(threadData->sandbox), retRaw);
-	auto retRawPtr = (unverified_data<return_argument<T>> *) &retRawMasked;
-	return *retRawPtr;
+	return sandbox_convertToUnverified(threadData, (return_argument<T>)functionCallReturnPtr(threadData));
 }
 
 template <typename T, typename ... Targs>
@@ -1456,9 +1546,7 @@ inline typename std::enable_if<std::is_floating_point<return_argument<T>>::value
 unverified_data<return_argument<T>>>::type sandbox_invokeNaClReturn(NaClSandbox_Thread* threadData)
 {
 	//printf("got a double return\n");
-	auto retRaw = functionCallReturnDouble(threadData);
-	auto retRawPtr = (unverified_data<return_argument<T>> *) &retRaw;
-	return *retRawPtr;
+	return sandbox_convertToUnverified(threadData, (return_argument<T>)functionCallReturnDouble(threadData));
 }
 
 template <typename T, typename ... Targs>
@@ -1467,12 +1555,7 @@ unverified_data<return_argument<T>>>::type sandbox_invokeNaClReturn(NaClSandbox_
 {
 	//printf("got a class return\n");
 	//structs are returned as a pointer
-	auto retRaw = functionCallReturnPtr(threadData);
-	auto retRawMasked = getMaskedField(getSandboxMemoryBase(threadData->sandbox), retRaw);
-	auto retRawPtr = (sandbox_unverified_data<return_argument<T>> *) retRawMasked;
-	unverified_data<return_argument<T>> ret;
-	ret = *retRawPtr;
-	return ret;
+	return sandbox_convertToUnverified(threadData, *((return_argument<T>*)functionCallReturnPtr(threadData)) );
 }
 
 template <typename T, typename ... Targs>
@@ -1480,9 +1563,7 @@ inline typename std::enable_if<!std::is_pointer<return_argument<T>>::value && !s
 unverified_data<return_argument<T>>>::type sandbox_invokeNaClReturn(NaClSandbox_Thread* threadData)
 {
 	//printf("got a value return\n");
-	auto retRaw = functionCallReturnRawPrimitiveInt(threadData);
-	auto retRawPtr = (unverified_data<return_argument<T>> *) &retRaw;
-	return *retRawPtr;
+	return sandbox_convertToUnverified(threadData, (return_argument<T>)functionCallReturnRawPrimitiveInt(threadData));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////

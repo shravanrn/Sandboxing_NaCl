@@ -26,7 +26,7 @@
 	g() \
 	f(char[8], fieldFixedArr) \
 	g() \
-	f(int (*)(unsigned, const char*), fieldFnPtr) \
+	f(int (*)(unsigned, const char*, unsigned[1]), fieldFnPtr) \
 	g()
 
 #define sandbox_fields_reflection_exampleId_allClasses(f) \
@@ -39,10 +39,17 @@ sandbox_nacl_load_library_api(exampleId)
 char SEPARATOR = '/';
 #include <pthread.h>
 
-int invokeSimpleCallbackTest_callback(unverified_data<unsigned> a, unverified_data<const char*> b)
+int invokeSimpleCallbackTest_callback(unverified_data<unsigned> a, unverified_data<const char*> b, unverified_data<unsigned[1]> c)
 {
 	auto aCopy = a.sandbox_copyAndVerify([](unsigned val){ return val > 0 && val < 100;}, -1);
 	auto bCopy = b.sandbox_copyAndVerifyString([](const char* val) { return strlen(val) < 100; }, nullptr);
+	unsigned cCopy[1];
+	c.sandbox_copyAndVerify(cCopy, sizeof(cCopy), [](unsigned* arr, size_t arrSize){ UNUSED(arrSize); unsigned val = *arr; return val > 0 && val < 100; });
+	if(cCopy[0] + 1 != aCopy)
+	{
+		printf("Unexpected callback value: %d, %d\n", cCopy[0] + 1, aCopy);
+		exit(1);
+	}
 	return aCopy + strlen(bCopy);
 }
 
@@ -133,7 +140,7 @@ struct runTestParams
 {
 	NaClSandbox* sandbox;
 	int testResult;
-	std::shared_ptr<sandbox_callback_helper<int(unverified_data<unsigned>, unverified_data<const char*>)>> registeredCallback;
+	std::shared_ptr<sandbox_callback_helper<int(unverified_data<unsigned>, unverified_data<const char*>, unverified_data<unsigned[1]>)>> registeredCallback;
 
 	//for multi threaded test only
 	pthread_t newThread;
@@ -448,7 +455,10 @@ int main(int argc, char** argv)
 		/**************** Invoking functions in sandbox ****************/
 
 		//Note will return NULL if given a slot number greater than getTotalNumberOfCallbackSlots(), a valid ptr if it succeeds
-		sandboxParams[i].registeredCallback = std::shared_ptr<sandbox_callback_helper<int (unverified_data<unsigned>, unverified_data<const char*>)>>(sandbox_callback(sandboxParams[i].sandbox, invokeSimpleCallbackTest_callback));
+		sandboxParams[i].registeredCallback = std::shared_ptr<sandbox_callback_helper<int (unverified_data<unsigned>, unverified_data<const char*>, unverified_data<unsigned[1]>)>>
+		(
+			sandbox_callback(sandboxParams[i].sandbox, invokeSimpleCallbackTest_callback)
+		);
 	}
 
 	for(int i = 0; i < 2; i++)
