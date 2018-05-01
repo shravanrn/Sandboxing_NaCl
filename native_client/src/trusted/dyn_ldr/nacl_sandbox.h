@@ -687,11 +687,34 @@ struct unverified_data<T, typename std::enable_if<std::is_pointer<T>::value && !
 	}
 };
 
-template<typename Ret, typename... Rest>
-Ret(*sandbox_remove_unverified_data_on_args_helper(Ret(*) (unverified_data<Rest>...))) (Rest...);
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+template<class TData> 
+class unverified_data_unwrapper {
+public:
+    TData value_field;
+};
+
+template<typename T>
+unverified_data_unwrapper<T> sandbox_removeUnverified_helper(sandbox_unverified_data<T>);
+template<typename T>
+unverified_data_unwrapper<T> sandbox_removeUnverified_helper(unverified_data<T>);
+
+template<typename T>
+unverified_data<T> sandbox_removeUnverified_helper(T);
 
 template <typename T>
+using sandbox_removeUnverified = decltype(sandbox_removeUnverified_helper(std::declval<T>()).value_field);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+template<typename TRet, typename... TArgs>
+TRet(*sandbox_remove_unverified_data_on_args_helper(TRet(*)(TArgs...)))(sandbox_removeUnverified<TArgs>...);
+
+template<typename T>
 using sandbox_remove_unverified_data_on_args = decltype(sandbox_remove_unverified_data_on_args_helper(std::declval<T>()));
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template<typename T>
 struct sandbox_unverified_data<T, typename std::enable_if<std::is_function<my_remove_pointer_t<T>>::value>::type>
@@ -1538,7 +1561,7 @@ inline typename std::enable_if<std::is_pointer<return_argument<T>>::value,
 unverified_data<return_argument<T>>>::type sandbox_invokeNaClReturn(NaClSandbox_Thread* threadData)
 {
 	//printf("got a pointer return\n");
-	return sandbox_convertToUnverified(threadData, (return_argument<T>)functionCallReturnPtr(threadData));
+	return sandbox_convertToUnverified<return_argument<T>>(threadData, (return_argument<T>)functionCallReturnPtr(threadData));
 }
 
 template <typename T, typename ... Targs>
@@ -1546,7 +1569,7 @@ inline typename std::enable_if<std::is_floating_point<return_argument<T>>::value
 unverified_data<return_argument<T>>>::type sandbox_invokeNaClReturn(NaClSandbox_Thread* threadData)
 {
 	//printf("got a double return\n");
-	return sandbox_convertToUnverified(threadData, (return_argument<T>)functionCallReturnDouble(threadData));
+	return sandbox_convertToUnverified<return_argument<T>>(threadData, (return_argument<T>)functionCallReturnDouble(threadData));
 }
 
 template <typename T, typename ... Targs>
@@ -1555,7 +1578,7 @@ unverified_data<return_argument<T>>>::type sandbox_invokeNaClReturn(NaClSandbox_
 {
 	//printf("got a class return\n");
 	//structs are returned as a pointer
-	return sandbox_convertToUnverified(threadData, *((return_argument<T>*)functionCallReturnPtr(threadData)) );
+	return sandbox_convertToUnverified<return_argument<T>>(threadData, *((return_argument<T>*)functionCallReturnPtr(threadData)) );
 }
 
 template <typename T, typename ... Targs>
@@ -1563,7 +1586,7 @@ inline typename std::enable_if<!std::is_pointer<return_argument<T>>::value && !s
 unverified_data<return_argument<T>>>::type sandbox_invokeNaClReturn(NaClSandbox_Thread* threadData)
 {
 	//printf("got a value return\n");
-	return sandbox_convertToUnverified(threadData, (return_argument<T>)functionCallReturnRawPrimitiveInt(threadData));
+	return sandbox_convertToUnverified<return_argument<T>>(threadData, (return_argument<T>)functionCallReturnRawPrimitiveInt(threadData));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
