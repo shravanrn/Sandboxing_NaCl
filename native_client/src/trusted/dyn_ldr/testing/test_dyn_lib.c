@@ -4,6 +4,11 @@
 #include <stdlib.h>
 #include "native_client/src/trusted/dyn_ldr/testing/test_dyn_lib.h"
 
+unsigned long simpleAddNoPrintTest(unsigned long a, unsigned long b)
+{
+	return a + b;
+}
+
 int simpleAddTest(int a, int b)
 {
 	printf("simpleAddTest\n");

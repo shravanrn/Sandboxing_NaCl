@@ -66,6 +66,11 @@ struct sandbox_unverified_data<T, typename std::enable_if<!std::is_pointer<T>::v
 {
 	T field;
 
+	inline T UNSAFE_noVerify() const
+	{
+		return field;
+	}
+
 	inline T sandbox_copyAndVerify(std::function<T(T)> verify_fn) const
 	{
 		return verify_fn(field);
@@ -135,6 +140,10 @@ struct unverified_data<T, typename std::enable_if<!std::is_pointer<T>::value && 
 	template<typename Arg, typename... Args, ENABLE_IF(!std::is_same<Arg, unverified_data<T>>::value)>
 	unverified_data(Arg&& arg, Args&&... args) : field(std::forward<Arg>(arg), std::forward<Args>(args)...) {}
 
+	inline T UNSAFE_noVerify() const
+	{
+		return field;
+	}
 
 	inline T sandbox_copyAndVerify(std::function<T(T)> verify_fn) const
 	{

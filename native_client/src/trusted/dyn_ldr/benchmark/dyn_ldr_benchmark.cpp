@@ -1,4 +1,5 @@
-#include "native_client/src/trusted/dyn_ldr/dyn_ldr_lib.h"
+#include "native_client/src/trusted/dyn_ldr/nacl_sandbox.h"
+#include "native_client/src/trusted/dyn_ldr/testing/test_dyn_lib.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,32 +15,27 @@ using namespace std::chrono;
 #endif
 
 NaClSandbox* sandbox;
-uintptr_t test_localMathPtr;
+void* simpleAddNoPrintTestPtr;
 
-unsigned __attribute__ ((noinline)) unsandboxedLocalMath(unsigned a, unsigned  b, unsigned c)
+unsigned long __attribute__ ((noinline)) unsandboxedSimpleAddNoPrintTest(unsigned long a, unsigned long b)
 {
-	unsigned ret;
-	ret = (a*100) + (b * 10) + (c);
-	return ret;
+	return a + b;
 }
 
-
-unsigned sandboxedLocalMath(unsigned a, unsigned b, unsigned c)
+unsigned long sandboxedSimpleAddNoPrintTest(unsigned long a, unsigned long b)
 {
-  NaClSandbox_Thread* threadData = preFunctionCall(sandbox, sizeof(a) + sizeof(b) + sizeof(c), 0);
+  NaClSandbox_Thread* threadData = preFunctionCall(sandbox, sizeof(a) + sizeof(b), 0);
 
-  PUSH_VAL_TO_STACK(threadData, unsigned, a);
-  PUSH_VAL_TO_STACK(threadData, unsigned, b);
-  PUSH_VAL_TO_STACK(threadData, unsigned, c);
+  PUSH_VAL_TO_STACK(threadData, unsigned long, a);
+  PUSH_VAL_TO_STACK(threadData, unsigned long, b);
 
-  invokeFunctionCallWithSandboxPtr(threadData, test_localMathPtr);
+  invokeFunctionCall(threadData, simpleAddNoPrintTestPtr);
 
-  return (unsigned)functionCallReturnRawPrimitiveInt(threadData);
+  return (unsigned long)functionCallReturnRawPrimitiveInt(threadData);
 }
 
 char* getExecFolder(const char* executablePath);
 char* concatenateAndFixSlash(const char* string1, const char* string2);
-
 
 int main(int argc, char** argv)
 {
@@ -59,14 +55,14 @@ int main(int argc, char** argv)
 
 	#if defined(_M_IX86) || defined(__i386__)
 		//libraryPath is something like: "/home/shr/Code/nacl2/native_client/scons-out/nacl_irt-x86-32/staging/irt_core.nexe"
-		libraryPath = concatenateAndFixSlash(execFolder, "../../../../scons-out/nacl_irt-x86-32/staging/irt_core.nexe");
+		libraryPath = concatenateAndFixSlash(execFolder, "../../../scons-out/nacl_irt-x86-32/staging/irt_core.nexe");
 		//libraryToLoad is something like: "/home/shr/Code/nacl2/native_client/scons-out/nacl-x86-32/staging/test_dyn_lib.nexe"
-		libraryToLoad = concatenateAndFixSlash(execFolder, "../../../../scons-out/nacl-x86-32/staging/test_dyn_lib.nexe");
+		libraryToLoad = concatenateAndFixSlash(execFolder, "../../../scons-out/nacl-x86-32/staging/test_dyn_lib.nexe");
 	#elif defined(_M_X64) || defined(__x86_64__)
 		//libraryPath is something like: "/home/shr/Code/nacl2/native_client/scons-out/nacl_irt-x86-64/staging/irt_core.nexe"
-		libraryPath = concatenateAndFixSlash(execFolder, "../../../../scons-out/nacl_irt-x86-64/staging/irt_core.nexe");
+		libraryPath = concatenateAndFixSlash(execFolder, "../../../scons-out/nacl_irt-x86-64/staging/irt_core.nexe");
 		//libraryToLoad is something like: "/home/shr/Code/nacl2/native_client/scons-out/nacl-x86-64/staging/test_dyn_lib.nexe"
-		libraryToLoad = concatenateAndFixSlash(execFolder, "../../../../scons-out/nacl-x86-64/staging/test_dyn_lib.nexe");
+		libraryToLoad = concatenateAndFixSlash(execFolder, "../../../scons-out/nacl-x86-64/staging/test_dyn_lib.nexe");
 	#else
 		#error Unknown platform!
 	#endif
@@ -78,7 +74,7 @@ int main(int argc, char** argv)
 
 	printf("Starting Dyn loader Benchmark\n");
 
-	if(!initializeDlSandboxCreator(0 /* Should enable detailed logging */))
+	if(!initializeDlSandboxCreator(0 /* Disable logging */))
 	{
 		printf("Dyn loader Benchmark: initializeDlSandboxCreator returned null\n");
 		return 1;
@@ -92,7 +88,9 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	test_localMathPtr = getSandboxedAddress(sandbox, (uintptr_t) symbolTableLookupInSandbox(sandbox, "test_localMath"));
+	initCPPApi(sandbox);
+
+	simpleAddNoPrintTestPtr = symbolTableLookupInSandbox(sandbox, "simpleAddNoPrintTest");
 
 	printf("Sandbox created\n");
 
@@ -102,301 +100,102 @@ int main(int argc, char** argv)
 	unsigned ret2;
 	uint64_t timeSpentInSandbox;
 
+	unsigned ret3;
+	uint64_t timeSpentInSandboxCppNoSymRes;
+
+	unsigned ret4;
+	uint64_t timeSpentInSandboxCpp;
+
 	srand(time(NULL));
-	unsigned val0_1;
-	unsigned val0_2;
-	unsigned val0_3;
 	unsigned val1_1;
 	unsigned val1_2;
-	unsigned val1_3;
-	unsigned val2_1;
-	unsigned val2_2;
-	unsigned val2_3;
-	unsigned val3_1;
-	unsigned val3_2;
-	unsigned val3_3;
-	unsigned val4_1;
-	unsigned val4_2;
-	unsigned val4_3;
-	unsigned val5_1;
-	unsigned val5_2;
-	unsigned val5_3;
 
-	val0_1 = rand();
-	val0_2 = rand();
-	val0_3 = rand();
 	val1_1 = rand();
 	val1_2 = rand();
-	val1_3 = rand();
-	val2_1 = rand();
-	val2_2 = rand();
-	val2_3 = rand();
-	val3_1 = rand();
-	val3_2 = rand();
-	val3_3 = rand();
-	val4_1 = rand();
-	val4_2 = rand();
-	val4_3 = rand();
-	val5_1 = rand();
-	val5_2 = rand();
-	val5_3 = rand();
 
 	ret1 = 0;
 	timeSpentInFunc = 0;
 	ret2 = 0;
 	timeSpentInSandbox = 0;
+	ret3 = 0;
+	timeSpentInSandboxCppNoSymRes = 0;
 
 	{
 		//some warm up rounds
 		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
-		ret1 += unsandboxedLocalMath(val0_1, val0_2, val0_3);
-		ret2 += sandboxedLocalMath(val0_1, val0_2, val0_3);
-		ret1 += unsandboxedLocalMath(val0_1, val0_2, val0_3);
-		ret2 += sandboxedLocalMath(val0_1, val0_2, val0_3);
-		ret1 += unsandboxedLocalMath(val0_1, val0_2, val0_3);
-		ret2 += sandboxedLocalMath(val0_1, val0_2, val0_3);
+		ret1 += unsandboxedSimpleAddNoPrintTest(val1_1, val1_2);
+		ret2 += sandboxedSimpleAddNoPrintTest(val1_1, val1_2);
+		ret3 += sandbox_invoke_with_ptr(sandbox, simpleAddNoPrintTest, simpleAddNoPrintTestPtr, val1_1, val1_2).UNSAFE_noVerify();
+		ret4 += sandbox_invoke(sandbox, simpleAddNoPrintTest, val1_1, val1_2).UNSAFE_noVerify();
+		ret1 += unsandboxedSimpleAddNoPrintTest(val1_1, val1_2);
+		ret2 += sandboxedSimpleAddNoPrintTest(val1_1, val1_2);
+		ret3 += sandbox_invoke_with_ptr(sandbox, simpleAddNoPrintTest, simpleAddNoPrintTestPtr, val1_1, val1_2).UNSAFE_noVerify();
+		ret4 += sandbox_invoke(sandbox, simpleAddNoPrintTest, val1_1, val1_2).UNSAFE_noVerify();
+		ret1 += unsandboxedSimpleAddNoPrintTest(val1_1, val1_2);
+		ret2 += sandboxedSimpleAddNoPrintTest(val1_1, val1_2);
+		ret3 += sandbox_invoke_with_ptr(sandbox, simpleAddNoPrintTest, simpleAddNoPrintTestPtr, val1_1, val1_2).UNSAFE_noVerify();
+		ret4 += sandbox_invoke(sandbox, simpleAddNoPrintTest, val1_1, val1_2).UNSAFE_noVerify();
 		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
 		printf("Warm up for = %10" PRId64 " ns\n", duration_cast<nanoseconds>(exitTime - enterTime).count());
 	}
 
-	{
-		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
-		ret1 += unsandboxedLocalMath(val1_1, val1_2, val1_3);
-		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
-		timeSpentInFunc += duration_cast<nanoseconds>(exitTime - enterTime).count();
-	}
-
-	{
-		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
-		ret2 += sandboxedLocalMath(val1_1, val1_2, val1_3);
-		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
-		timeSpentInSandbox += duration_cast<nanoseconds>(exitTime  - enterTime).count();
-	}
-
-	if(ret1 != ret2)
-	{
-		printf("Return values don't agree\n");
-		return 1;
-	}
-
-	printf("1 Function Call = %10" PRId64 ", Sandbox Time = %10" PRId64 " ns\n", timeSpentInFunc, timeSpentInSandbox);
-
 	///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	val0_1 = rand();
-	val0_2 = rand();
-	val0_3 = rand();
 	val1_1 = rand();
 	val1_2 = rand();
-	val1_3 = rand();
-	val2_1 = rand();
-	val2_2 = rand();
-	val2_3 = rand();
-	val3_1 = rand();
-	val3_2 = rand();
-	val3_3 = rand();
-	val4_1 = rand();
-	val4_2 = rand();
-	val4_3 = rand();
-	val5_1 = rand();
-	val5_2 = rand();
-	val5_3 = rand();
 
 	ret1 = 0;
 	timeSpentInFunc = 0;
 	ret2 = 0;
 	timeSpentInSandbox = 0;
-
-
-	{
-		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
-		ret1 += unsandboxedLocalMath(val1_1, val1_2, val1_3);
-		ret1 += unsandboxedLocalMath(val2_1, val2_2, val2_3);
-		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
-		timeSpentInFunc += duration_cast<nanoseconds>(exitTime - enterTime).count();
-	}
-	{
-		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
-		ret2 += sandboxedLocalMath(val1_1, val1_2, val1_3);
-		ret2 += sandboxedLocalMath(val2_1, val2_2, val2_3);
-		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
-		timeSpentInSandbox += duration_cast<nanoseconds>(exitTime  - enterTime).count();
-	}
-
-	if(ret1 != ret2)
-	{
-		printf("Return values don't agree\n");
-		return 1;
-	}
-
-	printf("2 Function Call = %10" PRId64 ", Sandbox Time = %10" PRId64 " ns\n", timeSpentInFunc, timeSpentInSandbox);
-
-	///////////////////////////////////////////////////////////////////////////////////////////////////////
-
-	val0_1 = rand();
-	val0_2 = rand();
-	val0_3 = rand();
-	val1_1 = rand();
-	val1_2 = rand();
-	val1_3 = rand();
-	val2_1 = rand();
-	val2_2 = rand();
-	val2_3 = rand();
-	val3_1 = rand();
-	val3_2 = rand();
-	val3_3 = rand();
-	val4_1 = rand();
-	val4_2 = rand();
-	val4_3 = rand();
-	val5_1 = rand();
-	val5_2 = rand();
-	val5_3 = rand();
-
-	ret1 = 0;
-	timeSpentInFunc = 0;
-	ret2 = 0;
-	timeSpentInSandbox = 0;
-
+	ret3 = 0;
+	timeSpentInSandboxCppNoSymRes = 0;
+	ret4 = 0;
+	timeSpentInSandboxCpp = 0;
 
 	{
 		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
-		ret1 += unsandboxedLocalMath(val1_1, val1_2, val1_3);
-		ret1 += unsandboxedLocalMath(val2_1, val2_2, val2_3);
-		ret1 += unsandboxedLocalMath(val3_1, val3_2, val3_3);
+		ret1 += unsandboxedSimpleAddNoPrintTest(val1_1, val1_2);
 		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
 		timeSpentInFunc += duration_cast<nanoseconds>(exitTime - enterTime).count();
 	}
 
 	{
 		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
-		ret2 += sandboxedLocalMath(val1_1, val1_2, val1_3);
-		ret2 += sandboxedLocalMath(val2_1, val2_2, val2_3);
-		ret2 += sandboxedLocalMath(val3_1, val3_2, val3_3);
+		ret2 += sandboxedSimpleAddNoPrintTest(val1_1, val1_2);
 		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
 		timeSpentInSandbox += duration_cast<nanoseconds>(exitTime  - enterTime).count();
 	}
 
-	if(ret1 != ret2)
+	{
+		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
+		ret3 += sandbox_invoke_with_ptr(sandbox, simpleAddNoPrintTest, simpleAddNoPrintTestPtr, val1_1, val1_2).UNSAFE_noVerify();
+		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
+		timeSpentInSandboxCppNoSymRes += duration_cast<nanoseconds>(exitTime  - enterTime).count();
+	}
+
+	{
+		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
+		ret4 += sandbox_invoke(sandbox, simpleAddNoPrintTest, val1_1, val1_2).UNSAFE_noVerify();
+		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
+		timeSpentInSandboxCpp += duration_cast<nanoseconds>(exitTime  - enterTime).count();
+	}
+
+	if(ret1 != ret2 || ret2 != ret3)
 	{
 		printf("Return values don't agree\n");
 		return 1;
 	}
 
-	printf("3 Function Call = %10" PRId64 ", Sandbox Time = %10" PRId64 " ns\n", timeSpentInFunc, timeSpentInSandbox);
+	printf("1 Function Call = %10" PRId64 
+		", Sandbox Time = %10" PRId64 
+		", Sandbox Time(C++, no symbol res) = %10" PRId64 
+		", Sandbox Time(C++) = %10" PRId64  " ns\n",
+		timeSpentInFunc,
+		timeSpentInSandbox,
+		timeSpentInSandboxCppNoSymRes,
+		timeSpentInSandboxCpp);
 
-	///////////////////////////////////////////////////////////////////////////////////////////////////////
-
-	val0_1 = rand();
-	val0_2 = rand();
-	val0_3 = rand();
-	val1_1 = rand();
-	val1_2 = rand();
-	val1_3 = rand();
-	val2_1 = rand();
-	val2_2 = rand();
-	val2_3 = rand();
-	val3_1 = rand();
-	val3_2 = rand();
-	val3_3 = rand();
-	val4_1 = rand();
-	val4_2 = rand();
-	val4_3 = rand();
-	val5_1 = rand();
-	val5_2 = rand();
-	val5_3 = rand();
-
-	ret1 = 0;
-	timeSpentInFunc = 0;
-	ret2 = 0;
-	timeSpentInSandbox = 0;
-
-
-	{
-		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
-		ret1 += unsandboxedLocalMath(val1_1, val1_2, val1_3);
-		ret1 += unsandboxedLocalMath(val2_1, val2_2, val2_3);
-		ret1 += unsandboxedLocalMath(val3_1, val3_2, val3_3);
-		ret1 += unsandboxedLocalMath(val4_1, val4_2, val4_3);
-		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
-		timeSpentInFunc += duration_cast<nanoseconds>(exitTime - enterTime).count();
-	}
-
-	{
-		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
-		ret2 += sandboxedLocalMath(val1_1, val1_2, val1_3);
-		ret2 += sandboxedLocalMath(val2_1, val2_2, val2_3);
-		ret2 += sandboxedLocalMath(val3_1, val3_2, val3_3);
-		ret2 += sandboxedLocalMath(val4_1, val4_2, val4_3);
-		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
-		timeSpentInSandbox += duration_cast<nanoseconds>(exitTime  - enterTime).count();
-	}
-
-	if(ret1 != ret2)
-	{
-		printf("Return values don't agree\n");
-		return 1;
-	}
-
-	printf("4 Function Call = %10" PRId64 ", Sandbox Time = %10" PRId64 " ns\n", timeSpentInFunc, timeSpentInSandbox);
-
-	///////////////////////////////////////////////////////////////////////////////////////////////////////
-
-	val0_1 = rand();
-	val0_2 = rand();
-	val0_3 = rand();
-	val1_1 = rand();
-	val1_2 = rand();
-	val1_3 = rand();
-	val2_1 = rand();
-	val2_2 = rand();
-	val2_3 = rand();
-	val3_1 = rand();
-	val3_2 = rand();
-	val3_3 = rand();
-	val4_1 = rand();
-	val4_2 = rand();
-	val4_3 = rand();
-	val5_1 = rand();
-	val5_2 = rand();
-	val5_3 = rand();
-
-	ret1 = 0;
-	timeSpentInFunc = 0;
-	ret2 = 0;
-	timeSpentInSandbox = 0;
-
-
-	{
-		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
-		ret1 += unsandboxedLocalMath(val1_1, val1_2, val1_3);
-		ret1 += unsandboxedLocalMath(val2_1, val2_2, val2_3);
-		ret1 += unsandboxedLocalMath(val3_1, val3_2, val3_3);
-		ret1 += unsandboxedLocalMath(val4_1, val4_2, val4_3);
-		ret1 += unsandboxedLocalMath(val5_1, val5_2, val5_3);
-		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
-		timeSpentInFunc += duration_cast<nanoseconds>(exitTime - enterTime).count();
-	}
-
-	{
-		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
-		ret2 += sandboxedLocalMath(val1_1, val1_2, val1_3);
-		ret2 += sandboxedLocalMath(val2_1, val2_2, val2_3);
-		ret2 += sandboxedLocalMath(val3_1, val3_2, val3_3);
-		ret2 += sandboxedLocalMath(val4_1, val4_2, val4_3);
-		ret2 += sandboxedLocalMath(val5_1, val5_2, val5_3);
-		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
-		timeSpentInSandbox += duration_cast<nanoseconds>(exitTime  - enterTime).count();
-	}
-
-	if(ret1 != ret2)
-	{
-		printf("Return values don't agree\n");
-		return 1;
-	}
-
-	printf("5 Function Call = %10" PRId64 ", Sandbox Time = %10" PRId64 " ns\n", timeSpentInFunc, timeSpentInSandbox);
-
-	///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	/**************** Cleanup ****************/
 

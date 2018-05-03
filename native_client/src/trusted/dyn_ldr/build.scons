@@ -21,3 +21,8 @@ cpp_env.ComponentProgram(
     'dyn_ldr_test_api', 
     ['testing/dyn_ldr_test_api.cpp'],
     EXTRA_LIBS=['dyn_ldr','sel'])
+
+cpp_env.ComponentProgram(
+	'dyn_ldr_benchmark',
+	['benchmark/dyn_ldr_benchmark.cpp'],
+	EXTRA_LIBS=['dyn_ldr','sel'])

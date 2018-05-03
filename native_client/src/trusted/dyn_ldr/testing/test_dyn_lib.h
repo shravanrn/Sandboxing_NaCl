@@ -9,6 +9,7 @@ struct testStruct
 	int (*fieldFnPtr)(unsigned, const char*, unsigned[1]);
 };
 
+unsigned long simpleAddNoPrintTest(unsigned long a, unsigned long b);
 int simpleAddTest(int a, int b);
 size_t simpleStrLenTest(const char* str);
 int simpleCallbackTest(unsigned a, const char* b, CallbackType callback);
