@@ -37,6 +37,35 @@ unsigned long sandboxedSimpleAddNoPrintTest(unsigned long a, unsigned long b)
 char* getExecFolder(const char* executablePath);
 char* concatenateAndFixSlash(const char* string1, const char* string2);
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//https://stackoverflow.com/questions/1558402/memory-usage-of-current-process-in-c
+
+void printMemoryStatus()
+{
+  const char* statm_path = "/proc/self/statm";
+
+  FILE *f = fopen(statm_path,"r");
+  if(!f){
+    perror(statm_path);
+    abort();
+  }
+
+  unsigned long size,resident,share,text,lib,data,dt;
+
+  if(7 != fscanf(f,"%lu %lu %lu %lu %lu %lu %lu",
+    &size,&resident,&share,&text,&lib,&data,&dt))
+  {
+    perror(statm_path);
+    abort();
+  }
+  fclose(f);
+
+  printf("size:%lu\nresident:%lu\nshared pages:%lu\ntext:%lu\nlib:%lu\ndata+stack:%lu\ndirty pages:%lu\n", 
+	size, resident, share, text, lib, data, dt
+  );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 int main(int argc, char** argv)
 {
 	/**************** Some calculations of relative paths ****************/
@@ -73,6 +102,12 @@ int main(int argc, char** argv)
 	/**************** Actual sandbox with dynamic lib test ****************/
 
 	printf("Starting Dyn loader Benchmark\n");
+	printf("------------------------------\n");
+
+	printf("Memory Before Sandbox Creation\n");
+	printf("------------------------------\n");
+	printMemoryStatus();
+	printf("------------------------------\n");
 
 	if(!initializeDlSandboxCreator(0 /* Disable logging */))
 	{
@@ -81,6 +116,10 @@ int main(int argc, char** argv)
 	}
 
 	sandbox = createDlSandbox(libraryPath, libraryToLoad);
+	printf("Memory After Sandbox Creation\n");
+	printf("------------------------------\n");
+	printMemoryStatus();
+	printf("------------------------------\n");
 
 	if(sandbox == NULL)
 	{
@@ -93,6 +132,8 @@ int main(int argc, char** argv)
 	simpleAddNoPrintTestPtr = symbolTableLookupInSandbox(sandbox, "simpleAddNoPrintTest");
 
 	printf("Sandbox created\n");
+	printf("------------------------------\n");
+
 
 	unsigned ret1;
 	uint64_t timeSpentInFunc;
@@ -137,6 +178,7 @@ int main(int argc, char** argv)
 		ret4 += sandbox_invoke(sandbox, simpleAddNoPrintTest, val1_1, val1_2).UNSAFE_noVerify();
 		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
 		printf("Warm up for = %10" PRId64 " ns\n", duration_cast<nanoseconds>(exitTime - enterTime).count());
+		printf("------------------------------\n");
 	}
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////

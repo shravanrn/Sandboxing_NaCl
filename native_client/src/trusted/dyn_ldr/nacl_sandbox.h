@@ -1527,6 +1527,8 @@ public:
 	TFunc* address;
 };
 
+inline void* sandbox_cacheAndRetrieveFnPtr(NaClSandbox* sandbox, const char* fnName);
+
 template<typename T>
 sandbox_function_helper<T> sandbox_function_impl(NaClSandbox* sandbox, const char* functionName)
 {
