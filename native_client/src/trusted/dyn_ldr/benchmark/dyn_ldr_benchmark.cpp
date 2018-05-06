@@ -135,53 +135,21 @@ int main(int argc, char** argv)
 	printf("------------------------------\n");
 
 
-	unsigned ret1;
+	unsigned long ret1;
 	uint64_t timeSpentInFunc;
 
-	unsigned ret2;
+	unsigned long ret2;
 	uint64_t timeSpentInSandbox;
 
-	unsigned ret3;
+	unsigned long ret3;
 	uint64_t timeSpentInSandboxCppNoSymRes;
 
-	unsigned ret4;
+	unsigned long ret4;
 	uint64_t timeSpentInSandboxCpp;
 
 	srand(time(NULL));
-	unsigned val1_1;
-	unsigned val1_2;
-
-	val1_1 = rand();
-	val1_2 = rand();
-
-	ret1 = 0;
-	timeSpentInFunc = 0;
-	ret2 = 0;
-	timeSpentInSandbox = 0;
-	ret3 = 0;
-	timeSpentInSandboxCppNoSymRes = 0;
-
-	{
-		//some warm up rounds
-		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
-		ret1 += unsandboxedSimpleAddNoPrintTest(val1_1, val1_2);
-		ret2 += sandboxedSimpleAddNoPrintTest(val1_1, val1_2);
-		ret3 += sandbox_invoke_with_ptr(sandbox, simpleAddNoPrintTest, simpleAddNoPrintTestPtr, val1_1, val1_2).UNSAFE_noVerify();
-		ret4 += sandbox_invoke(sandbox, simpleAddNoPrintTest, val1_1, val1_2).UNSAFE_noVerify();
-		ret1 += unsandboxedSimpleAddNoPrintTest(val1_1, val1_2);
-		ret2 += sandboxedSimpleAddNoPrintTest(val1_1, val1_2);
-		ret3 += sandbox_invoke_with_ptr(sandbox, simpleAddNoPrintTest, simpleAddNoPrintTestPtr, val1_1, val1_2).UNSAFE_noVerify();
-		ret4 += sandbox_invoke(sandbox, simpleAddNoPrintTest, val1_1, val1_2).UNSAFE_noVerify();
-		ret1 += unsandboxedSimpleAddNoPrintTest(val1_1, val1_2);
-		ret2 += sandboxedSimpleAddNoPrintTest(val1_1, val1_2);
-		ret3 += sandbox_invoke_with_ptr(sandbox, simpleAddNoPrintTest, simpleAddNoPrintTestPtr, val1_1, val1_2).UNSAFE_noVerify();
-		ret4 += sandbox_invoke(sandbox, simpleAddNoPrintTest, val1_1, val1_2).UNSAFE_noVerify();
-		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
-		printf("Warm up for = %10" PRId64 " ns\n", duration_cast<nanoseconds>(exitTime - enterTime).count());
-		printf("------------------------------\n");
-	}
-
-	///////////////////////////////////////////////////////////////////////////////////////////////////////
+	unsigned long val1_1;
+	unsigned long val1_2;
 
 	val1_1 = rand();
 	val1_2 = rand();
@@ -196,47 +164,84 @@ int main(int argc, char** argv)
 	timeSpentInSandboxCpp = 0;
 
 	{
+		//some warm up rounds
 		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
 		ret1 += unsandboxedSimpleAddNoPrintTest(val1_1, val1_2);
-		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
-		timeSpentInFunc += duration_cast<nanoseconds>(exitTime - enterTime).count();
-	}
-
-	{
-		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
 		ret2 += sandboxedSimpleAddNoPrintTest(val1_1, val1_2);
-		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
-		timeSpentInSandbox += duration_cast<nanoseconds>(exitTime  - enterTime).count();
-	}
-
-	{
-		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
-		ret3 += sandbox_invoke_with_ptr(sandbox, simpleAddNoPrintTest, simpleAddNoPrintTestPtr, val1_1, val1_2).UNSAFE_noVerify();
-		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
-		timeSpentInSandboxCppNoSymRes += duration_cast<nanoseconds>(exitTime  - enterTime).count();
-	}
-
-	{
-		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
+		ret3 += sandbox_invoke_with_ptr(sandbox, (decltype(simpleAddNoPrintTest)*)simpleAddNoPrintTestPtr, val1_1, val1_2).UNSAFE_noVerify();
+		ret4 += sandbox_invoke(sandbox, simpleAddNoPrintTest, val1_1, val1_2).UNSAFE_noVerify();
+		ret1 += unsandboxedSimpleAddNoPrintTest(val1_1, val1_2);
+		ret2 += sandboxedSimpleAddNoPrintTest(val1_1, val1_2);
+		ret3 += sandbox_invoke_with_ptr(sandbox, (decltype(simpleAddNoPrintTest)*)simpleAddNoPrintTestPtr, val1_1, val1_2).UNSAFE_noVerify();
+		ret4 += sandbox_invoke(sandbox, simpleAddNoPrintTest, val1_1, val1_2).UNSAFE_noVerify();
+		ret1 += unsandboxedSimpleAddNoPrintTest(val1_1, val1_2);
+		ret2 += sandboxedSimpleAddNoPrintTest(val1_1, val1_2);
+		ret3 += sandbox_invoke_with_ptr(sandbox, (decltype(simpleAddNoPrintTest)*)simpleAddNoPrintTestPtr, val1_1, val1_2).UNSAFE_noVerify();
 		ret4 += sandbox_invoke(sandbox, simpleAddNoPrintTest, val1_1, val1_2).UNSAFE_noVerify();
 		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
-		timeSpentInSandboxCpp += duration_cast<nanoseconds>(exitTime  - enterTime).count();
+		printf("Warm up for = %10" PRId64 " ns\n", duration_cast<nanoseconds>(exitTime - enterTime).count());
+		printf("------------------------------\n");
 	}
 
-	if(ret1 != ret2 || ret2 != ret3)
+	///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	for (int i = 0; i < 10; ++i)
 	{
-		printf("Return values don't agree\n");
-		return 1;
-	}
+		val1_1 = rand();
+		val1_2 = rand();
 
-	printf("1 Function Call = %10" PRId64 
-		", Sandbox Time = %10" PRId64 
-		", Sandbox Time(C++, no symbol res) = %10" PRId64 
-		", Sandbox Time(C++) = %10" PRId64  " ns\n",
-		timeSpentInFunc,
-		timeSpentInSandbox,
-		timeSpentInSandboxCppNoSymRes,
-		timeSpentInSandboxCpp);
+		ret1 = 0;
+		timeSpentInFunc = 0;
+		ret2 = 0;
+		timeSpentInSandbox = 0;
+		ret3 = 0;
+		timeSpentInSandboxCppNoSymRes = 0;
+		ret4 = 0;
+		timeSpentInSandboxCpp = 0;
+
+		{
+			high_resolution_clock::time_point enterTime = high_resolution_clock::now();
+			ret1 += unsandboxedSimpleAddNoPrintTest(val1_1, val1_2);
+			high_resolution_clock::time_point exitTime = high_resolution_clock::now();
+			timeSpentInFunc += duration_cast<nanoseconds>(exitTime - enterTime).count();
+		}
+
+		{
+			high_resolution_clock::time_point enterTime = high_resolution_clock::now();
+			ret2 += sandboxedSimpleAddNoPrintTest(val1_1, val1_2);
+			high_resolution_clock::time_point exitTime = high_resolution_clock::now();
+			timeSpentInSandbox += duration_cast<nanoseconds>(exitTime  - enterTime).count();
+		}
+
+		{
+			high_resolution_clock::time_point enterTime = high_resolution_clock::now();
+			ret3 += sandbox_invoke_with_ptr(sandbox, (decltype(simpleAddNoPrintTest)*)simpleAddNoPrintTestPtr, val1_1, val1_2).UNSAFE_noVerify();
+			high_resolution_clock::time_point exitTime = high_resolution_clock::now();
+			timeSpentInSandboxCppNoSymRes += duration_cast<nanoseconds>(exitTime  - enterTime).count();
+		}
+
+		{
+			high_resolution_clock::time_point enterTime = high_resolution_clock::now();
+			ret4 += sandbox_invoke(sandbox, simpleAddNoPrintTest, val1_1, val1_2).UNSAFE_noVerify();
+			high_resolution_clock::time_point exitTime = high_resolution_clock::now();
+			timeSpentInSandboxCpp += duration_cast<nanoseconds>(exitTime  - enterTime).count();
+		}
+
+		if(ret1 != ret2 || ret2 != ret3 || ret3 != ret4)
+		{
+			printf("Return values don't agree\n");
+			return 1;
+		}
+
+		printf("1 Function Call = %10" PRId64 
+			", Sandbox Time = %10" PRId64 
+			", Sandbox Time(C++, no symbol res) = %10" PRId64 
+			", Sandbox Time(C++) = %10" PRId64  " ns\n",
+			timeSpentInFunc,
+			timeSpentInSandbox,
+			timeSpentInSandboxCppNoSymRes,
+			timeSpentInSandboxCpp);
+	}
 
 
 	/**************** Cleanup ****************/
