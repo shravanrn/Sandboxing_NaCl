@@ -316,17 +316,17 @@ struct sandbox_unverified_data<T, typename std::enable_if<std::is_pointer<T>::va
 	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>::value)>
 	inline U sandbox_onlyVerifyAddressRange(size_t size) const
 	{
-		U maskedFieldPtr = getMasked();
-		U maskedFieldPtrEnd = maskedFieldPtr + size;
+		uintptr_t maskedFieldPtr = (uintptr_t) getMasked();
+		uintptr_t maskedFieldPtrEnd = (uintptr_t) (maskedFieldPtr + size);
 
 		if((maskedFieldPtr > maskedFieldPtrEnd) || 
-			(maskedFieldPtr && 0xFFFFFFFF00000000) != (maskedFieldPtrEnd && 0xFFFFFFFF00000000)
+			(maskedFieldPtr & 0xFFFFFFFF00000000) != (maskedFieldPtrEnd & 0xFFFFFFFF00000000)
 		)
 		{
 			return nullptr;
 		}
 
-		return maskedFieldPtr;
+		return (U) maskedFieldPtr;
 	}
 
 	inline T sandbox_copyAndVerifyUnsandboxedPointer(std::function<T(T)> verify_fn) const
@@ -436,7 +436,7 @@ struct sandbox_unverified_data<T, typename std::enable_if<std::is_pointer<T>::va
 		uintptr_t arrayEnd = ((uintptr_t)maskedFieldPtr) + sizeof(std::remove_pointer<T>) * elementCount;
 
 		//check for overflow
-		if((arrayEnd && 0xFFFFFFFF00000000) != (((uintptr_t)maskedFieldPtr) && 0xFFFFFFFF00000000))
+		if((arrayEnd & 0xFFFFFFFF00000000) != (((uintptr_t)maskedFieldPtr) & 0xFFFFFFFF00000000))
 		{
 			return defaultValue;
 		}
@@ -457,7 +457,7 @@ struct sandbox_unverified_data<T, typename std::enable_if<std::is_pointer<T>::va
 		uintptr_t arrayEnd = ((uintptr_t)maskedFieldPtr) + sizeof(std::remove_pointer<T>) * elementCount;
 
 		//check for overflow
-		if((arrayEnd && 0xFFFFFFFF00000000) != (((uintptr_t)maskedFieldPtr) && 0xFFFFFFFF00000000))
+		if((arrayEnd & 0xFFFFFFFF00000000) != (((uintptr_t)maskedFieldPtr) & 0xFFFFFFFF00000000))
 		{
 			return defaultValue;
 		}
@@ -568,17 +568,17 @@ struct unverified_data<T, typename std::enable_if<std::is_pointer<T>::value && !
 	template<typename U=T, ENABLE_IF(!std::is_pointer<std::remove_pointer<U>>::value)>
 	inline U sandbox_onlyVerifyAddressRange(size_t size) const
 	{
-		U maskedFieldPtr = getMasked();
-		U maskedFieldPtrEnd = maskedFieldPtr + size;
+		uintptr_t maskedFieldPtr = (uintptr_t) getMasked();
+		uintptr_t maskedFieldPtrEnd = (uintptr_t) maskedFieldPtr + size;
 
 		if((maskedFieldPtr > maskedFieldPtrEnd) || 
-			(maskedFieldPtr && 0xFFFFFFFF00000000) != (maskedFieldPtrEnd && 0xFFFFFFFF00000000)
+			(maskedFieldPtr & 0xFFFFFFFF00000000) != (maskedFieldPtrEnd & 0xFFFFFFFF00000000)
 		)
 		{
 			return nullptr;
 		}
 
-		return maskedFieldPtr;
+		return (U) maskedFieldPtr;
 	}
 
 	//Primitive*
@@ -676,7 +676,7 @@ struct unverified_data<T, typename std::enable_if<std::is_pointer<T>::value && !
 		uintptr_t arrayEnd = ((uintptr_t)maskedFieldPtr) + sizeof(std::remove_pointer<T>) * elementCount;
 
 		//check for overflow
-		if((arrayEnd && 0xFFFFFFFF00000000) != (((uintptr_t)maskedFieldPtr) && 0xFFFFFFFF00000000))
+		if((arrayEnd & 0xFFFFFFFF00000000) != (((uintptr_t)maskedFieldPtr) & 0xFFFFFFFF00000000))
 		{
 			return defaultValue;
 		}
@@ -697,7 +697,7 @@ struct unverified_data<T, typename std::enable_if<std::is_pointer<T>::value && !
 		uintptr_t arrayEnd = ((uintptr_t)maskedFieldPtr) + sizeof(std::remove_pointer<T>) * elementCount;
 
 		//check for overflow
-		if((arrayEnd && 0xFFFFFFFF00000000) != (((uintptr_t)maskedFieldPtr) && 0xFFFFFFFF00000000))
+		if((arrayEnd & 0xFFFFFFFF00000000) != (((uintptr_t)maskedFieldPtr) & 0xFFFFFFFF00000000))
 		{
 			return defaultValue;
 		}
@@ -1482,10 +1482,10 @@ __attribute__ ((noinline)) SANDBOX_CALLBACK return_argument<TFunc> sandbox_callb
 template<typename Ret>
 std::true_type sandbox_callback_all_args_are_unverified_data(Ret(*) ());
 
-template<typename Ret, typename First, typename... Rest, ENABLE_IF(std::decltype(sandbox_callback_all_args_are_unverified_data(std::declval<Ret (*)(Rest...)>()))::value)>
+template<typename Ret, typename First, typename... Rest, ENABLE_IF(decltype(sandbox_callback_all_args_are_unverified_data(std::declval<Ret (*)(Rest...)>()))::value)>
 std::true_type sandbox_callback_all_args_are_unverified_data(Ret(*) (unverified_data<First>, Rest...));
 
-#define enable_if_sandbox_callback_all_args_are_unverified_data(fn) ENABLE_IF(std::decltype(sandbox_callback_all_args_are_unverified_data(fn))::value)
+#define enable_if_sandbox_callback_all_args_are_unverified_data(fn) ENABLE_IF(decltype(sandbox_callback_all_args_are_unverified_data(fn))::value)
 
 template <typename T>
 __attribute__ ((noinline)) typename std::enable_if<std::is_function<T>::value,
@@ -1879,8 +1879,10 @@ __attribute__ ((noinline)) return_argument<T> sandbox_invoker_with_ptr_ret_unsan
 	#pragma clang diagnostic push
 	#pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
 #endif
-	#define sandbox_invoke_with_ptr(sandbox, fnName, fnPtr, ...) sandbox_invoker_with_ptr<decltype(fnName)>(sandbox, fnPtr, nullptr, ##__VA_ARGS__)
-	#define sandbox_invoke_with_ptr_ret_unsandboxed_ptr(sandbox, fnName, fnPtr, ...) sandbox_invoker_with_ptr_ret_unsandboxed_ptr<decltype(fnName)>(sandbox, fnPtr, nullptr, ##__VA_ARGS__)
+	#define sandbox_invoke_with_name_and_ptr(sandbox, fnName, fnPtr, ...) sandbox_invoker_with_ptr<decltype(fnName)>(sandbox, fnPtr, nullptr, ##__VA_ARGS__)
+	#define sandbox_invoke_with_name_and_ptr_ret_unsandboxed_ptr(sandbox, fnName, fnPtr, ...) sandbox_invoker_with_ptr_ret_unsandboxed_ptr<decltype(fnName)>(sandbox, fnPtr, nullptr, ##__VA_ARGS__)
+	#define sandbox_invoke_with_ptr(sandbox, fnPtr, ...) sandbox_invoker_with_ptr<my_remove_pointer_t<decltype(fnPtr)>>(sandbox, (void*) fnPtr, nullptr, ##__VA_ARGS__)
+	#define sandbox_invoke_with_ptr_ret_unsandboxed_ptr(sandbox, fnPtr, ...) sandbox_invoker_with_ptr_ret_unsandboxed_ptr<my_remove_pointer_t<decltype(fnPtr)>>(sandbox, (void*) fnPtr, nullptr, ##__VA_ARGS__)
 	#ifndef NACL_SANDBOX_API_NO_STL_DS
 		#define sandbox_invoke(sandbox, fnName, ...) sandbox_invoker_with_ptr<decltype(fnName)>(sandbox, sandbox_cacheAndRetrieveFnPtr(sandbox, #fnName), nullptr, ##__VA_ARGS__)
 		#define sandbox_invoke_ret_unsandboxed_ptr(sandbox, fnName, ...) sandbox_invoker_with_ptr_ret_unsandboxed_ptr<decltype(fnName)>(sandbox, sandbox_cacheAndRetrieveFnPtr(sandbox, #fnName), nullptr, ##__VA_ARGS__)
