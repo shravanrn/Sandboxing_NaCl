@@ -496,6 +496,13 @@ struct sandbox_unverified_data<T, typename std::enable_if<std::is_pointer<T>::va
 		return *this;
 	}
 
+	inline sandbox_unverified_data<T>& operator=(const std::nullptr_t& arg) noexcept
+	{
+		field = arg;
+		//printf("Sbox Pointer - Direct Assignment\n");
+		return *this;
+	}
+
 	inline unverified_data<T> operator+(int x)
 	{
 		unsigned long sandboxMask = ((uintptr_t) &field) & ((unsigned long)0xFFFFFFFF00000000);
@@ -736,6 +743,13 @@ struct unverified_data<T, typename std::enable_if<std::is_pointer<T>::value && !
 		return *this;
 	}
 
+	inline unverified_data<T>& operator=(const std::nullptr_t& arg) noexcept
+	{
+		field = arg;
+		//printf("Sbox Pointer - Direct Assignment\n");
+		return *this;
+	}
+
 	inline bool operator ==(const std::nullptr_t&) const
 	{
 		return field == 0;
@@ -864,6 +878,13 @@ struct sandbox_unverified_data<T, typename std::enable_if<std::is_function<my_re
 		return *this;
 	}
 
+	inline sandbox_unverified_data<T>& operator=(const std::nullptr_t& arg) noexcept
+	{
+		field = arg;
+		//printf("Sbox Pointer - Direct Assignment\n");
+		return *this;
+	}
+
 	inline unverified_data<T*> operator&() const 
 	{
 		unverified_data<T*> ret = getMaskedAddress();
@@ -930,6 +951,13 @@ struct unverified_data<T, typename std::enable_if<std::is_function<my_remove_poi
 		return *this;
 	}
 
+	inline unverified_data<T>& operator=(const std::nullptr_t& arg) noexcept
+	{
+		field = arg;
+		//printf("Sbox Pointer - Direct Assignment\n");
+		return *this;
+	}
+
 	inline bool operator ==(const std::nullptr_t&) const
 	{
 		return field == 0;
@@ -955,7 +983,7 @@ struct unverified_data<T, typename std::enable_if<std::is_function<my_remove_poi
 template<typename L, typename R, ENABLE_IF(!std::is_array<L>::value && !std::is_union<L>::value && !std::is_function<my_remove_pointer_t<R>>::value)>
 inline void assignValue(L& lhs, R rhs)
 {
-	lhs = rhs;
+	lhs = (R) rhs;
 }
 
 template<typename L, typename R, ENABLE_IF(std::is_function<my_remove_pointer_t<R>>::value)>
