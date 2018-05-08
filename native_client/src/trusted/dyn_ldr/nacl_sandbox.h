@@ -986,7 +986,7 @@ struct unverified_data<T, typename std::enable_if<std::is_function<my_remove_poi
 template<typename L, typename R, ENABLE_IF(!std::is_array<L>::value && !std::is_union<L>::value && !std::is_function<my_remove_pointer_t<R>>::value)>
 inline void assignValue(L& lhs, R rhs)
 {
-	lhs = (R) rhs;
+	lhs = (L) rhs;
 }
 
 template<typename L, typename R, ENABLE_IF(std::is_function<my_remove_pointer_t<R>>::value)>
