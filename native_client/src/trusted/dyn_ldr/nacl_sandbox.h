@@ -30,6 +30,9 @@ using my_remove_pointer_t = typename std::remove_pointer<T>::type;
 template< class T >
 using my_remove_reference_t = typename std::remove_reference<T>::type;
 
+template< class T >
+using my_remove_volatile_t = typename std::remove_volatile<T>::type;
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<typename T>
 inline T getMaskedField(unsigned long sandboxMask, T arg)
@@ -67,7 +70,7 @@ struct unverified_data;
 template<typename T>
 struct sandbox_unverified_data<T, typename std::enable_if<!std::is_pointer<T>::value && !std::is_class<T>::value && !std::is_reference<T>::value && !std::is_array<T>::value>::type>
 {
-	T field;
+	volatile T field;
 
 	inline T UNSAFE_noVerify() const
 	{
@@ -194,8 +197,8 @@ struct unverified_data<T, typename std::enable_if<!std::is_pointer<T>::value && 
 template<typename T>
 struct sandbox_unverified_data<T, typename std::enable_if<std::is_array<T>::value>::type>
 {
-	T field;
-	using arrElemType = my_remove_reference_t<decltype(*field)>;
+	volatile T field;
+	using arrElemType = my_remove_volatile_t<my_remove_reference_t<decltype(*field)>>;
 
 	inline arrElemType* sandbox_onlyVerifyAddress() const
 	{
@@ -301,7 +304,7 @@ struct unverified_data<T, typename std::enable_if<std::is_array<T>::value>::type
 template<typename T>
 struct sandbox_unverified_data<T, typename std::enable_if<std::is_pointer<T>::value && !std::is_reference<T>::value && !std::is_array<T>::value && !std::is_function<my_remove_pointer_t<T>>::value>::type>
 {
-	T field;
+	volatile T field;
 
 	//Only validate one level of indirection, eg int*, by returning the derefed value as we have to get a copy of the actual object
 
@@ -834,7 +837,7 @@ using sandbox_remove_unverified_data_on_args = decltype(sandbox_remove_unverifie
 template<typename T>
 struct sandbox_unverified_data<T, typename std::enable_if<std::is_function<my_remove_pointer_t<T>>::value>::type>
 {
-	T field;
+	volatile T field;
 
 	inline T sandbox_onlyVerifyAddress() const
 	{
