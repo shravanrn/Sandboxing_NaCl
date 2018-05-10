@@ -78,6 +78,16 @@ int main(int argc, char** argv)
 		printf("Argv not filled correctly");
 		return 1;
 	}
+	
+	printf("Warmup on timer. ");
+	for(int count = 0; count < 10; count++)
+	{
+		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
+		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
+		printf("Warm up for = %10" PRId64 " ns\n", duration_cast<nanoseconds>(exitTime - enterTime).count());
+		printf("------------------------------\n");
+	}
+	printf("\n");
 
 	//exec folder is something like: "native_client/src/trusted/dyn_ldr/benchmark/"
 	execFolder = getExecFolder(argv[0]);
@@ -109,13 +119,22 @@ int main(int argc, char** argv)
 	printMemoryStatus();
 	printf("------------------------------\n");
 
-	if(!initializeDlSandboxCreator(0 /* Disable logging */))
+	
 	{
-		printf("Dyn loader Benchmark: initializeDlSandboxCreator returned null\n");
-		return 1;
-	}
+		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
+		if(!initializeDlSandboxCreator(0 /* Disable logging */))
+		{
+			printf("Dyn loader Benchmark: initializeDlSandboxCreator returned null\n");
+			return 1;
+		}
 
-	sandbox = createDlSandbox(libraryPath, libraryToLoad);
+		sandbox = createDlSandbox(libraryPath, libraryToLoad);
+		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
+		uint64_t timeSpentInSandboxCpp = duration_cast<nanoseconds>(exitTime  - enterTime).count();
+		printf("Sandbox create time  = %10" PRId64 " ns\n", duration_cast<nanoseconds>(exitTime - enterTime).count());
+		printf("------------------------------\n");
+
+	}	
 	printf("Memory After Sandbox Creation\n");
 	printf("------------------------------\n");
 	printMemoryStatus();
