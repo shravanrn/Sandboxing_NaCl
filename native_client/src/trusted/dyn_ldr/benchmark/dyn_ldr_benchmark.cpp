@@ -79,7 +79,7 @@ int main(int argc, char** argv)
 		return 1;
 	}
 	
-	printf("Warmup on timer. ");
+	printf("Warmup on timer. \n");
 	for(int count = 0; count < 10; count++)
 	{
 		high_resolution_clock::time_point enterTime = high_resolution_clock::now();
@@ -131,7 +131,7 @@ int main(int argc, char** argv)
 		sandbox = createDlSandbox(libraryPath, libraryToLoad);
 		high_resolution_clock::time_point exitTime = high_resolution_clock::now();
 		uint64_t timeSpentInSandboxCpp = duration_cast<nanoseconds>(exitTime  - enterTime).count();
-		printf("Sandbox create time  = %10" PRId64 " ns\n", duration_cast<nanoseconds>(exitTime - enterTime).count());
+		printf("Sandbox create time  = %10" PRId64 " ns\n", timeSpentInSandboxCpp);
 		printf("------------------------------\n");
 
 	}	
