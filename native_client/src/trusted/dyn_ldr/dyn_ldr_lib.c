@@ -599,6 +599,7 @@ NaClSandbox_Thread* preFunctionCall(NaClSandbox* sandbox, size_t paramsSize, siz
     NaClSandbox_Thread* threadData = getThreadData(sandbox);
     #if NACL_BUILD_SUBARCH == 64
       threadData->registerParameterNumber = 0;
+      threadData->floatRegisterParameterNumber = 0;
     #endif
     threadData->saved_stack_ptr_forFunctionCall = GetSandboxedStackPointer(sandbox, threadData->thread->user);
     threadData->stack_ptr_forParameters = getUnsandboxedAddress(sandbox, ROUND_DOWN_TO_POW2(GetSandboxedStackPointer(sandbox, threadData->thread->user), STACKALIGNMENT));
