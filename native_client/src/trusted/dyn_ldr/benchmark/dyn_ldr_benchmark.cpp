@@ -1,3 +1,9 @@
+#if !defined(_M_X64) && !defined(__x86_64__)
+	//C++ API not supported for 32 bit mode
+	int main(){
+		return 0;
+	}
+#else
 #include "native_client/src/trusted/dyn_ldr/nacl_sandbox.h"
 #include "native_client/src/trusted/dyn_ldr/testing/test_dyn_lib.h"
 
@@ -340,3 +346,4 @@ char* concatenateAndFixSlash(const char* string1, const char* string2)
 	replaceChar(ret, '/', SEPARATOR);
 	return ret;
 }
+#endif
