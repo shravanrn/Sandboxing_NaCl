@@ -92,6 +92,12 @@ int isAddressInNonSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr);
 
 #define ADJUST_STACK_PTR(ptr, size) (ptr + size)
 
+#define ALLOCATE_STACK_VARIABLE(threadData, type, variable) type* variable; \
+do { \
+	threadData->stack_ptr_forParameters = ADJUST_STACK_PTR(threadData->stack_ptr_forParameters, sizeof(type)); \
+	variable = (type*) threadData->stack_ptr_forParameters; \
+} while (0)
+
 #if defined(_M_IX86) || defined(__i386__)
 
 	#define PUSH_VAL_TO_STACK(threadData, type, value) do { \
@@ -121,12 +127,6 @@ int isAddressInNonSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr);
 		*regPtr = value; \
 		threadData->floatRegisterParameterNumber++; \
 	}
-
-	#define ALLOCATE_STACK_VARIABLE(threadData, type, variable) type* variable; \
-	do { \
-		threadData->stack_ptr_forParameters = ADJUST_STACK_PTR(threadData->stack_ptr_forParameters, sizeof(type)); \
-		variable = (type*) threadData->stack_ptr_forParameters; \
-	} while (0)
 
 	#define PUSH_VAL_TO_STACK_SKIP_REGS(threadData, type, value) do { \
 		*(type *) (threadData->stack_ptr_forParameters) = (type) value; \
