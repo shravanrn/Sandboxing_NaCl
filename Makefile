@@ -1,4 +1,7 @@
 # For verbose build: make SCONS_FLAGS=--verbose [target]
+DEPOT_TOOLS_PATH := $(shell realpath ../depot_tools)
+export PATH := $(DEPOT_TOOLS_PATH):$(PATH)
+
 CXX=clang++
 CXXFLAGS=-std=c++11 -fPIC -O0 -I.
 CPU = 0
