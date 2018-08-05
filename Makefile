@@ -6,14 +6,13 @@ CXX=clang++
 CXXFLAGS=-std=c++11 -fPIC -O0 -I.
 CPU = 0
 
-.PHONY: buildopt32 buildopt64 runopt32 runopt64 builddebug32 builddebug64 rundebug32 rundebug64 runperftest32 runperftest64 clean init init_if_necessary
+.PHONY: buildopt32 buildopt64 runopt32 runopt64 builddebug32 builddebug64 rundebug32 rundebug64 runperftest32 runperftest64 clean init
 
 .DEFAULT_GOAL = buildopt64
 
-init_if_necessary:
-	if [ ! -d native_client/toolchain/linux_x86/pnacl_newlib_raw ]; then $(MAKE) init; fi
+.NOTPARALLEL: buildopt32 buildopt64 builddebug32 builddebug64 init_complete
 
-init:
+init_complete:
 	sudo apt install flex bison git g++-multilib libc6-dev-i386 cmake texinfo
 	gclient runhooks
 	#Build the modified compiler
@@ -22,10 +21,11 @@ init:
 	#Install the modified compiler
 	rm -rf native_client/toolchain/linux_x86/pnacl_newlib
 	ln -s pnacl_newlib_raw native_client/toolchain/linux_x86/pnacl_newlib
+	touch init_complete
 
-.NOTPARALLEL: buildopt32 buildopt64 builddebug32 builddebug64
+init:init_complete
 
-buildopt32 : init_if_necessary
+buildopt32 : init
 	cd native_client && ./scons MODE=opt-linux,nacl werror=0 $(SCONS_FLAGS)
 	mv ./native_client/scons-out ./native_client/scons-out-clean
 	if [ -d ./native_client/scons-out-firefox ]; then mv ./native_client/scons-out-firefox ./native_client/scons-out; fi
@@ -33,7 +33,7 @@ buildopt32 : init_if_necessary
 	mv ./native_client/scons-out ./native_client/scons-out-firefox
 	mv ./native_client/scons-out-clean ./native_client/scons-out
 
-buildopt64 : init_if_necessary
+buildopt64 : init
 	cd native_client && ./scons MODE=opt-linux,nacl werror=0 platform=x86-64 $(SCONS_FLAGS)
 	mv ./native_client/scons-out ./native_client/scons-out-clean
 	if [ -d ./native_client/scons-out-firefox ]; then mv ./native_client/scons-out-firefox ./native_client/scons-out; fi
@@ -41,7 +41,7 @@ buildopt64 : init_if_necessary
 	mv ./native_client/scons-out ./native_client/scons-out-firefox
 	mv ./native_client/scons-out-clean ./native_client/scons-out
 
-builddebug32 : init_if_necessary
+builddebug32 : init
 	cd native_client && ./scons MODE=dbg-linux,nacl werror=0 $(SCONS_FLAGS)
 	mv ./native_client/scons-out ./native_client/scons-out-clean
 	if [ -d ./native_client/scons-out-firefox ]; then mv ./native_client/scons-out-firefox ./native_client/scons-out; fi
@@ -49,7 +49,7 @@ builddebug32 : init_if_necessary
 	mv ./native_client/scons-out ./native_client/scons-out-firefox
 	mv ./native_client/scons-out-clean ./native_client/scons-out
 
-builddebug64 : init_if_necessary
+builddebug64 : init
 	cd native_client && ./scons MODE=dbg-linux,nacl werror=0 platform=x86-64 $(SCONS_FLAGS)
 	mv ./native_client/scons-out ./native_client/scons-out-clean
 	if [ -d ./native_client/scons-out-firefox ]; then mv ./native_client/scons-out-firefox ./native_client/scons-out; fi
