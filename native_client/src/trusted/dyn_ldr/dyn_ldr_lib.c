@@ -1010,7 +1010,7 @@ long functionCallReturnRawPrimitiveInt(NaClSandbox_Thread* threadData)
   long ret;
 
   #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 //32 and 64 bit
-    //Note for 64 bit this is actuall the rax register
+    //Note for 64 bit this is actually the rax register
     ret = (long) threadData->thread->register_eax;
     NaClLog(LOG_INFO, "Return int %lu\n", ret);
   #else
@@ -1022,20 +1022,22 @@ long functionCallReturnRawPrimitiveInt(NaClSandbox_Thread* threadData)
 
 float functionCallReturnFloat(NaClSandbox_Thread* threadData)
 {
-  #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 //32 and 64 bit
-    //Note for 64 bit this is actuall the rax register
+  #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
+    double retd = *((double *) (&(threadData->thread->register_xmm0)));
+    float ret = retd;
+  #elif NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64
     float ret = *((float *) (&(threadData->thread->register_xmm0)));
-    NaClLog(LOG_INFO, "Return float %f\n", ret);
-    return ret;
   #else
     #error Unsupported architecture
   #endif
+
+  NaClLog(LOG_INFO, "Return float %f\n", ret);
+  return ret;
 }
 
 double functionCallReturnDouble(NaClSandbox_Thread* threadData)
 {
   #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 //32 and 64 bit
-    //Note for 64 bit this is actuall the rax register
     double ret = *((double *) (&(threadData->thread->register_xmm0)));
     NaClLog(LOG_INFO, "Return double %f\n", ret);
     return ret;
