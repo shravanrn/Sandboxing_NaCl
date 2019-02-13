@@ -48,4 +48,9 @@ static INLINE MAP_VALUE_TYPE Map_Get(DS_Map* map, MAP_KEY_TYPE key)
 	return 0;
 }
 
+static INLINE unsigned Map_GetSize(DS_Map* map)
+{
+	return map->currentTop;
+}
+
 #endif

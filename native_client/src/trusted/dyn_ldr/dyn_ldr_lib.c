@@ -253,6 +253,8 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
 
   NaClAppStartModule(nap);
 
+  NaClDescUnref(blob_file);
+
   //Normally, the NaClCreateMainThread/NaClCreateAdditionalThread invokes the NaCl application, nap
   // in a new thread. This is not necessary here. So, call a function we 
   // have added to the runtime, that ignores the next request to create a
@@ -325,36 +327,36 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
 
   nap->custom_app_state = (uintptr_t) sandbox;
 
-  NaClLog(LOG_INFO, "Running a sandbox test\n");
-  testResult = invokeLocalMathTest(sandbox, 2, 3, 4);
+  // NaClLog(LOG_INFO, "Running a sandbox test\n");
+  // testResult = invokeLocalMathTest(sandbox, 2, 3, 4);
 
-  if(testResult != 234)
-  {
-    NaClLog(LOG_ERROR, "Sandbox test failed: Expected return of 234. Got %d\n", testResult);
-    goto error;
-  }
+  // if(testResult != 234)
+  // {
+  //   NaClLog(LOG_ERROR, "Sandbox test failed: Expected return of 234. Got %d\n", testResult);
+  //   goto error;
+  // }
 
-  testResult2 = invokeLocalStringTest(sandbox, "Hello");
+  // testResult2 = invokeLocalStringTest(sandbox, "Hello");
 
-  if(testResult2 != 5)
-  {
-    NaClLog(LOG_ERROR, "Sandbox test failed: Expected return of 5. Got %d\n", testResult2);
-    goto error;
-  }
+  // if(testResult2 != 5)
+  // {
+  //   NaClLog(LOG_ERROR, "Sandbox test failed: Expected return of 5. Got %d\n", testResult2);
+  //   goto error;
+  // }
 
-  testResult3 = invokeCheckStructSizesTest(sandbox, 
-    sizeof(struct TestStructDoubleAlign),
-    sizeof(struct TestStructPointerSize),
-    sizeof(struct TestStructIntSize),
-    sizeof(struct TestStructLongSize),
-    sizeof(struct TestStructLongLongSize)
-  );
+  // testResult3 = invokeCheckStructSizesTest(sandbox, 
+  //   sizeof(struct TestStructDoubleAlign),
+  //   sizeof(struct TestStructPointerSize),
+  //   sizeof(struct TestStructIntSize),
+  //   sizeof(struct TestStructLongSize),
+  //   sizeof(struct TestStructLongLongSize)
+  // );
 
-  if(!testResult3)
-  {
-    NaClLog(LOG_ERROR, "Sandbox test failed: Sizes of datastructures inside and outside the sandbox do not agree\n");
-    goto error; 
-  }
+  // if(!testResult3)
+  // {
+  //   NaClLog(LOG_ERROR, "Sandbox test failed: Sizes of datastructures inside and outside the sandbox do not agree\n");
+  //   goto error; 
+  // }
 
   NaClLog(LOG_INFO, "Acquiring the callback parameter start offset\n");
   invokeIdentifyCallbackOffsetHelper(sandbox);
@@ -379,6 +381,25 @@ error:
   fflush(stdout);
 
   return NULL;
+}
+
+void destroyDlSandbox(NaClSandbox* sandbox)
+{
+  unsigned mapSize = Map_GetSize(sandbox->threadDataMap);
+  for(unsigned i = 0; i < mapSize; i++)
+  {
+    NaClSandbox_Thread* threadData = (NaClSandbox_Thread*) sandbox->threadDataMap->values[i];
+    //threads must be stopped
+    free(threadData->thread->jumpBufferStack);
+    NaClAppThreadDelete(threadData->thread);
+    free(threadData);
+  }
+
+  //threads must be stopped and deleted
+  NaClAddrSpaceFree(sandbox->nap);
+  free(sandbox->threadCreateMutex);
+  free(sandbox->threadDataMap);
+  free(sandbox);
 }
 
 NaClSandbox_Thread* constructNaClSandboxThread(NaClSandbox* sandbox)
@@ -491,7 +512,7 @@ err_createdSandbox:
 
 unsigned long getSandboxMemoryBase(NaClSandbox* sandbox)
 {
-	return sandbox->nap->mem_start;
+  return sandbox->nap->mem_start;
 }
 
 /********************** "Function call stub" helpers *****************************/

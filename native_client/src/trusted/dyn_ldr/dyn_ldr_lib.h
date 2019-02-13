@@ -47,15 +47,15 @@ struct _NaClSandbox
 	int32_t callbackParameterStartOffset;
 
 	threadMain_type threadMainPtr;
-    exitFunctionWrapper_type exitFunctionWrapperPtr;
-    callbackFunctionWrapper_type callbackFunctionWrapper[8];
+	exitFunctionWrapper_type exitFunctionWrapperPtr;
+	callbackFunctionWrapper_type callbackFunctionWrapper[8];
 
-    malloc_type mallocPtr;
-    free_type freePtr;
-    fopen_type fopenPtr;
-    fclose_type fclosePtr;
+	malloc_type mallocPtr;
+	free_type freePtr;
+	fopen_type fopenPtr;
+	fclose_type fclosePtr;
 
-    void* extraState;
+	void* extraState;
 };
 
 typedef struct _NaClSandbox NaClSandbox;
@@ -64,6 +64,7 @@ typedef struct _NaClSandbox_Thread NaClSandbox_Thread;
 int initializeDlSandboxCreator(int enableLogging);
 int closeSandboxCreator(void);
 NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAppFullPath);
+void destroyDlSandbox(NaClSandbox* sandbox);
 
 unsigned long getSandboxMemoryBase(NaClSandbox* sandbox);
 
