@@ -78,8 +78,9 @@ int strLenWithin(char* a, unsigned lenLimit)
 	return 0;
 }
 
-int invokeSimpleCallbackTest_callback(unsigned a, char* b)
+int invokeSimpleCallbackTest_callback(unsigned a, char* b , unsigned c[1])
 {
+	(void)c;
 	return a + strlen(b);
 }
 
@@ -87,11 +88,13 @@ SANDBOX_CALLBACK unsigned invokeSimpleCallbackTest_callbackStub(uintptr_t sandbo
 {
 	int a;
 	char* b;
+	unsigned* c;
 	NaClSandbox* sandbox = (NaClSandbox*) sandboxPtr;
 	NaClSandbox_Thread* threadData = callbackParamsBegin(sandbox);
 
 	a = COMPLETELY_UNTRUSTED_CALLBACK_STACK_PARAM(threadData, int);
 	b = COMPLETELY_UNTRUSTED_CALLBACK_PTR_PARAM(threadData, char*);
+	c = COMPLETELY_UNTRUSTED_CALLBACK_PTR_PARAM(threadData, unsigned*);
 
 	//We should not assume anything about a, b
 	//b could be a pointer to garbage instead of a null terminated string
@@ -107,7 +110,7 @@ SANDBOX_CALLBACK unsigned invokeSimpleCallbackTest_callbackStub(uintptr_t sandbo
 		//  call into sandbox, callback to outside, another function call back in etc.)
 		int ret;
 		void* ptr = mallocInSandbox(sandbox, sizeof(int));
-		ret = invokeSimpleCallbackTest_callback(a, b);
+		ret = invokeSimpleCallbackTest_callback(a, b, c);
 		freeInSandbox(sandbox, ptr);
 		return ret;
 	}

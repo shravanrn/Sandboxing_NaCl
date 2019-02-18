@@ -58,8 +58,6 @@ DEFINE_GLOBAL_HIDDEN_FUNCTION(\arg1):
         /*
          * For sandboxing we need to copy over all parameter registers as well
          * These are RDI, RSI, RDX, RCX, R8, R9, R10
-         * For now we dont copy the floating point registers
-         * We only copy if the 2nd parameter to this function is not 0
          */
         movq    NACL_THREAD_CONTEXT_OFFSET_RDI(%r11), %rdi
         movq    NACL_THREAD_CONTEXT_OFFSET_RSI(%r11), %rsi

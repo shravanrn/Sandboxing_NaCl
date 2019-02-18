@@ -67,13 +67,13 @@ NORETURN void NaClStartThreadInApp(struct NaClAppThread *natp,
    */
   nacl_reg_t  secure_stack_ptr = NaClGetStackPtr();
 
-  NaClLog(6,
-          "NaClStartThreadInApp: secure stack:   0x%"NACL_PRIxNACL_REG"\n",
-          secure_stack_ptr);
+  // NaClLog(6,
+  //         "NaClStartThreadInApp: secure stack:   0x%"NACL_PRIxNACL_REG"\n",
+  //         secure_stack_ptr);
   secure_stack_ptr = secure_stack_ptr & ~0x1f;
-  NaClLog(6,
-          "NaClStartThreadInApp: adjusted stack: 0x%"NACL_PRIxNACL_REG"\n",
-          secure_stack_ptr);
+  // NaClLog(6,
+  //         "NaClStartThreadInApp: adjusted stack: 0x%"NACL_PRIxNACL_REG"\n",
+  //         secure_stack_ptr);
 
   natp->user.trusted_stack_ptr = secure_stack_ptr;
 #endif
@@ -84,11 +84,11 @@ NORETURN void NaClStartThreadInApp(struct NaClAppThread *natp,
   context->sysret = 0;
   context->r15 = nap->mem_start;
 
-  NaClLog(6,
-          "NaClStackThreadInApp: user stack: 0x%"NACL_PRIxPTR"\n",
-          NaClGetThreadCtxSp(context));
-  NaClLog(6,
-          "NaClStartThreadInApp: switching to untrusted code\n");
+  // NaClLog(6,
+  //         "NaClStackThreadInApp: user stack: 0x%"NACL_PRIxPTR"\n",
+  //         NaClGetThreadCtxSp(context));
+  // NaClLog(6,
+  //         "NaClStartThreadInApp: switching to untrusted code\n");
 
 #if NACL_WINDOWS
   /* This sets up a stack containing a return address that has unwind info. */

@@ -122,9 +122,9 @@ struct NaClThreadContext *NaClSyscallCSegHook(struct NaClThreadContext *ntcp) {
 
   sysnum = (tramp_ret - NACL_SYSCALL_START_ADDR) >> NACL_SYSCALL_BLOCK_SHIFT;
 
-  NaClLog(4, "Entering syscall %"NACL_PRIuS
-          ": return address 0x%08"NACL_PRIxNACL_REG"\n",
-          sysnum, natp->user.new_prog_ctr);
+  // NaClLog(4, "Entering syscall %"NACL_PRIuS
+  //         ": return address 0x%08"NACL_PRIxNACL_REG"\n",
+  //         sysnum, natp->user.new_prog_ctr);
 
   /*
    * usr_syscall_args is used by Decoder functions in
@@ -149,10 +149,10 @@ struct NaClThreadContext *NaClSyscallCSegHook(struct NaClThreadContext *ntcp) {
     sysret = (*(nap->syscall_table[sysnum].handler))(natp);
     /* Implicitly drops lock */
   }
-  NaClLog(4,
-          ("Returning from syscall %"NACL_PRIuS": return value %"NACL_PRId32
-           " (0x%"NACL_PRIx32")\n"),
-          sysnum, sysret, sysret);
+  // NaClLog(4,
+  //         ("Returning from syscall %"NACL_PRIuS": return value %"NACL_PRId32
+  //          " (0x%"NACL_PRIx32")\n"),
+  //         sysnum, sysret, sysret);
   natp->user.sysret = sysret;
 
   /*

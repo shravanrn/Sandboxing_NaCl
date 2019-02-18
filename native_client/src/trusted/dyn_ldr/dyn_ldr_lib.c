@@ -52,7 +52,7 @@
 #endif
 
 
-uintptr_t getUnsandboxedAddress(NaClSandbox* sandbox, uintptr_t uaddr){
+inline uintptr_t getUnsandboxedAddress(NaClSandbox* sandbox, uintptr_t uaddr){
   if (uaddr == 0) { return 0;}
   return NaClUserToSys(sandbox->nap, uaddr
     #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64
@@ -60,16 +60,16 @@ uintptr_t getUnsandboxedAddress(NaClSandbox* sandbox, uintptr_t uaddr){
     #endif
   );
 }
-uintptr_t getSandboxedAddress(NaClSandbox* sandbox, uintptr_t uaddr){
+inline uintptr_t getSandboxedAddress(NaClSandbox* sandbox, uintptr_t uaddr){
   if (uaddr == 0) { return 0;}
   return NaClSysToUser(sandbox->nap, uaddr);
 }
 
 
-int isAddressInSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr){
+inline int isAddressInSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr){
   return uaddr == 0 || NaClIsUserAddr(sandbox->nap, uaddr);
 }
-int isAddressInNonSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr){
+inline int isAddressInNonSandboxMemoryOrNull(NaClSandbox* sandbox, uintptr_t uaddr){
   return uaddr == 0 || !NaClIsUserAddr(sandbox->nap, uaddr);  
 }
 
@@ -84,7 +84,7 @@ int initializeDlSandboxCreator(int enableLogging)
   //    NaClSignalHandlerInit();
   // #elif NACL_OSX
   //    if (!NaClInterceptMachExceptions()) {
-  //      NaClLog(LOG_ERROR, "ERROR setting up Mach exception interception.\n");
+  //      //NaClLog(LOG_ERROR, "ERROR setting up Mach exception interception.\n");
   //      return FALSE;
   //    }
   // #elif NACL_WINDOWS 
@@ -121,7 +121,7 @@ int initializeDlSandboxCreator(int enableLogging)
 
   // pq_error = NaClRunSelQualificationTests();
   // if (LOAD_OK != pq_error) {
-  //   NaClLog(LOG_ERROR, "Error while running platform checks: %s\n", NaClErrorString(pq_error));
+  //   //NaClLog(LOG_ERROR, "Error while running platform checks: %s\n", NaClErrorString(pq_error));
   //   goto error;
   // }
 
@@ -129,7 +129,7 @@ int initializeDlSandboxCreator(int enableLogging)
 
 // error:
 //   fflush(stdout);
-//   NaClLog(LOG_ERROR, "Failed in creating sandbox\n");
+//   //NaClLog(LOG_ERROR, "Failed in creating sandbox\n");
 //   fflush(stdout);
 
 //   closeSandboxCreator();
@@ -171,33 +171,33 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
   // struct NaClEnvCleanser  env_cleanser;
   // char const *const*      envp;
   NaClErrorCode           pq_error;
-  unsigned                testResult = 0;
-  int                     testResult2 = 0;
-  int                     testResult3 = 0;
+  // unsigned                testResult = 0;
+  // int                     testResult2 = 0;
+  // int                     testResult3 = 0;
   struct NaClDesc*        blob_file = NULL;
 
   nap = NaClAppCreate();
   if (nap == NULL) {
-    NaClLog(LOG_ERROR, "NaClAppCreate() failed\n");
+    //NaClLog(LOG_ERROR, "NaClAppCreate() failed\n");
     goto error;
   }
 
   fflush((FILE *) NULL);
 
   // if (!DynArrayCtor(&env_vars, 0)) {
-  //   NaClLog(LOG_FATAL, "Failed to allocate env var array\n");
+  //   //NaClLog(LOG_FATAL, "Failed to allocate env var array\n");
   // }
 
   // /*
   //  * Define the environment variables for untrusted code.
   //  */
   // if (!DynArraySet(&env_vars, env_vars.num_entries, NULL)) {
-  //   NaClLog(LOG_FATAL, "Adding env_vars NULL terminator failed\n");
+  //   //NaClLog(LOG_FATAL, "Adding env_vars NULL terminator failed\n");
   // }
   // NaClEnvCleanserCtor(&env_cleanser, 0, TRUE/* enable_env_passthrough */);
   // if (!NaClEnvCleanserInit(&env_cleanser, NaClGetEnviron(),
   //                          (char const *const *) env_vars.ptr_array)) {
-  //   NaClLog(LOG_FATAL, "Failed to initialise env cleanser\n");
+  //   //NaClLog(LOG_FATAL, "Failed to initialise env cleanser\n");
   // }
   // envp = NaClEnvCleanserEnvironment(&env_cleanser);
 
@@ -215,7 +215,7 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
 
   blob_file = (struct NaClDesc *) NaClDescIoDescOpen(naclLibraryPath, NACL_ABI_O_RDONLY, 0);
   if (NULL == blob_file) {
-    NaClLog(LOG_FATAL, "Cannot open \"%s\".\n", naclLibraryPath);
+    //NaClLog(LOG_FATAL, "Cannot open \"%s\".\n", naclLibraryPath);
   }
 
   NaClAppInitialDescriptorHookup(nap);
@@ -228,14 +228,14 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
   pq_error = NaClAppLoadFileFromFilename(nap, naclInitAppFullPath);
 
   if (LOAD_OK != pq_error) {
-    NaClLog(LOG_ERROR, "Error while loading from naclInitAppFullPath: %s\n", NaClErrorString(pq_error));
+    //NaClLog(LOG_ERROR, "Error while loading from naclInitAppFullPath: %s\n", NaClErrorString(pq_error));
     goto error;
   }
 
   // NaClFileNameForValgrind(naclInitAppFullPath);
   pq_error = NaClMainLoadIrt(nap, blob_file, NULL);
   if (LOAD_OK != pq_error) {
-    NaClLog(LOG_ERROR, "Error while loading \"%s\": %s\n", naclLibraryPath, NaClErrorString(pq_error));
+    //NaClLog(LOG_ERROR, "Error while loading \"%s\": %s\n", naclLibraryPath, NaClErrorString(pq_error));
     goto error;
   }
 
@@ -243,7 +243,7 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
    * Print out a marker for scripts to use to mark the start of app
    * output.
    */
-  NaClLog(1, "NACL: Application output follows\n");
+  //NaClLog(1, "NACL: Application output follows\n");
 
   /*
    * Make sure all the file buffers are flushed before entering
@@ -265,7 +265,7 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
                             0, //argc,
                             NULL, //argv,
                             NaClGetEnviron())) {
-    NaClLog(LOG_ERROR, "creating main thread failed\n");
+    //NaClLog(LOG_ERROR, "creating main thread failed\n");
     goto error;
   }
 
@@ -299,7 +299,7 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
 
       if(sandbox->callbackFunctionWrapper[i] == NULL)
       {
-        NaClLog(LOG_ERROR, "Sandbox could not find the address of callback wrapper %u", i);
+        //NaClLog(LOG_ERROR, "Sandbox could not find the address of callback wrapper %u", i);
         goto error;        
       }
     }
@@ -309,7 +309,7 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
 
     if(sandbox->threadMainPtr == NULL || sandbox->exitFunctionWrapperPtr == NULL)
     {
-      NaClLog(LOG_ERROR, "Sandbox could not find thread main or exit wrapper");
+      //NaClLog(LOG_ERROR, "Sandbox could not find thread main or exit wrapper");
       goto error;
     }
 
@@ -320,19 +320,19 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
   
     if(sandbox->mallocPtr == NULL || sandbox->freePtr == NULL || sandbox->fopenPtr == NULL || sandbox->fclosePtr == NULL)
     {
-      NaClLog(LOG_ERROR, "Sandbox could not find the address of crt functions: malloc, free, fopen, fclose");
+      //NaClLog(LOG_ERROR, "Sandbox could not find the address of crt functions: malloc, free, fopen, fclose");
       goto error;
     }
   }
 
   nap->custom_app_state = (uintptr_t) sandbox;
 
-  // NaClLog(LOG_INFO, "Running a sandbox test\n");
+  // //NaClLog(LOG_INFO, "Running a sandbox test\n");
   // testResult = invokeLocalMathTest(sandbox, 2, 3, 4);
 
   // if(testResult != 234)
   // {
-  //   NaClLog(LOG_ERROR, "Sandbox test failed: Expected return of 234. Got %d\n", testResult);
+  //   //NaClLog(LOG_ERROR, "Sandbox test failed: Expected return of 234. Got %d\n", testResult);
   //   goto error;
   // }
 
@@ -340,7 +340,7 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
 
   // if(testResult2 != 5)
   // {
-  //   NaClLog(LOG_ERROR, "Sandbox test failed: Expected return of 5. Got %d\n", testResult2);
+  //   //NaClLog(LOG_ERROR, "Sandbox test failed: Expected return of 5. Got %d\n", testResult2);
   //   goto error;
   // }
 
@@ -354,30 +354,30 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
 
   // if(!testResult3)
   // {
-  //   NaClLog(LOG_ERROR, "Sandbox test failed: Sizes of datastructures inside and outside the sandbox do not agree\n");
+  //   //NaClLog(LOG_ERROR, "Sandbox test failed: Sizes of datastructures inside and outside the sandbox do not agree\n");
   //   goto error; 
   // }
 
-  NaClLog(LOG_INFO, "Acquiring the callback parameter start offset\n");
+  //NaClLog(LOG_INFO, "Acquiring the callback parameter start offset\n");
   invokeIdentifyCallbackOffsetHelper(sandbox);
 
   if(sandbox->callbackParameterStartOffset == -1)
   {
-    NaClLog(LOG_ERROR, "Sandbox failed to acquire callback parameter start offset\n");
+    //NaClLog(LOG_ERROR, "Sandbox failed to acquire callback parameter start offset\n");
     goto error;
   }
   else
   {
-    NaClLog(LOG_INFO, "Sandbox callback parameter start offset: %" PRId32 "\n", sandbox->callbackParameterStartOffset);
+    //NaClLog(LOG_INFO, "Sandbox callback parameter start offset: %" PRId32 "\n", sandbox->callbackParameterStartOffset);
   }
 
-  NaClLog(LOG_INFO, "Succeeded in creating sandbox\n");
+  //NaClLog(LOG_INFO, "Succeeded in creating sandbox\n");
 
   return sandbox;
 
 error:
   fflush(stdout);
-  NaClLog(LOG_ERROR, "Failed in creating sandbox\n");
+  //NaClLog(LOG_ERROR, "Failed in creating sandbox\n");
   fflush(stdout);
 
   return NULL;
@@ -429,7 +429,7 @@ NaClSandbox_Thread* constructNaClSandboxThread(NaClSandbox* sandbox)
 
     if(GetSandboxedStackPointer(sandbox, threadData->thread->user) != alignedValue)
     {
-      NaClLog(LOG_INFO, "Re-aligning the NaCl stack to %u bytes\n", 16);
+      //NaClLog(LOG_INFO, "Re-aligning the NaCl stack to %u bytes\n", 16);
       SetStackPointerToSandboxedPointer(sandbox, threadData->thread->user, alignedValue);
     }
   }
@@ -454,20 +454,20 @@ NaClSandbox* constructNaClSandbox(struct NaClApp* nap)
 
   if(sandbox == NULL)
   {
-    NaClLog(LOG_ERROR, "Malloc failed while creating sandbox datastructure\n");
+    //NaClLog(LOG_ERROR, "Malloc failed while creating sandbox datastructure\n");
     return NULL;
   }
 
   sandbox->threadCreateMutex = (struct NaClMutex*) malloc(sizeof(struct NaClMutex));
   if (!sandbox->threadCreateMutex)
   {
-    NaClLog(LOG_ERROR, "Failed to create mutex\n");
+    //NaClLog(LOG_ERROR, "Failed to create mutex\n");
     goto err_createdSandbox;
   }
 
   if (!NaClMutexCtor(sandbox->threadCreateMutex)) 
   {
-    NaClLog(LOG_ERROR, "Failed to init mutex\n");
+    //NaClLog(LOG_ERROR, "Failed to init mutex\n");
     goto err_createdMutex;
   }
 
@@ -476,7 +476,7 @@ NaClSandbox* constructNaClSandbox(struct NaClApp* nap)
 
   if(sandbox->threadDataMap == NULL)
   {
-    NaClLog(LOG_ERROR, "Failed to allocate thread map\n");
+    //NaClLog(LOG_ERROR, "Failed to allocate thread map\n");
     goto err_createdThreadMap;
   }
 
@@ -485,7 +485,7 @@ NaClSandbox* constructNaClSandbox(struct NaClApp* nap)
   /*Attempting to retrieve the nacl thread context as we need this to get the location of the stack*/
   if(nap->num_threads != 1)
   {
-    NaClLog(LOG_ERROR, "Failed in retrieving thread information. Expected count: 1. Actual thread count: %d\n", sandbox->nap->num_threads);
+    //NaClLog(LOG_ERROR, "Failed in retrieving thread information. Expected count: 1. Actual thread count: %d\n", sandbox->nap->num_threads);
     goto err_createdThreadMap;
   }
 
@@ -493,7 +493,7 @@ NaClSandbox* constructNaClSandbox(struct NaClApp* nap)
 
   if(threadData == NULL)
   {
-    NaClLog(LOG_ERROR, "Failed to create data structure for thread\n");
+    //NaClLog(LOG_ERROR, "Failed to create data structure for thread\n");
     goto err_createdThreadMap;
   }
 
@@ -529,14 +529,14 @@ NaClSandbox_Thread* getThreadData(NaClSandbox* sandbox)
     int32_t threadCreateFailed;
     struct NaClAppThread* existingThread;
 
-    NaClLog(LOG_INFO, "Creating new thread structure for id: %u\n", (unsigned) threadId);
+    //NaClLog(LOG_INFO, "Creating new thread structure for id: %u\n", (unsigned) threadId);
 
     existingThread = ((NaClSandbox_Thread*)sandbox->threadDataMap->values[0])->thread;
 
-    NaClLog(LOG_INFO, "Data start %p, (sandboxed) %p. Stack size : %p\n", 
-      (void *) getUnsandboxedAddress(sandbox, sandbox->nap->data_start),
-      (void*) sandbox->nap->data_start,
-      (void*) sandbox->nap->stack_size);
+    //NaClLog(LOG_INFO, "Data start %p, (sandboxed) %p. Stack size : %p\n", 
+      // (void *) getUnsandboxedAddress(sandbox, sandbox->nap->data_start),
+      // (void*) sandbox->nap->data_start,
+      // (void*) sandbox->nap->stack_size);
 
     newStackSandboxed = (uintptr_t) NaClSysMmapIntern(
       sandbox->nap,
@@ -555,15 +555,15 @@ NaClSandbox_Thread* getThreadData(NaClSandbox* sandbox)
       NaClPtrIsNegErrno(&newStackSandboxed)
     )
     {
-      NaClLog(LOG_FATAL, "Failed to create a new stack for the thread: %u\n", (unsigned) threadId);
+      //NaClLog(LOG_FATAL, "Failed to create a new stack for the thread: %u\n", (unsigned) threadId);
     }
 
-    NaClLog(LOG_INFO, "New Stack Range %p to %p (sandboxed: %p to %p)\n",
-      (void *) getUnsandboxedAddress(sandbox, newStackSandboxed),
-      (void *) getUnsandboxedAddress(sandbox, newStackSandboxed + sandbox->nap->stack_size),
-      (void *) (newStackSandboxed),
-      (void *) (newStackSandboxed + sandbox->nap->stack_size)
-    );
+    //NaClLog(LOG_INFO, "New Stack Range %p to %p (sandboxed: %p to %p)\n",
+    //   (void *) getUnsandboxedAddress(sandbox, newStackSandboxed),
+    //   (void *) getUnsandboxedAddress(sandbox, newStackSandboxed + sandbox->nap->stack_size),
+    //   (void *) (newStackSandboxed),
+    //   (void *) (newStackSandboxed + sandbox->nap->stack_size)
+    // );
 
     //Move the stack pointer to the bottom of the stack as it grows upwards
     newStackSandboxed = newStackSandboxed + sandbox->nap->stack_size;
@@ -589,7 +589,7 @@ NaClSandbox_Thread* getThreadData(NaClSandbox* sandbox)
       if(threadCreateFailed)
       {
         NaClXMutexUnlock(sandbox->threadCreateMutex);
-        NaClLog(LOG_FATAL, "Failed in creating thread data structure\n");
+        //NaClLog(LOG_FATAL, "Failed in creating thread data structure\n");
         return NULL;
       }
 
@@ -598,7 +598,7 @@ NaClSandbox_Thread* getThreadData(NaClSandbox* sandbox)
       if(threadData == NULL)
       {
         NaClXMutexUnlock(sandbox->threadCreateMutex);
-        NaClLog(LOG_FATAL, "Failed to create data structure for thread\n");
+        //NaClLog(LOG_FATAL, "Failed to create data structure for thread\n");
         return NULL;
       }
 
@@ -744,81 +744,32 @@ NaClSandbox_Thread* preFunctionCall(NaClSandbox* sandbox, size_t paramsSize, siz
 
 #endif
 
-void invokeFunctionCallWithSandboxPtr(NaClSandbox_Thread* threadData, uintptr_t functionPtrInSandbox)
+void invokeFunctionCall_helper(NaClSandbox_Thread* threadData, uintptr_t functionPtrInSandbox)
 {
   jmp_buf*              jmp_buf_loc;
   int                   setJmpReturn;
-  uintptr_t             saved_stack_ptr_forFunctionCall;
-
-  //It is very important to save this data locally as this data could be overwritten
-  //in the following scenario
-  //If we make a function call (let's call this F1), and that function call makes a callback 
-  //(let's call this C1) and that callback makes another call into the sandbox, (let's call this F2)
-  //then F1's saved threadData->saved_stack_ptr_forFunctionCall would be overwritten by F2's
-  //threadData->saved_stack_ptr_forFunctionCall
-  //However if we save the value locally, we can restore the appropriate value
-  saved_stack_ptr_forFunctionCall = threadData->saved_stack_ptr_forFunctionCall;
 
   jmp_buf_loc = Stack_GetTopPtrForPush(threadData->thread->jumpBufferStack);
   setJmpReturn = setjmp(*jmp_buf_loc);
 
   if(setJmpReturn == 0)
   {
-    uintptr_t functionPtrToUse;
-    NaClLog(LOG_INFO, "Invoking func\n");
-    /*To resume execution with NaClStartThreadInApp, NaCl assumes*/
-    /*that the app thread is in UNTRUSTED state*/
-    NaClAppThreadSetSuspendState(threadData->thread, /* old state */ NACL_APP_THREAD_TRUSTED, /* new state */ NACL_APP_THREAD_UNTRUSTED);
-
-    //Looks like nacl expects a sandboxed ptr to start the thread for 32 bit and an unsandboxed ptr for 64 bit
-    #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64
-      functionPtrToUse = getUnsandboxedAddress(threadData->sandbox, (uintptr_t) functionPtrInSandbox);
-    #else
-      functionPtrToUse = functionPtrInSandbox;
-    #endif
     /*this is like a jump instruction, in that it does not return*/
-    NaClStartThreadInApp(threadData->thread, (nacl_reg_t) functionPtrToUse);
+    NaClStartThreadInApp(threadData->thread, (nacl_reg_t) functionPtrInSandbox);
   }
-  else
-  {
-    #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 // 32 or 64 bit
+}
 
-      //make sure the saved stack pointer makes sense
-      if(
-        //saved stack pointer should be below the current stack pointer
-        saved_stack_ptr_forFunctionCall >= GetSandboxedStackPointer(threadData->sandbox, threadData->thread->user) && 
-        //saved stack pointer should be in the valid range for a NaCl sandbox address
-        //this check was inferred from the NaClIsUserAddr function in native_client/src/trusted/service_runtime/sel_ldr-inl.h
-        saved_stack_ptr_forFunctionCall <= ((uintptr_t) 1U << threadData->sandbox->nap->addr_bits)
-      ) 
-      {
-        SetStackPointerToSandboxedPointer(threadData->sandbox, threadData->thread->user, saved_stack_ptr_forFunctionCall);
-      }
-      else
-      {
-        //This branch should never be taken
-        //For some reason, this happened briefly during development, where 
-        // threadData->saved_stack_ptr_forFunctionCall got modified, without any explanation
-        //This problem went away after development was completed, but saving the notes on this 
-        // problem when it was occuring
-        //
-        //This could possibly be the case that this value is stored in a register which is not saved
-        //Then as part of the register restoration, when we longjmp after the function call
-        //this value isn't restored and this causes it to get an unexpected stack pointer
-        //However it is not clear if this is what is causing this issue, as some preliminary testing
-        //refutes this idea
-        //That said, we can just ignore the replaced values in this case, as
-        //we won't bother reclaiming a part of the stack
-        NaClLog(LOG_WARNING, "WARNING: Got an unexpected value for saved stack pointer. Curr stack pointer(sandboxed): %p , saved(sandboxed): %p\n",
-          (void *) GetSandboxedStackPointer(threadData->sandbox, threadData->thread->user),
-          (void *) threadData->saved_stack_ptr_forFunctionCall
-        );
-      }
+#if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
 
-    #else
-      #error Unsupported architecture
-    #endif
-  }
+inline void invokeFunctionCallWithSandboxPtr(NaClSandbox_Thread* threadData, uintptr_t functionPtrInSandbox)
+{
+  uintptr_t             saved_stack_ptr_forFunctionCall;
+
+  /*To resume execution with NaClStartThreadInApp, NaCl assumes that the app thread is in UNTRUSTED state*/
+  NaClAppThreadSetSuspendState(threadData->thread, /* old state */ NACL_APP_THREAD_TRUSTED, /* new state */ NACL_APP_THREAD_UNTRUSTED);
+  saved_stack_ptr_forFunctionCall = threadData->saved_stack_ptr_forFunctionCall;
+  invokeFunctionCall_helper(threadData, functionPtrInSandbox);
+  SetStackPointerToSandboxedPointer(threadData->sandbox, threadData->thread->user, saved_stack_ptr_forFunctionCall);
 }
 
 void invokeFunctionCall(NaClSandbox_Thread* threadData, void* functionPtr)
@@ -826,6 +777,29 @@ void invokeFunctionCall(NaClSandbox_Thread* threadData, void* functionPtr)
   uintptr_t functionPtrInSandbox = getSandboxedAddress(threadData->sandbox, (uintptr_t) functionPtr);
   invokeFunctionCallWithSandboxPtr(threadData, functionPtrInSandbox);
 }
+
+#elif NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64
+
+inline void invokeFunctionCall(NaClSandbox_Thread* threadData, void* functionPtr)
+{
+  uintptr_t saved_stack_ptr_forFunctionCall;
+
+  /*To resume execution with NaClStartThreadInApp, NaCl assumes that the app thread is in UNTRUSTED state*/
+  NaClAppThreadSetSuspendState(threadData->thread, /* old state */ NACL_APP_THREAD_TRUSTED, /* new state */ NACL_APP_THREAD_UNTRUSTED);
+  saved_stack_ptr_forFunctionCall = threadData->saved_stack_ptr_forFunctionCall;
+  invokeFunctionCall_helper(threadData, (uintptr_t) functionPtr);
+  SetStackPointerToSandboxedPointer(threadData->sandbox, threadData->thread->user, saved_stack_ptr_forFunctionCall);
+}
+
+void invokeFunctionCallWithSandboxPtr(NaClSandbox_Thread* threadData, uintptr_t functionPtr)
+{
+  uintptr_t functionPtrInSandbox = getUnsandboxedAddress(threadData->sandbox, functionPtr);
+  invokeFunctionCall(threadData, (void*) functionPtrInSandbox);
+}
+
+#else
+  #error Unknown platform!
+#endif
 
 unsigned getTotalNumberOfCallbackSlots(void)
 {
@@ -844,8 +818,8 @@ uintptr_t registerSandboxCallbackWithState(NaClSandbox* sandbox, unsigned slotNu
 
     if(slotNumber >= callbackSlots)
     {
-      NaClLog(LOG_ERROR, "Only %u slots exists i.e. slots 0 to %u. slotNumber %u does not exist \n", 
-        callbackSlots, callbackSlots - 1, slotNumber);
+      //NaClLog(LOG_ERROR, "Only %u slots exists i.e. slots 0 to %u. slotNumber %u does not exist \n", 
+        // callbackSlots, callbackSlots - 1, slotNumber);
       return 0;
     }
 
@@ -861,8 +835,8 @@ int unregisterSandboxCallback(NaClSandbox* sandbox, unsigned slotNumber)
 
   if(slotNumber >= callbackSlots)
   {
-    NaClLog(LOG_ERROR, "Only %u slots exists i.e. slots 0 to %u. slotNumber %u does not exist \n", 
-      callbackSlots, callbackSlots - 1, slotNumber);
+    //NaClLog(LOG_ERROR, "Only %u slots exists i.e. slots 0 to %u. slotNumber %u does not exist \n", 
+      // callbackSlots, callbackSlots - 1, slotNumber);
     return FALSE;
   }
 
@@ -1033,7 +1007,7 @@ long functionCallReturnRawPrimitiveInt(NaClSandbox_Thread* threadData)
   #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 //32 and 64 bit
     //Note for 64 bit this is actually the rax register
     ret = (long) threadData->thread->register_eax;
-    NaClLog(LOG_INFO, "Return int %lu\n", ret);
+    //NaClLog(LOG_INFO, "Return int %lu\n", ret);
   #else
     #error Unsupported architecture
   #endif
@@ -1052,7 +1026,7 @@ float functionCallReturnFloat(NaClSandbox_Thread* threadData)
     #error Unsupported architecture
   #endif
 
-  NaClLog(LOG_INFO, "Return float %f\n", ret);
+  //NaClLog(LOG_INFO, "Return float %f\n", ret);
   return ret;
 }
 
@@ -1060,7 +1034,7 @@ double functionCallReturnDouble(NaClSandbox_Thread* threadData)
 {
   #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 //32 and 64 bit
     double ret = *((double *) (&(threadData->thread->register_xmm0)));
-    NaClLog(LOG_INFO, "Return double %f\n", ret);
+    //NaClLog(LOG_INFO, "Return double %f\n", ret);
     return ret;
   #else
     #error Unsupported architecture
@@ -1073,7 +1047,7 @@ uintptr_t functionCallReturnPtr(NaClSandbox_Thread* threadData)
 
   #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 //32 and 64 bit
     ret = (uintptr_t) getUnsandboxedAddress(threadData->sandbox, (uintptr_t) threadData->thread->register_eax);
-    NaClLog(LOG_INFO, "Return pointer. Sandbox: %p, App: %p\n", (void*) threadData->thread->register_eax, (void*) ret);
+    //NaClLog(LOG_INFO, "Return pointer. Sandbox: %p, App: %p\n", (void*) threadData->thread->register_eax, (void*) ret);
   #else
     #error Unsupported architecture
   #endif

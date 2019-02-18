@@ -23,6 +23,13 @@ size_t simpleStrLenTest(const char* str)
 	return strlen(str);
 }
 
+int simpleCallbackNoPrintTest(unsigned a, const char* b, CallbackType callback)
+{
+	int ret;
+	ret = callback(a + 1, b, &a);
+	return ret;
+}
+
 
 int simpleCallbackTest(unsigned a, const char* b, CallbackType callback)
 {

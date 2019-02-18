@@ -284,7 +284,7 @@ int32_t NaClSysExitSandbox(struct NaClAppThread *natp, uint32_t exitLocation,
 
   jmp_buf* jump_buf_loc;
 
-  NaClLog(LOG_INFO, "Entered NaClSysExitSandbox: %"PRIu32"\n", exitLocation);
+  // NaClLog(LOG_INFO, "Entered NaClSysExitSandbox: %"PRIu32"\n", exitLocation);
 
   if(exitLocation == 0)
   {
@@ -322,7 +322,7 @@ int32_t NaClSysExitSandbox(struct NaClAppThread *natp, uint32_t exitLocation,
 //NACL_sys_callback
 nacl_reg_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumber, nacl_reg_t* parameterRegisters) {
   
-  NaClLog(LOG_INFO, "Entered NaClSysCallback: %"PRIu32"\n", callbackSlotNumber);
+  // NaClLog(LOG_INFO, "Entered NaClSysCallback: %"PRIu32"\n", callbackSlotNumber);
 
   #define CALLBACK_SLOTS_AVAILABLE (sizeof( ((struct NaClApp*) 0)->callbackSlot ) / sizeof(uintptr_t))
 
@@ -351,11 +351,11 @@ nacl_reg_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumb
       nacl_reg_t saved_new_prog_ctr = natp->user.new_prog_ctr;
       nacl_reg_t saved_sysret       = natp->user.sysret;
 
-      NaClLog(LOG_INFO, "Making NaClSysCallback: %"PRIu32"\n", callbackSlotNumber);
+      // NaClLog(LOG_INFO, "Making NaClSysCallback: %"PRIu32"\n", callbackSlotNumber);
       func = (RegPtrPtrFunc) (natp->nap->callbackSlot[callbackSlotNumber]);
       eaxCopy = func(natp->nap->custom_app_state, natp->nap->callbackSlotState[callbackSlotNumber]);
 
-      NaClLog(LOG_INFO, "Returned from NaClSysCallback with eax: %"PRIu32"\n", (uint32_t) eaxCopy);
+      // NaClLog(LOG_INFO, "Returned from NaClSysCallback with eax: %"PRIu32"\n", (uint32_t) eaxCopy);
 
       natp->user.ebx          = saved_ebx;
       natp->user.esi          = saved_esi;
@@ -399,11 +399,11 @@ nacl_reg_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumb
       natp->user.r8  = parameterRegistersSys[4];
       natp->user.r9  = parameterRegistersSys[5];
 
-      NaClLog(LOG_INFO, "Making NaClSysCallback: %"PRIu32"\n", callbackSlotNumber);
+      // NaClLog(LOG_INFO, "Making NaClSysCallback: %"PRIu32"\n", callbackSlotNumber);
       func = (RegPtrPtrFunc) (natp->nap->callbackSlot[callbackSlotNumber]);
       raxCopy = func(natp->nap->custom_app_state, natp->nap->callbackSlotState[callbackSlotNumber]);
 
-      NaClLog(LOG_INFO, "Returned from NaClSysCallback with rax: %"PRIu64"\n", (uint64_t) raxCopy);
+      // NaClLog(LOG_INFO, "Returned from NaClSysCallback with rax: %"PRIu64"\n", (uint64_t) raxCopy);
 
       natp->user.rbx          = saved_rbx;
       natp->user.r12          = saved_r12;
@@ -424,7 +424,7 @@ nacl_reg_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumb
   }
   else
   {
-      NaClLog(LOG_WARNING, "NaClSysCallback: Could not find callback: %u\n", (unsigned) callbackSlotNumber);
+      NaClLog(LOG_FATAL, "NaClSysCallback: Could not find callback: %u\n", (unsigned) callbackSlotNumber);
   }
 
   return 0;

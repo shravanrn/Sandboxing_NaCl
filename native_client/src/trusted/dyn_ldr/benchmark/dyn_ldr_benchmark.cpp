@@ -22,6 +22,7 @@ using namespace std::chrono;
 
 NaClSandbox* sandbox;
 void* simpleAddNoPrintTestPtr;
+void* simpleCallbackTestPtr;
 
 unsigned long __attribute__ ((noinline)) unsandboxedSimpleAddNoPrintTest(unsigned long a, unsigned long b)
 {
@@ -40,8 +41,57 @@ unsigned long sandboxedSimpleAddNoPrintTest(unsigned long a, unsigned long b)
   return (unsigned long)functionCallReturnRawPrimitiveInt(threadData);
 }
 
-char* getExecFolder(const char* executablePath);
-char* concatenateAndFixSlash(const char* string1, const char* string2);
+SANDBOX_CALLBACK unsigned invokeSimpleCallbackTest_callbackStub(uintptr_t sandboxPtr)
+{
+	int a;
+	char* b;
+	unsigned* c;
+	int ret;
+
+	NaClSandbox* sandbox = (NaClSandbox*) sandboxPtr;
+	NaClSandbox_Thread* threadData = callbackParamsBegin(sandbox);
+
+	a = COMPLETELY_UNTRUSTED_CALLBACK_STACK_PARAM(threadData, int);
+	b = COMPLETELY_UNTRUSTED_CALLBACK_PTR_PARAM(threadData, char*);
+	c = COMPLETELY_UNTRUSTED_CALLBACK_PTR_PARAM(threadData, unsigned*);
+
+	(void)c;
+	ret = a + strlen(b);
+	return ret;
+}
+
+int invokeSimpleCallbackTest(NaClSandbox* sandbox, void* simpleCallbackTestPtr, unsigned a, char* b, uintptr_t callback)
+{
+	int ret;
+	NaClSandbox_Thread* threadData;
+
+	threadData = preFunctionCall(sandbox, sizeof(a) + sizeof(b) + sizeof(callback), 0 /* size of any arrays being pushed on the stack */);
+
+	PUSH_VAL_TO_STACK(threadData, unsigned, a);
+	PUSH_STRING_TO_STACK(threadData, b);
+	PUSH_VAL_TO_STACK(threadData, uintptr_t, callback);
+
+	invokeFunctionCall(threadData, simpleCallbackTestPtr);
+
+	ret = (int) functionCallReturnRawPrimitiveInt(threadData);
+
+	return ret;
+}
+
+SANDBOX_CALLBACK int unsandboxedSimpleCallbackTest_callbackStub(unsigned int a, const char* b, unsigned int c[1])
+{
+	int ret;
+	(void)c;
+	ret = a + strlen(b);
+	return ret;
+}
+
+int unsandboxedSimpleCallbackNoPrintTest(unsigned a, const char* b, CallbackType callback)
+{
+	int ret;
+	ret = callback(a + 1, b, &a);
+	return ret;
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //https://stackoverflow.com/questions/1558402/memory-usage-of-current-process-in-c
@@ -72,12 +122,16 @@ void printMemoryStatus()
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+char* getExecFolder(const char* executablePath);
+char* concatenateAndFixSlash(const char* string1, const char* string2);
+
 int main(int argc, char** argv)
 {
 	/**************** Some calculations of relative paths ****************/
 	char* execFolder;
 	char* libraryPath;
 	char* libraryToLoad;
+	uintptr_t registeredCallback;
 
 	if(argc < 1)
 	{
@@ -155,6 +209,8 @@ int main(int argc, char** argv)
 	initCPPApi(sandbox);
 
 	simpleAddNoPrintTestPtr = symbolTableLookupInSandbox(sandbox, "simpleAddNoPrintTest");
+	simpleCallbackTestPtr = symbolTableLookupInSandbox(sandbox, "simpleCallbackNoPrintTest");
+	registeredCallback = registerSandboxCallback(sandbox, 0, (uintptr_t) invokeSimpleCallbackTest_callbackStub);
 
 	printf("Sandbox created\n");
 	printf("------------------------------\n");
@@ -171,6 +227,12 @@ int main(int argc, char** argv)
 
 	unsigned long ret4;
 	uint64_t timeSpentInSandboxCpp;
+
+	unsigned long ret5;
+	uint64_t timeSpentInCb;
+
+	unsigned long ret6;
+	uint64_t timeSpentInSandboxCb;
 
 	srand(time(NULL));
 	unsigned long val1_1;
@@ -223,6 +285,10 @@ int main(int argc, char** argv)
 		timeSpentInSandboxCppNoSymRes = 0;
 		ret4 = 0;
 		timeSpentInSandboxCpp = 0;
+		ret5 = 0;
+		timeSpentInCb = 0;
+		ret6 = 0;
+		timeSpentInSandboxCb = 0;
 
 		{
 			high_resolution_clock::time_point enterTime = high_resolution_clock::now();
@@ -252,20 +318,40 @@ int main(int argc, char** argv)
 			timeSpentInSandboxCpp += duration_cast<nanoseconds>(exitTime  - enterTime).count();
 		}
 
-		if(ret1 != ret2 || ret2 != ret3 || ret3 != ret4)
+		{
+			high_resolution_clock::time_point enterTime = high_resolution_clock::now();
+			ret5 += unsandboxedSimpleCallbackNoPrintTest(4, "Hello", unsandboxedSimpleCallbackTest_callbackStub);
+			high_resolution_clock::time_point exitTime = high_resolution_clock::now();
+			timeSpentInCb += duration_cast<nanoseconds>(exitTime  - enterTime).count();
+		}
+
+		{
+			high_resolution_clock::time_point enterTime = high_resolution_clock::now();
+			ret6 += invokeSimpleCallbackTest(sandbox, simpleCallbackTestPtr, 4, "Hello", registeredCallback);
+			high_resolution_clock::time_point exitTime = high_resolution_clock::now();
+			timeSpentInSandboxCb += duration_cast<nanoseconds>(exitTime  - enterTime).count();
+		}
+
+		if(ret1 != ret2 || ret2 != ret3 || ret3 != ret4 || ret5 != ret6)
 		{
 			printf("Return values don't agree\n");
 			return 1;
 		}
 
-		printf("1 Function Call = %10" PRId64 
-			", Sandbox Time = %10" PRId64 
-			", Sandbox Time(C++, no symbol res) = %10" PRId64 
-			", Sandbox Time(C++) = %10" PRId64  " ns\n",
+		printf("Func Call = %10" PRId64
+			", Sandbox Func Call = %10" PRId64
+			// ", Sandbox Func Call(C++, no symbol res) = %10" PRId64
+			// ", Sandbox Func Call(C++) = %10" PRId64  " ns"
+			", Callback = %10" PRId64 " ns"
+			", Sandbox Callback = %10" PRId64  " ns\n"
+			,
 			timeSpentInFunc,
 			timeSpentInSandbox,
-			timeSpentInSandboxCppNoSymRes,
-			timeSpentInSandboxCpp);
+			// timeSpentInSandboxCppNoSymRes,
+			// timeSpentInSandboxCpp,
+			timeSpentInCb,
+			timeSpentInSandboxCb
+		);
 	}
 
 

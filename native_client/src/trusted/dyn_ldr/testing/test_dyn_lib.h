@@ -12,6 +12,7 @@ struct testStruct
 unsigned long simpleAddNoPrintTest(unsigned long a, unsigned long b);
 int simpleAddTest(int a, int b);
 size_t simpleStrLenTest(const char* str);
+int simpleCallbackNoPrintTest(unsigned a, const char* b, CallbackType callback);
 int simpleCallbackTest(unsigned a, const char* b, CallbackType callback);
 int simpleWriteToFileTest(FILE* file, const char* str);
 char* simpleEchoTest(char * str);
