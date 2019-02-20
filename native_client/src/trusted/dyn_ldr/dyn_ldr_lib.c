@@ -174,7 +174,7 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
 
   nap = NaClAppCreate();
   if (nap == NULL) {
-    //NaClLog(LOG_ERROR, "NaClAppCreate() failed\n");
+    printf("NaCl Error createDlSandbox - NaClAppCreate() failed\n");
     goto error;
   }
 
@@ -211,7 +211,8 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
 
   blob_file = (struct NaClDesc *) NaClDescIoDescOpen(naclLibraryPath, NACL_ABI_O_RDONLY, 0);
   if (NULL == blob_file) {
-    //NaClLog(LOG_FATAL, "Cannot open \"%s\".\n", naclLibraryPath);
+    printf("NaCl Error createDlSandbox - Cannot open \"%s\".\n", naclLibraryPath);
+    goto error;
   }
 
   NaClAppInitialDescriptorHookup(nap);
@@ -224,14 +225,14 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
   pq_error = NaClAppLoadFileFromFilename(nap, naclInitAppFullPath);
 
   if (LOAD_OK != pq_error) {
-    //NaClLog(LOG_ERROR, "Error while loading from naclInitAppFullPath: %s\n", NaClErrorString(pq_error));
+    printf("NaCl Error createDlSandbox - Error while loading from naclInitAppFullPath: %s\n", NaClErrorString(pq_error));
     goto error;
   }
 
   // NaClFileNameForValgrind(naclInitAppFullPath);
   pq_error = NaClMainLoadIrt(nap, blob_file, NULL);
   if (LOAD_OK != pq_error) {
-    //NaClLog(LOG_ERROR, "Error while loading \"%s\": %s\n", naclLibraryPath, NaClErrorString(pq_error));
+    printf("NaCl Error createDlSandbox - Error while loading \"%s\": %s\n", naclLibraryPath, NaClErrorString(pq_error));
     goto error;
   }
 
@@ -261,7 +262,7 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
                             0, //argc,
                             NULL, //argv,
                             NaClGetEnviron())) {
-    //NaClLog(LOG_ERROR, "creating main thread failed\n");
+    printf("NaCl Error createDlSandbox - Error creating main thread failed\n");
     goto error;
   }
 
@@ -295,7 +296,7 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
 
       if(sandbox->callbackFunctionWrapper[i] == NULL)
       {
-        //NaClLog(LOG_ERROR, "Sandbox could not find the address of callback wrapper %u", i);
+        printf("NaCl Error createDlSandbox - Sandbox could not find the address of callback wrapper %u\n", i);
         goto error;        
       }
     }
@@ -305,7 +306,7 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
 
     if(sandbox->threadMainPtr == NULL || sandbox->exitFunctionWrapperPtr == NULL)
     {
-      //NaClLog(LOG_ERROR, "Sandbox could not find thread main or exit wrapper");
+      printf("NaCl Error createDlSandbox - Sandbox could not find thread main or exit wrapper\n");
       goto error;
     }
 
@@ -316,7 +317,7 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
   
     if(sandbox->mallocPtr == NULL || sandbox->freePtr == NULL || sandbox->fopenPtr == NULL || sandbox->fclosePtr == NULL)
     {
-      //NaClLog(LOG_ERROR, "Sandbox could not find the address of crt functions: malloc, free, fopen, fclose");
+      printf("NaCl Error createDlSandbox - Sandbox could not find the address of crt functions: malloc, free, fopen, fclose\n");
       goto error;
     }
   }
@@ -359,7 +360,7 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
 
   if(sandbox->callbackParameterStartOffset == -1)
   {
-    //NaClLog(LOG_ERROR, "Sandbox failed to acquire callback parameter start offset\n");
+    printf("NaCl Error createDlSandbox - Sandbox failed to acquire callback parameter start offset\n");
     goto error;
   }
   else
@@ -373,7 +374,7 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
 
 error:
   fflush(stdout);
-  //NaClLog(LOG_ERROR, "Failed in creating sandbox\n");
+  printf("NaCl Error createDlSandbox - Failed in creating sandbox\n");
   fflush(stdout);
 
   return NULL;
