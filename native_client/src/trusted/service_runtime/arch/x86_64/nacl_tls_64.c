@@ -268,73 +268,6 @@ void NaClTlsFini(void) {
   NaClThreadIdxFini();
 }
 
-#if NACL_LINUX
-
-  struct SandboxLocalStorageEntry
-  {
-    struct NaClThreadContext *nacl_current_thread;
-    uint64_t sandboxBase;
-  };
-
-  #define SandboxLocalStorageEntryLimit 32
-  THREAD struct SandboxLocalStorageEntry sandboxLocalStorage[SandboxLocalStorageEntryLimit];
-  THREAD unsigned short currentEntry = 0;
-
-  void NaClTlsSetCurrentThreadExtended(struct NaClAppThread *natp) 
-  {
-    if(currentEntry >= SandboxLocalStorageEntryLimit)
-    {
-      NaClLog(LOG_FATAL, "Thread local sandbox storage entry limit reached. This could occur if you created too many sandboxes\n");
-      return;
-    }
-
-    if(natp && natp->nap)
-    {
-      for (unsigned short i = 0; i < currentEntry; ++i)
-      {
-        if(sandboxLocalStorage[i].sandboxBase == natp->nap->mem_start)
-        {
-          return;
-        }
-      }
-    }
-
-    sandboxLocalStorage[currentEntry].nacl_current_thread = &natp->user;
-    if(natp && natp->nap)
-    {
-      sandboxLocalStorage[currentEntry].sandboxBase = natp->nap->mem_start;
-    }
-    currentEntry++;
-  }
-
-  struct NaClAppThread *NaClTlsGetCurrentThreadExtended(uint64_t sandboxBase)
-  {
-    for (unsigned short i = 0; i < currentEntry; ++i)
-    {
-      if(sandboxLocalStorage[i].sandboxBase == sandboxBase)
-      {
-        return NaClAppThreadFromThreadContext(sandboxLocalStorage[i].nacl_current_thread);
-      }
-    }
-
-    NaClLog(LOG_FATAL, "Cannot find sandbox state for location %lu\n", sandboxBase);
-    return NULL;
-  }
-
-  long NaClUseExtendedTls = 0;
-
-  void NaClSetUseExtendedTls(long val)
-  {
-    NaClUseExtendedTls = val;
-  }
-
-  long NaClGetUseExtendedTls(void)
-  {
-    return NaClUseExtendedTls;
-  }
-
-#endif
-
 /* May be NULL if the current thread does not host a NaClAppThread. */
 THREAD struct NaClThreadContext *nacl_current_thread;
 
@@ -351,6 +284,16 @@ THREAD struct NaClThreadContext *nacl_current_thread;
  */
 void NaClTlsSetCurrentThread(struct NaClAppThread *natp) {
   nacl_current_thread = &natp->user;
+}
+
+void NaClTlsSetCurrentThreadUser(void* userp) {
+  nacl_current_thread = userp;
+}
+
+void* NaClTlsExchangeCurrentThread(struct NaClAppThread *natp) {
+  struct NaClThreadContext * old = nacl_current_thread;
+  nacl_current_thread = &natp->user;
+  return old;
 }
 
 struct NaClAppThread *NaClTlsGetCurrentThread(void) {

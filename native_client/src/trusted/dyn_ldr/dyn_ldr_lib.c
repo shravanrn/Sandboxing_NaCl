@@ -115,10 +115,6 @@ int initializeDlSandboxCreator(int enableLogging)
     NaClLogSetVerbosity(LOG_FATAL);
   }
 
-  #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64 && NACL_LINUX
-    NaClSetUseExtendedTls(TRUE);
-  #endif
-
   // pq_error = NaClRunSelQualificationTests();
   // if (LOAD_OK != pq_error) {
   //   //NaClLog(LOG_ERROR, "Error while running platform checks: %s\n", NaClErrorString(pq_error));
@@ -607,9 +603,6 @@ NaClSandbox_Thread* getThreadData(NaClSandbox* sandbox)
     NaClXMutexUnlock(sandbox->threadCreateMutex);
   }
 
-  #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64 && NACL_LINUX
-    NaClTlsSetCurrentThreadExtended(threadData->thread);
-  #endif
   return threadData;
 }
 
@@ -784,11 +777,24 @@ inline void invokeFunctionCall(NaClSandbox_Thread* threadData, void* functionPtr
 {
   uintptr_t saved_stack_ptr_forFunctionCall;
 
+  #if NACL_LINUX
+    //On 64 bit systems, we always have to set the currently used sandbox for the thread
+		//Say we have 2 sandboxes A and B
+		//To allow calls sandbox calls to sandbox B, from a callback invoked by sandbox A
+		//we should update & restore the value of the tls storage after each nested function call
+		//save the value so we can store this
+		void* prevSandboxSavedInTls = NaClTlsExchangeCurrentThread(threadData->thread);
+  #else
+    #error "Unsupported Platform"
+  #endif
   /*To resume execution with NaClStartThreadInApp, NaCl assumes that the app thread is in UNTRUSTED state*/
   NaClAppThreadSetSuspendState(threadData->thread, /* old state */ NACL_APP_THREAD_TRUSTED, /* new state */ NACL_APP_THREAD_UNTRUSTED);
   saved_stack_ptr_forFunctionCall = threadData->saved_stack_ptr_forFunctionCall;
   invokeFunctionCall_helper(threadData, (uintptr_t) functionPtr);
   SetStackPointerToSandboxedPointer(threadData->sandbox, threadData->thread->user, saved_stack_ptr_forFunctionCall);
+  #if NACL_LINUX
+    NaClTlsSetCurrentThreadUser(prevSandboxSavedInTls);
+  #endif
 }
 
 void invokeFunctionCallWithSandboxPtr(NaClSandbox_Thread* threadData, uintptr_t functionPtr)

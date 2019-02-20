@@ -52,18 +52,7 @@ void WINAPI NaClAppThreadLauncher(void *state) {
   CHECK(0 < thread_idx);
   CHECK(thread_idx < NACL_THREAD_MAX);
 
-  #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64 && NACL_LINUX
-    if(NaClGetUseExtendedTls())
-    {
-      NaClTlsSetCurrentThreadExtended(natp);
-    }
-    else
-    {
-      NaClTlsSetCurrentThread(natp);
-    }
-  #else
-    NaClTlsSetCurrentThread(natp);
-  #endif
+  NaClTlsSetCurrentThread(natp);
 
   nacl_user[thread_idx] = &natp->user;
 #if NACL_WINDOWS
@@ -157,18 +146,7 @@ void NaClAppThreadTeardown(struct NaClAppThread *natp) {
    * teardown, the signal handler does not dereference a dangling
    * NaClAppThread pointer.
    */
-  #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64 && NACL_LINUX
-    if(NaClGetUseExtendedTls())
-    {
-      NaClTlsSetCurrentThreadExtended(NULL);
-    }
-    else
-    {
-      NaClTlsSetCurrentThread(NULL);  
-    }
-  #else
-    NaClTlsSetCurrentThread(NULL);
-  #endif
+  NaClTlsSetCurrentThread(NULL);
 
   NaClLog(3, " removing thread from thread table\n");
   /* Deallocate the ID natp->thread_num. */

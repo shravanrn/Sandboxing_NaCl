@@ -51,10 +51,8 @@ void NaClTlsFree(struct NaClAppThread *natp);
 
 
 #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64 && NACL_LINUX
-	void NaClSetUseExtendedTls(long val);
-	long NaClGetUseExtendedTls(void);
-	void NaClTlsSetCurrentThreadExtended(struct NaClAppThread *natp);
-	struct NaClAppThread *NaClTlsGetCurrentThreadExtended(uint64_t r15Value);
+	void NaClTlsSetCurrentThreadUser(void* userp);
+	void* NaClTlsExchangeCurrentThread(struct NaClAppThread *natp);
 #endif
 /*
  * Called in thread bootup code, to set TLS/TSD when the thread ID is not

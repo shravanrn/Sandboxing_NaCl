@@ -85,19 +85,7 @@ static void GetCurrentThread(const struct NaClSignalContext *sig_ctx,
       NACL_ARCH(NACL_BUILD_ARCH) == NACL_arm || \
       NACL_ARCH(NACL_BUILD_ARCH) == NACL_mips
 
-  struct NaClAppThread *natp;
-  #if NACL_LINUX
-    if(NaClGetUseExtendedTls())
-    {
-      natp = NaClTlsGetCurrentThreadExtended(sig_ctx->r15);
-    }
-    else
-    {
-      natp = NaClTlsGetCurrentThread();  
-    }
-  #else
-    natp = NaClTlsGetCurrentThread();
-  #endif
+  struct NaClAppThread *natp = NaClTlsGetCurrentThread();
 
   if (natp == NULL) {
     *is_untrusted = 0;
