@@ -266,13 +266,6 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
     goto error;
   }
 
-  #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64
-    //The 64 bit trampoline does not copy the function parameters from registers to the called function in the sandbox by default
-    //So, it has been added, but has been disabled by default as this should not occur when invoking the main function
-    //However after the main function, we can enable the parameter copying
-    NaClSwitchToFunctionCallMode();
-  #endif
-
   for(unsigned i = 0; i < (unsigned) CALLBACK_SLOTS_AVAILABLE; i++)
   {
     nap->callbackSlot[i] = 0;
@@ -749,7 +742,11 @@ void invokeFunctionCall_helper(NaClSandbox_Thread* threadData, uintptr_t functio
   if(setJmpReturn == 0)
   {
     /*this is like a jump instruction, in that it does not return*/
-    NaClStartThreadInApp(threadData->thread, (nacl_reg_t) functionPtrInSandbox);
+    #if defined(_M_X64) || defined(__x86_64__)
+      NaClStartFuncInApp(threadData->thread, (nacl_reg_t) functionPtrInSandbox);
+    #else
+      NaClStartThreadInApp(threadData->thread, (nacl_reg_t) functionPtrInSandbox);
+    #endif
   }
 }
 
