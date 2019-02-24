@@ -410,12 +410,6 @@ struct NaClApp {
   uintptr_t callbackSlot[8];
   void* callbackSlotState[8];
 
-  /* A variable that is used by dyn_ldr to store the jump buffer,
-   * used to jump back to the trusted code after running the main function of 
-   * the NaCl application
-   */
-  jmp_buf mainJumpBuffer;
-
   /* Structure that holds the symbol table mapping of (symbol->address)
    */
   struct SymbolTableMapping * symbolTableMapping;
@@ -556,7 +550,18 @@ uintptr_t NaClGetInitialStackTop(struct NaClApp *nap);
  * alternative design, NaClWaitForMainThreadToExit will become a
  * no-op.
  */
+int NaClCreateMainThread_helper(struct NaClApp     *nap,
+                         int                argc,
+                         char               **argv,
+                         char const *const  *envp,
+                         int skipThreadCreation) NACL_WUR;
+
 int NaClCreateMainThread(struct NaClApp     *nap,
+                         int                argc,
+                         char               **argv,
+                         char const *const  *envp) NACL_WUR;
+
+int NaClCreateMainThreadWithoutThreadCreate(struct NaClApp     *nap,
                          int                argc,
                          char               **argv,
                          char const *const  *envp) NACL_WUR;
@@ -569,6 +574,12 @@ int NaClWaitForMainThreadToExit(struct NaClApp  *nap);
 int32_t NaClCreateAdditionalThread(struct NaClApp *nap,
                                    uintptr_t      prog_ctr,
                                    uintptr_t      stack_ptr,
+                                   uint32_t       user_tls1,
+                                   uint32_t       user_tls2) NACL_WUR;
+
+int32_t NaClCreateAdditionalThreadOnCurrThread(struct NaClApp *nap,
+                                   uintptr_t      prog_ctr,
+                                   uintptr_t      sys_stack_ptr,
                                    uint32_t       user_tls1,
                                    uint32_t       user_tls2) NACL_WUR;
 

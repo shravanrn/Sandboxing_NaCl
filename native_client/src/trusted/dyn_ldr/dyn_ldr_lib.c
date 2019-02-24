@@ -1,4 +1,5 @@
 #include <string.h>
+#include <unistd.h>
 
 #include "native_client/src/public/nacl_desc.h"
 #include "native_client/src/shared/gio/gio.h"
@@ -208,8 +209,16 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
   //   nap->attach_debug_exception_handler_func = NaClDebugExceptionHandlerStandaloneAttach;
   // #endif
 
+  for(int i = 0; i < 3; i++) {
+    blob_file = (struct NaClDesc *) NaClDescIoDescOpen(naclLibraryPath, NACL_ABI_O_RDONLY, 0);
+    if (NULL == blob_file) {
+      printf("Retrying due to NaCl Error createDlSandbox - Cannot open \"%s\".\n", naclLibraryPath);
+      sleep(1);
+    } else {
+      break;
+    }
+  }
 
-  blob_file = (struct NaClDesc *) NaClDescIoDescOpen(naclLibraryPath, NACL_ABI_O_RDONLY, 0);
   if (NULL == blob_file) {
     printf("NaCl Error createDlSandbox - Cannot open \"%s\".\n", naclLibraryPath);
     goto error;
@@ -222,7 +231,22 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
   // that loads the symbol table in the struct NaClApp
   NaClAppLoadSymbolTableMapping(TRUE);
 
-  pq_error = NaClAppLoadFileFromFilename(nap, naclInitAppFullPath);
+  for(int i = 0; i < 3; i++) {
+    pq_error = NaClAppLoadFileFromFilename(nap, naclInitAppFullPath);
+    if (LOAD_OK != pq_error) {
+      if(access(naclInitAppFullPath, F_OK) != -1) {
+        //file found
+        printf("File found: %s\n", naclInitAppFullPath);
+        printf("Retrying due to NaCl Error createDlSandbox - Error while loading from naclInitAppFullPath: %s\n", NaClErrorString(pq_error));
+        sleep(1);
+      } else {
+        printf("File not found: %s\n", naclInitAppFullPath);
+        break;
+      }
+    } else {
+      break;
+    }
+  }
 
   if (LOAD_OK != pq_error) {
     printf("NaCl Error createDlSandbox - Error while loading from naclInitAppFullPath: %s\n", NaClErrorString(pq_error));
@@ -230,7 +254,23 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
   }
 
   // NaClFileNameForValgrind(naclInitAppFullPath);
-  pq_error = NaClMainLoadIrt(nap, blob_file, NULL);
+  for(int i = 0; i < 3; i++) {
+    pq_error = NaClMainLoadIrt(nap, blob_file, NULL);
+    if (LOAD_OK != pq_error) {
+      if(access(naclLibraryPath, F_OK) != -1) {
+        //file found
+        printf("File found: %s\n", naclLibraryPath);
+        printf("Retrying due to NaCl Error createDlSandbox - Error while loading \"%s\": %s\n", naclLibraryPath, NaClErrorString(pq_error));
+        sleep(1);
+      } else {
+        printf("File not found: %s\n", naclLibraryPath);
+        break;
+      }
+    } else {
+      break;
+    }
+  }
+
   if (LOAD_OK != pq_error) {
     printf("NaCl Error createDlSandbox - Error while loading \"%s\": %s\n", naclLibraryPath, NaClErrorString(pq_error));
     goto error;
@@ -252,13 +292,7 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
 
   NaClDescUnref(blob_file);
 
-  //Normally, the NaClCreateMainThread/NaClCreateAdditionalThread invokes the NaCl application, nap
-  // in a new thread. This is not necessary here. So, call a function we 
-  // have added to the runtime, that ignores the next request to create a
-  // thread. It instead calls the target app on the current thread.
-  NaClOverrideNextThreadCreateToRunOnCurrentThread(TRUE, &(nap->mainJumpBuffer));
-
-  if (!NaClCreateMainThread(nap,
+  if (!NaClCreateMainThreadWithoutThreadCreate(nap,
                             0, //argc,
                             NULL, //argv,
                             NaClGetEnviron())) {
@@ -380,7 +414,6 @@ void destroyDlSandbox(NaClSandbox* sandbox)
   {
     NaClSandbox_Thread* threadData = (NaClSandbox_Thread*) sandbox->threadDataMap->values[i];
     //threads must be stopped
-    free(threadData->thread->jumpBufferStack);
     NaClAppThreadDelete(threadData->thread);
     free(threadData);
   }
@@ -403,16 +436,8 @@ NaClSandbox_Thread* constructNaClSandboxThread(NaClSandbox* sandbox)
 
   threadData->sandbox = sandbox;
   threadData->thread = (struct NaClAppThread *) DynArrayGet(&(sandbox->nap->threads), sandbox->nap->threads.num_entries - 1);
-  threadData->thread->jumpBufferStack = (DS_Stack *) malloc(sizeof(DS_Stack));
-
-  if(threadData->thread->jumpBufferStack == NULL)
-  {
-    free(threadData);
-    return NULL;
-  }
 
   threadData->thread->custom_app_state = (uintptr_t) threadData;
-  Stack_Init(threadData->thread->jumpBufferStack);
 
   {
     uintptr_t alignedValue = ROUND_DOWN_TO_POW2(GetSandboxedStackPointer(sandbox, threadData->thread->user), 16);
@@ -564,9 +589,7 @@ NaClSandbox_Thread* getThreadData(NaClSandbox* sandbox)
     // thread. It instead calls the target app on the current thread.
     NaClXMutexLock(sandbox->threadCreateMutex);
     {
-      NaClOverrideNextThreadCreateToRunOnCurrentThread(TRUE, &(sandbox->nap->mainJumpBuffer));
-
-      threadCreateFailed = NaClCreateAdditionalThread(sandbox->nap, 
+      threadCreateFailed = NaClCreateAdditionalThreadOnCurrThread(sandbox->nap, 
         (uintptr_t) sandbox->threadMainPtr, 
         getUnsandboxedAddress(sandbox, newStackSandboxed),
         //These are Thread local storage variables
@@ -731,15 +754,9 @@ NaClSandbox_Thread* preFunctionCall(NaClSandbox* sandbox, size_t paramsSize, siz
 
 #endif
 
-void invokeFunctionCall_helper(NaClSandbox_Thread* threadData, uintptr_t functionPtrInSandbox)
+void invokeFunctionCall_helper(NaClSandbox_Thread* threadData, uintptr_t functionPtrInSandbox, jmp_buf* jmp_buf_loc)
 {
-  jmp_buf*              jmp_buf_loc;
-  int                   setJmpReturn;
-
-  jmp_buf_loc = Stack_GetTopPtrForPush(threadData->thread->jumpBufferStack);
-  setJmpReturn = setjmp(*jmp_buf_loc);
-
-  if(setJmpReturn == 0)
+  if(!setjmp(*jmp_buf_loc))
   {
     /*this is like a jump instruction, in that it does not return*/
     #if defined(_M_X64) || defined(__x86_64__)
@@ -755,11 +772,13 @@ void invokeFunctionCall_helper(NaClSandbox_Thread* threadData, uintptr_t functio
 inline void invokeFunctionCallWithSandboxPtr(NaClSandbox_Thread* threadData, uintptr_t functionPtrInSandbox)
 {
   uintptr_t             saved_stack_ptr_forFunctionCall;
+  jmp_buf*              jmp_buf_loc;
 
   /*To resume execution with NaClStartThreadInApp, NaCl assumes that the app thread is in UNTRUSTED state*/
   NaClAppThreadSetSuspendState(threadData->thread, /* old state */ NACL_APP_THREAD_TRUSTED, /* new state */ NACL_APP_THREAD_UNTRUSTED);
   saved_stack_ptr_forFunctionCall = threadData->saved_stack_ptr_forFunctionCall;
-  invokeFunctionCall_helper(threadData, functionPtrInSandbox);
+  jmp_buf_loc = Stack_GetTopPtrForPush(threadData->thread->jumpBufferStack);
+  invokeFunctionCall_helper(threadData, functionPtrInSandbox, jmp_buf_loc);
   SetStackPointerToSandboxedPointer(threadData->sandbox, threadData->thread->user, saved_stack_ptr_forFunctionCall);
 }
 
@@ -774,6 +793,7 @@ void invokeFunctionCall(NaClSandbox_Thread* threadData, void* functionPtr)
 inline void invokeFunctionCall(NaClSandbox_Thread* threadData, void* functionPtr)
 {
   uintptr_t saved_stack_ptr_forFunctionCall;
+  jmp_buf*              jmp_buf_loc;
 
   #if NACL_LINUX
     //On 64 bit systems, we always have to set the currently used sandbox for the thread
@@ -788,7 +808,8 @@ inline void invokeFunctionCall(NaClSandbox_Thread* threadData, void* functionPtr
   /*To resume execution with NaClStartThreadInApp, NaCl assumes that the app thread is in UNTRUSTED state*/
   NaClAppThreadSetSuspendState(threadData->thread, /* old state */ NACL_APP_THREAD_TRUSTED, /* new state */ NACL_APP_THREAD_UNTRUSTED);
   saved_stack_ptr_forFunctionCall = threadData->saved_stack_ptr_forFunctionCall;
-  invokeFunctionCall_helper(threadData, (uintptr_t) functionPtr);
+  jmp_buf_loc = Stack_GetTopPtrForPush(threadData->thread->jumpBufferStack);
+  invokeFunctionCall_helper(threadData, (uintptr_t) functionPtr, jmp_buf_loc);
   SetStackPointerToSandboxedPointer(threadData->sandbox, threadData->thread->user, saved_stack_ptr_forFunctionCall);
   #if NACL_LINUX
     NaClTlsSetCurrentThreadUser(prevSandboxSavedInTls);

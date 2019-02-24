@@ -535,10 +535,11 @@ uintptr_t NaClGetInitialStackTop(struct NaClApp *nap) {
  *  * envv may be NULL (this happens on MacOS/Cocoa and in tests)
  *  * if envv is non-NULL it is 'consistent', null terminated etc.
  */
-int NaClCreateMainThread(struct NaClApp     *nap,
+int NaClCreateMainThread_helper(struct NaClApp     *nap,
                          int                argc,
                          char               **argv,
-                         char const *const  *envv) {
+                         char const *const  *envv,
+                         int skipThreadCreation) {
   /*
    * Compute size of string tables for argv and envv
    */
@@ -752,17 +753,39 @@ int NaClCreateMainThread(struct NaClApp     *nap,
           NaClSysToUserStackAddr(nap, stack_ptr));
 
   /* e_entry is user addr */
-  retval = NaClAppThreadSpawn(nap,
-                              nap->initial_entry_pt,
-                              NaClSysToUserStackAddr(nap, stack_ptr),
-                              /* user_tls1= */ (uint32_t) nap->break_addr,
-                              /* user_tls2= */ 0);
+  if(!skipThreadCreation) {
+    retval = NaClAppThreadSpawn(nap,
+                                nap->initial_entry_pt,
+                                NaClSysToUserStackAddr(nap, stack_ptr),
+                                /* user_tls1= */ (uint32_t) nap->break_addr,
+                                /* user_tls2= */ 0);
+  } else {
+    retval = NaClAppThreadSpawnOnCurrThread(nap,
+                                nap->initial_entry_pt,
+                                NaClSysToUserStackAddr(nap, stack_ptr),
+                                /* user_tls1= */ (uint32_t) nap->break_addr,
+                                /* user_tls2= */ 0);
+  }
 
 cleanup:
   free(argv_len);
   free(envv_len);
 
   return retval;
+}
+
+int NaClCreateMainThread(struct NaClApp     *nap,
+                         int                argc,
+                         char               **argv,
+                         char const *const  *envp) {
+  return NaClCreateMainThread_helper(nap, argc, argv, envp, 0 /* skipThreadCreation */);
+}
+
+int NaClCreateMainThreadWithoutThreadCreate(struct NaClApp     *nap,
+                         int                argc,
+                         char               **argv,
+                         char const *const  *envp) {
+  return NaClCreateMainThread_helper(nap, argc, argv, envp, 1 /* skipThreadCreation */);
 }
 
 int NaClWaitForMainThreadToExit(struct NaClApp  *nap) {
@@ -795,6 +818,27 @@ int32_t NaClCreateAdditionalThread(struct NaClApp *nap,
                                    uint32_t       user_tls1,
                                    uint32_t       user_tls2) {
   if (!NaClAppThreadSpawn(nap,
+                          prog_ctr,
+                          NaClSysToUserStackAddr(nap, sys_stack_ptr),
+                          user_tls1,
+                          user_tls2)) {
+    NaClLog(LOG_WARNING,
+            ("NaClCreateAdditionalThread: could not allocate thread."
+             "  Returning EAGAIN per POSIX specs.\n"));
+    return -NACL_ABI_EAGAIN;
+  }
+  return 0;
+}
+
+/*
+ * stack_ptr is from syscall, so a 32-bit address.
+ */
+int32_t NaClCreateAdditionalThreadOnCurrThread(struct NaClApp *nap,
+                                   uintptr_t      prog_ctr,
+                                   uintptr_t      sys_stack_ptr,
+                                   uint32_t       user_tls1,
+                                   uint32_t       user_tls2) {
+  if (!NaClAppThreadSpawnOnCurrThread(nap,
                           prog_ctr,
                           NaClSysToUserStackAddr(nap, sys_stack_ptr),
                           user_tls1,

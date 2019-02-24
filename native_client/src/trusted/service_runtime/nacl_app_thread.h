@@ -192,7 +192,6 @@ struct NaClAppThread {
  * overridden this way, and jmp_buf_loc is not NULL,
  * it saves the current context with a setjmp call in jmp_buf_loc
  */
-void NaClOverrideNextThreadCreateToRunOnCurrentThread(int shouldOverride, jmp_buf* jmp_buf_loc);
 
 void WINAPI NaClAppThreadLauncher(void *state);
 
@@ -218,6 +217,12 @@ struct NaClAppThread *NaClAppThreadMake(struct NaClApp *nap,
  * returns true on success, false on failure.
  */
 int NaClAppThreadSpawn(struct NaClApp *nap,
+                       uintptr_t      usr_entry,
+                       uintptr_t      usr_stack_ptr,
+                       uint32_t       user_tls1,
+                       uint32_t       user_tls2) NACL_WUR;
+
+int NaClAppThreadSpawnOnCurrThread(struct NaClApp *nap,
                        uintptr_t      usr_entry,
                        uintptr_t      usr_stack_ptr,
                        uint32_t       user_tls1,

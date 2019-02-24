@@ -286,33 +286,21 @@ int32_t NaClSysExitSandbox(struct NaClAppThread *natp, uint32_t exitLocation,
 
   // NaClLog(LOG_INFO, "Entered NaClSysExitSandbox: %"PRIu32"\n", exitLocation);
 
-  if(exitLocation == 0)
-  {
-    jump_buf_loc = &(natp->nap->mainJumpBuffer);
-  }
-  else if(exitLocation == 1)
-  {
-    #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
-      natp->register_eax = register_ret_bottom;
-    #elif NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64
-      uint64_t register_ret_bottom_wide = register_ret_bottom;
-      uint64_t register_ret_top_wide = register_ret_top;
-      natp->register_eax = (register_ret_top_wide << 32) | register_ret_bottom_wide;
-    #else
-      #error "Unsupported platform"
-    #endif
+  #if NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 32
+    natp->register_eax = register_ret_bottom;
+  #elif NACL_ARCH(NACL_BUILD_ARCH) == NACL_x86 && NACL_BUILD_SUBARCH == 64
+    uint64_t register_ret_bottom_wide = register_ret_bottom;
+    uint64_t register_ret_top_wide = register_ret_top;
+    natp->register_eax = (register_ret_top_wide << 32) | register_ret_bottom_wide;
+  #else
+    #error "Unsupported platform"
+  #endif
 
-    {
-      uint64_t register_float_ret_top_wide = register_float_ret_top;
-      uint64_t register_float_ret_bottom_wide = register_float_ret_bottom;
-      natp->register_xmm0 = (register_float_ret_top_wide << 32) | register_float_ret_bottom_wide;
-      jump_buf_loc = Stack_GetTopPtrForPop(natp->jumpBufferStack);
-    }
-  }
-  else
   {
-    NaClLog(LOG_WARNING, "NaClSysExitSandbox: Unknown exit location: %"PRIu32"\n", exitLocation);
-    return 1;
+    uint64_t register_float_ret_top_wide = register_float_ret_top;
+    uint64_t register_float_ret_bottom_wide = register_float_ret_bottom;
+    natp->register_xmm0 = (register_float_ret_top_wide << 32) | register_float_ret_bottom_wide;
+    jump_buf_loc = Stack_GetTopPtrForPop(natp->jumpBufferStack);
   }
 
   longjmp(*jump_buf_loc, 1);  
