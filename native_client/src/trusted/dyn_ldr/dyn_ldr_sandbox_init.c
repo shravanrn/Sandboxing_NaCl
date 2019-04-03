@@ -91,17 +91,15 @@ void exitFunctionWrapper(void)
 	//for 64 bit the parameters are in registers, which will get overwritten, so we need to save it
 	//nacl does not allow 64 bit parameters to trusted code calls, so we just save the values in an array and pass it out as a 64 bit pointer
 	#define generateCallbackFunc(num) \
-	void callbackFunctionWrapper##num(void) \
+	void callbackFunctionWrapper##num(unsigned long p0, unsigned long p1, unsigned long p2, unsigned long p3, unsigned long p4, unsigned long p5) \
 	{ \
 			nacl_reg_t parameterRegisters[6];\
-			asm("movq %%rdi, %0;\n"\
-				"movq %%rsi, %1;\n"\
-				"movq %%rdx, %2;\n"\
-				"movq %%rcx, %3;\n"\
-				"movq %%r8,  %4;\n"\
-				"movq %%r9,  %5;\n"\
-				:"=r"(parameterRegisters[0]), "=r"(parameterRegisters[1]),"=r"(parameterRegisters[2]), "=r"(parameterRegisters[3]),"=r"(parameterRegisters[4]), "=r"(parameterRegisters[5])        /* output */\
-			);\
+			parameterRegisters[0] = p0;\
+			parameterRegisters[1] = p1;\
+			parameterRegisters[2] = p2;\
+			parameterRegisters[3] = p3;\
+			parameterRegisters[4] = p4;\
+			parameterRegisters[5] = p5;\
 			MakeNaClSysCall_callback(num, parameterRegisters);\
 	}
 
