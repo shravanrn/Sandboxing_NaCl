@@ -13,7 +13,7 @@ CPU = 0
 .NOTPARALLEL: buildopt32 buildopt64 builddebug32 builddebug64 init_complete
 
 init_complete:
-	sudo apt -y install flex bison git libc6-dev-i386 cmake texinfo gcc-arm-linux-gnueabihf
+	sudo apt -y install flex bison git libc6-dev-i386 cmake texinfo gcc-arm-linux-gnueabihf texinfo
 	gclient runhooks
 	#Build the modified compiler
 	tools/clang/scripts/update.py
