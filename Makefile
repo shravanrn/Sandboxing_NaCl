@@ -13,10 +13,11 @@ CPU = 0
 .NOTPARALLEL: buildopt32 buildopt64 builddebug32 builddebug64 init_complete
 
 init_complete:
-	sudo apt -y install flex bison git libc6-dev-i386 cmake texinfo gcc-arm-linux-gnueabihf texinfo
-	if [ ! -e "/usr/include/asm-generic" ]; then
-		sudo ln -s /usr/include/asm-generic /usr/include/asm
-	fi
+	# Dependency installation moved to the parent repo
+	# sudo apt -y install flex bison git libc6-dev-i386 cmake texinfo gcc-arm-linux-gnueabihf texinfo
+	# if [ ! -e "/usr/include/asm-generic" ]; then
+	# 	sudo ln -s /usr/include/asm-generic /usr/include/asm
+	# fi
 	gclient runhooks
 	#Build the modified compiler
 	tools/clang/scripts/update.py
