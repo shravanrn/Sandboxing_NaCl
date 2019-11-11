@@ -14,6 +14,9 @@ CPU = 0
 
 init_complete:
 	sudo apt -y install flex bison git libc6-dev-i386 cmake texinfo gcc-arm-linux-gnueabihf texinfo
+	if [ ! -e "/usr/include/asm-generic" ]; then
+		sudo ln -s /usr/include/asm-generic /usr/include/asm
+	fi
 	gclient runhooks
 	#Build the modified compiler
 	tools/clang/scripts/update.py
