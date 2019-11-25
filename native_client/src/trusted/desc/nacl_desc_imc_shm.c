@@ -117,7 +117,7 @@ struct NaClDesc *NaClDescImcShmMake(NaClHandle handle, nacl_off64_t size) {
   return &desc->base;
 }
 
-static void NaClDescImcShmDtor(struct NaClRefCount *vself) {
+void NaClDescImcShmDtor(struct NaClRefCount *vself) {
   struct NaClDescImcShm  *self = (struct NaClDescImcShm *) vself;
 
   (void) NaClClose(self->h);

@@ -116,6 +116,8 @@ int initializeDlSandboxCreator(int enableLogging)
     NaClLogSetVerbosity(LOG_FATAL);
   }
 
+  SetNaClAppLoadFileFromFilenameKeep(1);
+
   // pq_error = NaClRunSelQualificationTests();
   // if (LOAD_OK != pq_error) {
   //   //NaClLog(LOG_ERROR, "Error while running platform checks: %s\n", NaClErrorString(pq_error));
@@ -181,24 +183,6 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
 
   fflush((FILE *) NULL);
 
-  // if (!DynArrayCtor(&env_vars, 0)) {
-  //   //NaClLog(LOG_FATAL, "Failed to allocate env var array\n");
-  // }
-
-  // /*
-  //  * Define the environment variables for untrusted code.
-  //  */
-  // if (!DynArraySet(&env_vars, env_vars.num_entries, NULL)) {
-  //   //NaClLog(LOG_FATAL, "Adding env_vars NULL terminator failed\n");
-  // }
-  // NaClEnvCleanserCtor(&env_cleanser, 0, TRUE/* enable_env_passthrough */);
-  // if (!NaClEnvCleanserInit(&env_cleanser, NaClGetEnviron(),
-  //                          (char const *const *) env_vars.ptr_array)) {
-  //   //NaClLog(LOG_FATAL, "Failed to initialise env cleanser\n");
-  // }
-  // envp = NaClEnvCleanserEnvironment(&env_cleanser);
-
-
   NaClInsecurelyBypassAllAclChecks();
 
   nap->ignore_validator_result = TRUE;//(options->debug_mode_ignore_validator > 0);
@@ -209,15 +193,7 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
   //   nap->attach_debug_exception_handler_func = NaClDebugExceptionHandlerStandaloneAttach;
   // #endif
 
-  for(int i = 0; i < 3; i++) {
-    blob_file = (struct NaClDesc *) NaClDescIoDescOpen(naclLibraryPath, NACL_ABI_O_RDONLY, 0);
-    if (NULL == blob_file) {
-      printf("Retrying due to NaCl Error createDlSandbox - Cannot open \"%s\".\n", naclLibraryPath);
-      sleep(1);
-    } else {
-      break;
-    }
-  }
+  blob_file = (struct NaClDesc *) NaClDescIoDescOpen(naclLibraryPath, NACL_ABI_O_RDONLY, 0);
 
   if (NULL == blob_file) {
     printf("NaCl Error createDlSandbox - Cannot open \"%s\".\n", naclLibraryPath);
@@ -231,45 +207,14 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
   // that loads the symbol table in the struct NaClApp
   NaClAppLoadSymbolTableMapping(TRUE);
 
-  for(int i = 0; i < 3; i++) {
-    pq_error = NaClAppLoadFileFromFilename(nap, naclInitAppFullPath);
-    if (LOAD_OK != pq_error) {
-      if(access(naclInitAppFullPath, F_OK) != -1) {
-        //file found
-        printf("File found: %s\n", naclInitAppFullPath);
-        printf("Retrying due to NaCl Error createDlSandbox - Error while loading from naclInitAppFullPath: %s\n", NaClErrorString(pq_error));
-        sleep(1);
-      } else {
-        printf("File not found: %s\n", naclInitAppFullPath);
-        break;
-      }
-    } else {
-      break;
-    }
-  }
+  pq_error = NaClAppLoadFileFromFilename(nap, naclInitAppFullPath);
 
   if (LOAD_OK != pq_error) {
     printf("NaCl Error createDlSandbox - Error while loading from naclInitAppFullPath: %s\n", NaClErrorString(pq_error));
     goto error;
   }
 
-  // NaClFileNameForValgrind(naclInitAppFullPath);
-  for(int i = 0; i < 3; i++) {
-    pq_error = NaClMainLoadIrt(nap, blob_file, NULL);
-    if (LOAD_OK != pq_error) {
-      if(access(naclLibraryPath, F_OK) != -1) {
-        //file found
-        printf("File found: %s\n", naclLibraryPath);
-        printf("Retrying due to NaCl Error createDlSandbox - Error while loading \"%s\": %s\n", naclLibraryPath, NaClErrorString(pq_error));
-        sleep(1);
-      } else {
-        printf("File not found: %s\n", naclLibraryPath);
-        break;
-      }
-    } else {
-      break;
-    }
-  }
+  pq_error = NaClMainLoadIrt(nap, blob_file, NULL);
 
   if (LOAD_OK != pq_error) {
     printf("NaCl Error createDlSandbox - Error while loading \"%s\": %s\n", naclLibraryPath, NaClErrorString(pq_error));
@@ -306,7 +251,7 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
   }
 
   sandbox = constructNaClSandbox(nap);
-  if(sandbox == NULL) 
+  if(sandbox == NULL)
   {
     goto error;
   }
@@ -324,7 +269,7 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
       if(sandbox->callbackFunctionWrapper[i] == NULL)
       {
         printf("NaCl Error createDlSandbox - Sandbox could not find the address of callback wrapper %u\n", i);
-        goto error;        
+        goto error;
       }
     }
 
@@ -341,7 +286,7 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
     sandbox->freePtr   = (free_type)   getSandboxedAddress(sandbox, (uintptr_t) symbolTableLookupInSandbox(sandbox, "free"));
     sandbox->fopenPtr  = (fopen_type)  getSandboxedAddress(sandbox, (uintptr_t) symbolTableLookupInSandbox(sandbox, "fopen"));
     sandbox->fclosePtr = (fclose_type) getSandboxedAddress(sandbox, (uintptr_t) symbolTableLookupInSandbox(sandbox, "fclose"));
-  
+
     if(sandbox->mallocPtr == NULL || sandbox->freePtr == NULL || sandbox->fopenPtr == NULL || sandbox->fclosePtr == NULL)
     {
       printf("NaCl Error createDlSandbox - Sandbox could not find the address of crt functions: malloc, free, fopen, fclose\n");
@@ -407,9 +352,125 @@ error:
   return NULL;
 }
 
+void NaClDescImcShmDtor(struct NaClRefCount *vself);
+
+// The old nacl app shutdown code
+// void NaClAppDtor(struct NaClApp  *nap) {
+//   size_t                i;
+//   struct NaClDesc       *ndp;
+//   struct NaClAppThread  *natp;
+
+// #if NACL_WINDOWS && !defined(NACL_STANDALONE)
+//   NaClHandlePassLdrDtor();
+// #endif
+
+//   NaClLog(2,
+//           ("NaClAppDtor: there are %d threads alive;"
+//            " thread table size %"NACL_PRIuS"\n"),
+//           nap->num_threads,
+//           nap->threads.num_entries);
+//   for (i = 0; i < nap->threads.num_entries; ++i) {
+//     int                   refcount;
+//     enum NaClThreadState  state;
+
+//     NaClLog(2, "Checking thread %"NACL_PRIuS"\n", i);
+//     if (NULL == (natp = NaClGetThreadMu(nap, (int) i))) {
+//       continue;
+//     }
+//     NaClLog(2, "Extracting state for thread %"NACL_PRIuS"\n", i);
+//     NaClXMutexLock(&natp->mu);
+//     state = natp->state;
+//     NaClLog(2, "state %d\n", state);
+//     NaClXMutexUnlock(&natp->mu);
+
+//     NaClRemoveThreadMu(nap, (int) i);
+//     refcount = NaClAppThreadDecRef(natp);
+
+//     if (state != NACL_APP_THREAD_DEAD) {
+//       NaClLog(LOG_WARNING,
+//               ("NaClAppDtor: thread %"NACL_PRIuS" still running when NaCl app"
+//                " is being destroyed?!?\n"),
+//               i);
+//     }
+//     if (refcount != 0) {
+//       NaClLog(LOG_WARNING,
+//               ("NaClAppDtor: thread %"NACL_PRIuS" refcount not 0 when NaCl app"
+//                " is being destroyed?!?\n"),
+//               i);
+//     }
+//   }
+
+//   NaClLog(4, "There are %"NACL_PRIuS" descriptor entries\n",
+//           nap->desc_tbl.num_entries);
+
+//   for (i = 0; i < nap->desc_tbl.num_entries; ++i) {
+//     ndp = (struct NaClDesc *) DynArrayGet(&nap->desc_tbl, i);
+//     NaClDescSafeUnref(ndp);
+//   }
+
+//   NaClLog(4,
+//           "Deallocating synchronization variables for"
+//           " desc, thread, work_queue\n");
+
+//   NaClMutexDtor(&nap->desc_mu);
+//   NaClMutexDtor(&nap->threads_mu);
+//   NaClCondVarDtor(&nap->threads_cv);
+//   NaClSyncQueueDtor(&nap->work_queue);
+
+//   NaClLog(4, "Freeing NaCl module origin\n");
+
+//   free(nap->origin);
+//   nap->origin = (char *) NULL;
+
+//   NaClLog(4, "Freeing text_shm\n");
+
+//   NaClMutexDtor(&nap->dynamic_load_mutex);
+//   NaClDescSafeUnref(nap->text_shm);
+//   nap->text_shm = NULL;
+
+//   NaClLog(4, "Freeing service_port\n");
+
+//   NaClDescSafeUnref(nap->service_port);
+//   nap->service_port = NULL;
+
+//   NaClLog(4, "Freeing service_address\n");
+
+//   NaClDescSafeUnref(nap->service_address);
+//   nap->service_address = NULL;
+
+//   NaClLog(4, "Freeing secure channel\n");
+
+//   NaClDescSafeUnref(nap->secure_channel);
+//   nap->secure_channel = NULL;
+
+//   NaClLog(4, "Freeing synchronization variables for the NaClApp\n");
+
+//   NaClCondVarDtor(&nap->cv);
+//   NaClMutexDtor(&nap->mu);
+
+//   NaClLog(4, "Freeing memory\n");
+
+//   NaClAppFreeAllMemory(nap);
+
+//   NaClLog(4, "Freeing vmmap\n");
+
+//   NaClVmmapDtor(&nap->mem_map);
+
+//   NaClLog(4, "Freeing desc_tbl, threads\n");
+
+//   DynArrayDtor(&nap->desc_tbl);
+//   DynArrayDtor(&nap->threads);
+
+//   NaClLog(4, "NaClAppDtor: Done\n");
+
+//   return;
+// }
+
 void destroyDlSandbox(NaClSandbox* sandbox)
 {
+  struct NaClApp* nap = sandbox->nap;
   unsigned mapSize = Map_GetSize(sandbox->threadDataMap);
+
   for(unsigned i = 0; i < mapSize; i++)
   {
     NaClSandbox_Thread* threadData = (NaClSandbox_Thread*) sandbox->threadDataMap->values[i];
@@ -418,8 +479,33 @@ void destroyDlSandbox(NaClSandbox* sandbox)
     free(threadData);
   }
 
-  //threads must be stopped and deleted
-  NaClAddrSpaceFree(sandbox->nap);
+  NaClMutexDtor((struct NaClMutex *)&nap->desc_mu);
+  NaClMutexDtor((struct NaClMutex *)&nap->threads_mu);
+
+  NaClLog(4, "Freeing text_shm\n");
+
+  NaClMutexDtor(&nap->dynamic_load_mutex);
+  NaClDescSafeUnref(nap->text_shm);
+  NaClDescImcShmDtor((struct NaClRefCount *)nap->text_shm);
+
+  nap->text_shm = NULL;
+
+  NaClLog(4, "Freeing synchronization variables for the NaClApp\n");
+
+  NaClCondVarDtor(&nap->cv);
+  NaClMutexDtor((struct NaClMutex *)&nap->mu);
+
+  NaClLog(4, "Freeing memory\n");
+
+  NaClAddrSpaceFree(nap);
+
+  NaClLog(4, "Freeing desc_tbl, threads\n");
+
+  DynArrayDtor(&nap->desc_tbl);
+  DynArrayDtor(&nap->threads);
+
+  NaClLog(4, "NaClAppDtor: Done\n");
+
   free(sandbox->threadCreateMutex);
   free(sandbox->threadDataMap);
   free(sandbox);

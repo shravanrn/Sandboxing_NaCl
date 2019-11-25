@@ -158,10 +158,35 @@ struct NaClDesc *NaClDescIoDescFromDescAllocCtor(int desc,
   return (struct NaClDesc *) NaClDescIoDescMake(nhdp);
 }
 
+static int gl_NaClAppLoadFileFromFilenameKeep = 0;
+
+struct OpenedDescriptor {
+  const char * path;
+  struct NaClDescIoDesc * descriptor;
+};
+
+static unsigned int gl_SavedDescriptorsPos = 0;
+#define SAVED_DESCRIPTOR_COUNT 32
+static struct OpenedDescriptor gl_SavedDescriptors[SAVED_DESCRIPTOR_COUNT];
+
+void SetNaClAppLoadFileFromFilenameKeep(int val) {
+  gl_NaClAppLoadFileFromFilenameKeep = val;
+}
+
 struct NaClDescIoDesc *NaClDescIoDescOpen(char const *path,
                                           int mode,
                                           int perms) {
+  struct NaClDescIoDesc *nd;
   struct NaClHostDesc *nhdp;
+
+  if (gl_NaClAppLoadFileFromFilenameKeep) {
+    for (unsigned int i = 0; i < gl_SavedDescriptorsPos; i++) {
+      if (strcmp(gl_SavedDescriptors[i].path, path) == 0) {
+        NaClDescRef((struct NaClDesc *)gl_SavedDescriptors[i].descriptor);
+        return gl_SavedDescriptors[i].descriptor;
+      }
+    }
+  }
 
   nhdp = malloc(sizeof *nhdp);
   if (NULL == nhdp) {
@@ -173,7 +198,18 @@ struct NaClDescIoDesc *NaClDescIoDescOpen(char const *path,
             path);
     return NULL;
   }
-  return NaClDescIoDescMake(nhdp);
+  nd = NaClDescIoDescMake(nhdp);
+
+  if (gl_NaClAppLoadFileFromFilenameKeep) {
+    if (gl_SavedDescriptorsPos < SAVED_DESCRIPTOR_COUNT) {
+      unsigned int oldVal = gl_SavedDescriptorsPos++;
+      gl_SavedDescriptors[oldVal].descriptor = nd;
+      gl_SavedDescriptors[oldVal].path = strdup(path);
+      NaClDescRef((struct NaClDesc *)nd);
+    }
+  }
+
+  return nd;
 }
 
 static uintptr_t NaClDescIoDescMap(struct NaClDesc         *vself,

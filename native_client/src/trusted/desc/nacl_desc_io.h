@@ -55,6 +55,8 @@ struct NaClDescIoDesc *NaClDescIoDescMake(struct NaClHostDesc *nhdp);
 struct NaClDesc *NaClDescIoDescFromDescAllocCtor(int desc,
                                                  int flags) NACL_WUR;
 
+void SetNaClAppLoadFileFromFilenameKeep(int val);
+
 /* a simple factory */
 struct NaClDescIoDesc *NaClDescIoDescOpen(char const *path,
                                           int mode,
