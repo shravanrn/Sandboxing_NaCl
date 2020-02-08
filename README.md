@@ -1,6 +1,8 @@
 # Sandboxing_NaCl
 A modification of NaCl to support sandoxing of dynamic libraries from the main app
 
+This is the one of the repos for the paper "Retrofitting Fine Grain Isolation in the Firefox Renderer" submitted to USENIX 2020 in which we introduce the RLBox sandboxing framework. Refer to the root repository git@github.com:shravanrn/LibrarySandboxing.git in general for using this repo. You can also use just this repo by rerferring the instructions below.
+
 # First time setup instructions
 
 The following commands should be run the first time only
