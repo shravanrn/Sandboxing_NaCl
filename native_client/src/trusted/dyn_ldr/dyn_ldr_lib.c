@@ -179,8 +179,6 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
     goto error;
   }
 
-  fflush((FILE *) NULL);
-
   NaClInsecurelyBypassAllAclChecks();
 
   nap->ignore_validator_result = TRUE;//(options->debug_mode_ignore_validator > 0);
