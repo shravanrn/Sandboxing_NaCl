@@ -127,9 +127,7 @@ int initializeDlSandboxCreator(int enableLogging)
   return TRUE;
 
 // error:
-//   fflush(stdout);
 //   //NaClLog(LOG_ERROR, "Failed in creating sandbox\n");
-//   fflush(stdout);
 
 //   closeSandboxCreator();
 
@@ -226,12 +224,6 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
    * output.
    */
   //NaClLog(1, "NACL: Application output follows\n");
-
-  /*
-   * Make sure all the file buffers are flushed before entering
-   * the application code.
-   */
-  fflush((FILE *) NULL);
 
   NaClAppStartModule(nap);
 
@@ -345,9 +337,7 @@ NaClSandbox* createDlSandbox(const char* naclLibraryPath, const char* naclInitAp
   return sandbox;
 
 error:
-  fflush(stdout);
   printf("NaCl Error createDlSandbox - Failed in creating sandbox\n");
-  fflush(stdout);
 
   return NULL;
 }
