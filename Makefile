@@ -18,6 +18,7 @@ init_complete:
 	# if [ ! -e "/usr/include/asm-generic" ]; then
 	# 	sudo ln -s /usr/include/asm-generic /usr/include/asm
 	# fi
+	if [ ! -e "$(DEPOT_TOOLS_PATH)" ]; then git clone https://chromium.googlesource.com/chromium/tools/depot_tools "$(DEPOT_TOOLS_PATH)"; fi
 	gclient runhooks
 	#Build the modified compiler
 	tools/clang/scripts/update.py
