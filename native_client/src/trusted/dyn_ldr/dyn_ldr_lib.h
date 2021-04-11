@@ -1,14 +1,14 @@
 #ifndef NACL_DYN_LDR_LIB
 #define NACL_DYN_LDR_LIB
 
-#ifdef __cplusplus
-  extern "C" {
-#endif
-
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+
+#ifdef __cplusplus
+  extern "C" {
+#endif
 
 struct _NaClSandbox_Thread
 {
