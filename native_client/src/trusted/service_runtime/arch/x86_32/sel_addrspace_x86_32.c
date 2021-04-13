@@ -43,6 +43,8 @@ NaClErrorCode NaClAllocateSpaceAslr(void **mem, size_t addrsp_size,
     CHECK(*mem == 0);
     addrsp_size -= NACL_TRAMPOLINE_START;
     result = NaClPageAllocAtAddr(&tmp_mem, addrsp_size);
+  } else if (NaClFindManualPrereservedSandboxMemory(mem, addrsp_size)) {
+    result = 0;
   } else {
     /* Zero-based sandbox not prereserved. Attempt to allocate anyway. */
     result = (*allocator)(mem, addrsp_size);

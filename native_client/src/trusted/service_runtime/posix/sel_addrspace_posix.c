@@ -7,11 +7,49 @@
 #include <errno.h>
 #include <sys/resource.h>
 #include <string.h>
+#include <sys/mman.h>
 
 #include "native_client/src/shared/platform/nacl_log.h"
 #include "native_client/src/trusted/service_runtime/sel_addrspace.h"
 
 size_t g_prereserved_sandbox_size = 0;
+
+void* g_manual_preserved_sandbox_memory = 0;
+size_t g_manual_preserved_sandbox_size = 0;
+
+void NaClCreateManualPrereservedSandboxMemory(void) {
+  if (g_manual_preserved_sandbox_memory == 0) {
+    int flags = MAP_NORESERVE | MAP_PRIVATE | MAP_ANONYMOUS;
+    size_t size = ((unsigned int) 1) << 30;
+    void* addr = mmap(0, size, PROT_NONE, flags, -1, 0);
+
+    if (addr == MAP_FAILED || addr == 0) {
+      abort();
+    }
+
+    g_manual_preserved_sandbox_memory = addr;
+    g_manual_preserved_sandbox_size = size;
+  }
+}
+
+int NaClFindManualPrereservedSandboxMemory(void **p, size_t num_bytes) {
+  NaClLog(2, "NaClFindManualPrereservedSandboxMemory(, %#.8"NACL_PRIxPTR")\n",
+          num_bytes);
+
+  if (g_manual_preserved_sandbox_memory != 0) {
+    if (num_bytes != g_manual_preserved_sandbox_size) {
+      abort();
+    }
+    *p = g_manual_preserved_sandbox_memory;
+    // mark it as used
+    g_manual_preserved_sandbox_memory = 0;
+     g_manual_preserved_sandbox_size = 0;
+    return 1;
+  }
+
+  *p = 0;
+  return 0;
+}
 
 /*
  * Find sandbox memory prereserved by the nacl_helper in chrome. The
