@@ -12,7 +12,7 @@
 
 typedef int32_t (*SandboxExitType)(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
 
-typedef int32_t (*SandboxCallbackType)(uint32_t, nacl_reg_t*);
+typedef int32_t (*SandboxCallbackType)(uint32_t, nacl_reg_t*, uintptr_t);
 
 void MakeNaClSysCall_exit_sandbox(uint32_t exitLocation, 
   uint32_t register_ret_bottom, uint32_t register_ret_top, 
@@ -23,7 +23,7 @@ void MakeNaClSysCall_exit_sandbox(uint32_t exitLocation,
 }
 
 //Specifically not making this a new function as this may add a new stack frame
-#define MakeNaClSysCall_callback(slotNumber, parameterRegisters) ((SandboxCallbackType)NACL_SYSCALL_ADDR(NACL_sys_callback))(slotNumber, parameterRegisters)
+#define MakeNaClSysCall_callback(slotNumber, parameterRegisters, floatRetPtr) ((SandboxCallbackType)NACL_SYSCALL_ADDR(NACL_sys_callback))(slotNumber, parameterRegisters, floatRetPtr)
 
 void exitFunctionWrapper(void)
 {
@@ -86,7 +86,13 @@ void exitFunctionWrapper(void)
 
 #if defined(_M_IX86) || defined(__i386__)
 	//for 32 bit the parameters are on the stack
-	#define generateCallbackFunc(num) void callbackFunctionWrapper##num(void) { MakeNaClSysCall_callback(num, 0); }
+	#define generateCallbackFunc(num) void callbackFunctionWrapper##num(void) { MakeNaClSysCall_callback(num, 0, 0); }
+	#define generateCallbackFuncFloat(num)                                               \
+	float callbackFunctionWrapper##num(void) {                                           \
+		float ret = 0;                                                                   \
+		MakeNaClSysCall_callback(num, 0, (uintptr_t) &ret);                              \
+		return ret;                                                                      \
+	}
 #elif defined(_M_X64) || defined(__x86_64__)
 	//for 64 bit the parameters are in registers, which will get overwritten, so we need to save it
 	//nacl does not allow 64 bit parameters to trusted code calls, so we just save the values in an array and pass it out as a 64 bit pointer
@@ -100,9 +106,22 @@ void exitFunctionWrapper(void)
 			parameterRegisters[3] = p3;\
 			parameterRegisters[4] = p4;\
 			parameterRegisters[5] = p5;\
-			MakeNaClSysCall_callback(num, parameterRegisters);\
+			MakeNaClSysCall_callback(num, parameterRegisters, 0);\
 	}
-
+	#define generateCallbackFuncFloat(num)                                                                                                              \
+	float callbackFunctionWrapper##num(unsigned long p0, unsigned long p1, unsigned long p2, unsigned long p3, unsigned long p4, unsigned long p5)      \
+	{                                                                                                                                                   \
+			float ret = 0;                                                                                                                              \
+			nacl_reg_t parameterRegisters[6];                                                                                                           \
+			parameterRegisters[0] = p0;                                                                                                                 \
+			parameterRegisters[1] = p1;                                                                                                                 \
+			parameterRegisters[2] = p2;                                                                                                                 \
+			parameterRegisters[3] = p3;                                                                                                                 \
+			parameterRegisters[4] = p4;                                                                                                                 \
+			parameterRegisters[5] = p5;                                                                                                                 \
+			MakeNaClSysCall_callback(num, parameterRegisters, &ret);                                                                                    \
+			return ret;                                                                                                                                 \
+	}
 #elif defined(__ARMEL__) || defined(__MIPSEL__)
 	#error Unsupported platform!
 #else
@@ -116,7 +135,7 @@ generateCallbackFunc(3)
 generateCallbackFunc(4) 
 generateCallbackFunc(5) 
 generateCallbackFunc(6) 
-generateCallbackFunc(7) 
+generateCallbackFuncFloat(7)
 
 unsigned test_localMath(unsigned a, unsigned  b, unsigned c)
 {

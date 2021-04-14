@@ -915,6 +915,39 @@ uintptr_t registerSandboxCallbackWithState(NaClSandbox* sandbox, unsigned slotNu
   {
     unsigned callbackSlots = (unsigned) CALLBACK_SLOTS_AVAILABLE;
 
+    if(slotNumber == callbackSlots - 1) {
+      NaClLog(LOG_ERROR, "Last slot (%u) should be used for callbacks with float returns\n", callbackSlots - 1);
+      abort();
+    }
+
+    if(slotNumber >= callbackSlots)
+    {
+      //NaClLog(LOG_ERROR, "Only %u slots exists i.e. slots 0 to %u. slotNumber %u does not exist \n", 
+        // callbackSlots, callbackSlots - 1, slotNumber);
+      return 0;
+    }
+
+    sandbox->nap->callbackSlot[slotNumber] = callback;
+    sandbox->nap->callbackSlotState[slotNumber] = state;
+    return (uintptr_t) sandbox->callbackFunctionWrapper[slotNumber];
+  }
+}
+
+uintptr_t registerSandboxFloatCallbackWithState(NaClSandbox* sandbox, unsigned slotNumber, uintptr_t callback, void* state)
+{
+  if(callback == 0)
+  {
+    return 0;
+  }
+  else
+  {
+    unsigned callbackSlots = (unsigned) CALLBACK_SLOTS_AVAILABLE;
+
+    if(slotNumber != callbackSlots - 1) {
+      NaClLog(LOG_ERROR, "Only last slot (%u) should be used for callbacks with float returns\n", callbackSlots - 1);
+      abort();
+    }
+
     if(slotNumber >= callbackSlots)
     {
       //NaClLog(LOG_ERROR, "Only %u slots exists i.e. slots 0 to %u. slotNumber %u does not exist \n", 

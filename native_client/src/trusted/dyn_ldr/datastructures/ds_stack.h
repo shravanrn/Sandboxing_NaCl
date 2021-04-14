@@ -6,7 +6,7 @@
 #include "native_client/src/include/nacl_compiler_annotations.h"
 
 #define STACK_TYPE jmp_buf
-#define STACK_ARR_SIZE 32
+#define STACK_ARR_SIZE 128
 
 struct _DS_Stack {
     STACK_TYPE data[STACK_ARR_SIZE];

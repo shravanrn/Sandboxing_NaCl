@@ -308,7 +308,7 @@ int32_t NaClSysExitSandbox(struct NaClAppThread *natp, uint32_t exitLocation,
 }
 
 //NACL_sys_callback
-nacl_reg_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumber, nacl_reg_t* parameterRegisters) {
+nacl_reg_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumber, nacl_reg_t* parameterRegisters, uintptr_t floatRetAddr) {
   
   // NaClLog(LOG_INFO, "Entered NaClSysCallback: %"PRIu32"\n", callbackSlotNumber);
 
@@ -342,6 +342,11 @@ nacl_reg_t NaClSysCallback(struct NaClAppThread *natp, uint32_t callbackSlotNumb
       // NaClLog(LOG_INFO, "Making NaClSysCallback: %"PRIu32"\n", callbackSlotNumber);
       func = (RegPtrPtrFunc) (natp->nap->callbackSlot[callbackSlotNumber]);
       eaxCopy = func(natp->nap->custom_app_state, natp->nap->callbackSlotState[callbackSlotNumber]);
+      if (floatRetAddr)
+      {
+        uint32_t* floatRetSysAddr = (uint32_t*) NaClUserToSys(natp->nap, floatRetAddr);
+        *floatRetSysAddr = eaxCopy;
+      }
 
       // NaClLog(LOG_INFO, "Returned from NaClSysCallback with eax: %"PRIu32"\n", (uint32_t) eaxCopy);
 

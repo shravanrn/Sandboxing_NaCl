@@ -186,6 +186,7 @@ do { \
 unsigned getTotalNumberOfCallbackSlots(void);
 #define registerSandboxCallback(sandbox, slotNumber, callback) registerSandboxCallbackWithState(sandbox, slotNumber, callback, NULL)
 uintptr_t registerSandboxCallbackWithState(NaClSandbox* sandbox, unsigned slotNumber, uintptr_t callback, void* state);
+uintptr_t registerSandboxFloatCallbackWithState(NaClSandbox* sandbox, unsigned slotNumber, uintptr_t callback, void* state);
 int unregisterSandboxCallback(NaClSandbox* sandbox, unsigned slotNumber);
 int getFreeSandboxCallbackSlot(NaClSandbox* sandbox, unsigned* slot);
 NaClSandbox_Thread* callbackParamsBegin(NaClSandbox* sandbox);
