@@ -28,7 +28,8 @@ init_complete:
 	ln -s pnacl_newlib_raw native_client/toolchain/linux_x86/pnacl_newlib
 	touch init_complete
 
-init:init_complete
+init:
+	if [ ! -e "init_complete" ]; then make init_complete; fi
 
 buildopt32 : init
 	cd native_client && ./scons MODE=opt-linux,nacl werror=0 $(SCONS_FLAGS)
